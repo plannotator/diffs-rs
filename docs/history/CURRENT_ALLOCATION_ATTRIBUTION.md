@@ -45,8 +45,8 @@ The direct color-output realloc class increased by 16,729,760 bytes.
 The matched style-table and FIFO classes increased by 6,356,992 and 2,129,920 bytes.
 Together, these disjoint classes account for 77.23% of that diagnostic increase.
 Their allocation stacks connect them to color production and style acceptance.
-The [table stack](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/capture-001/tour-3-allocations.txt:28)
-and [FIFO stack](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/capture-001/tour-3-allocations.txt:34)
+The table stack (temporary verification record `2026-09-26-current-attribution.JwrTF0/capture-001/tour-3-allocations.txt:28`, not retained)
+and FIFO stack (temporary verification record `2026-09-26-current-attribution.JwrTF0/capture-001/tour-3-allocations.txt:34`, not retained)
 identify the matching allocation specializations.
 
 The final cache held 83,371 entries with no eviction during this process.
@@ -121,10 +121,10 @@ The host remained shared. No exclusive host reservation is claimed.
 
 ## Evidence
 
-- [Capture declaration and scope](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/PLAN.md).
-- [Capture output](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/capture-001/report.json).
-- [Reconciled allocations and owner records](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/analysis.json).
-- [Offline reader correction](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-current-attribution.JwrTF0/DEVELOPMENT.md).
+- Capture declaration and scope (temporary verification record `2026-09-26-current-attribution.JwrTF0/PLAN.md`, not retained).
+- Capture output (temporary verification record `2026-09-26-current-attribution.JwrTF0/capture-001/report.json`, not retained).
+- Reconciled allocations and owner records (temporary verification record `2026-09-26-current-attribution.JwrTF0/analysis.json`, not retained).
+- Offline reader correction (temporary verification record `2026-09-26-current-attribution.JwrTF0/DEVELOPMENT.md`, not retained).
 
 The performance-audit review kept historical profiles separate from the current capture.
 It ruled out speculative grammar changes and selected one application-level prototype.

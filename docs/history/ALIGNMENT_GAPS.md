@@ -60,7 +60,7 @@ The final ordinary executable SHA-256 is `6111c3340f1c42185b7091891205af9072509a
 The preceding executable SHA-256 is `14eedb677bfee72f22ea73026aae5ad90c9aacbdad806ba46adac17766925a63`.
 The local capture and check records are outside the product source:
 
-`/Users/ramos/Documents/Codex/2026-09-21/native-diff-gap-review/`
+`native-diff-gap-review/` (external record, not in this repository)
 
 No timing or memory measurements ran for this change.
 The measurement preflight reported battery power, so comparable timing captures remain pending.

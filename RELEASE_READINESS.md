@@ -22,9 +22,9 @@ The standalone viewer and host example share one engine. Hosts retain terminal o
 - The fresh advisory/yanked scan found no known vulnerability or yanked warning. It retained maintenance warnings for `bincode` and `yaml-rust`.
   The scoped dependency review records their exposure and retention rationale. No scan establishes absence of vulnerabilities or legal clearance.
 
-The [installation record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/INSTALLATION_RESULTS.md) contains exact source and executable identities.
-The [dependency record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/DEPENDENCIES.md) records the current scan, notices, and bounded native-library assessment.
-The [resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md) covers the final five-patch, complete-source coloring, repeated-host, and reading-tool cohorts.
+The installation record (external record `native-diff-production-hardening/INSTALLATION_RESULTS.md`, not in this repository) contains exact source and executable identities.
+The dependency record (external record `native-diff-production-hardening/DEPENDENCIES.md`, not in this repository) records the current scan, notices, and bounded native-library assessment.
+The resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) covers the final five-patch, complete-source coloring, repeated-host, and reading-tool cohorts.
 Large-input memory, indexing, and complete-search costs remain support limitations. The unchanged targets still apply.
 
 Literal search, source-line selection, exact-byte save, and explicit clipboard copy are implemented.
@@ -36,8 +36,8 @@ The final package remains pending. No signing, notarization, publishing, global 
 
 The preceding milestone passed 61 viewer and two host contracts with both compilers.
 Its notice inventory covered 169 packages and retained pinned upstream supplements for two Windows import-library packages.
-The [prior dependency/install record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/DEPENDENCIES.md) preserves those versions, hashes, notices, and limitations.
-The [milestone closeout](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/CLOSEOUT.md) records its durable package and review.
+The prior dependency/install record (external record `native-diff-local-engine-milestone/DEPENDENCIES.md`, not in this repository) preserves those versions, hashes, notices, and limitations.
+The milestone closeout (external record `native-diff-local-engine-milestone/CLOSEOUT.md`, not in this repository) records its durable package and review.
 Those results do not qualify the changed dependencies, executable bytes, or final package of the current candidate.
 
 ## Historical 2026-09-21 local builds
@@ -107,6 +107,6 @@ This checkpoint does not add those features or mark the broader product specific
 
 The local evidence folder is:
 
-`/Users/ramos/Documents/Codex/2026-09-21/native-diff-battery-readiness/`
+`native-diff-battery-readiness/` (external record, not in this repository)
 
 It contains build recipes, source archives, installation checks, terminal logs, dependency inventories, and the grammar notice export.

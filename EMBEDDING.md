@@ -124,7 +124,7 @@ The standalone also owns clipboard preparation, its helper process, and delivery
 Its optional `clipboard` feature enables macOS plain-text publication. Engine-only consumers can disable default features to omit that dependency.
 The engine does not launch clipboard helpers or handle the standalone `y` key.
 These APIs have functional evidence and finite final-build resource checks.
-The [resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md) retains response results, complete-scan costs, memory misses, and cancellation limits.
+The resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) retains response results, complete-scan costs, memory misses, and cancellation limits.
 Native clipboard and physical-terminal acceptance remain separate pending requirements.
 
 ## Failure and shutdown
@@ -151,16 +151,16 @@ Cancellation cannot interrupt one in-progress syntax-parser call or an operating
 No universal shutdown-latency bound is promised.
 The engine does not detach unfinished workers or leave old reviews running after a successful close.
 
-Closing a review does not promise that process RSS returns to its opening value. In the prior three-cycle patch-host schedule, closed live heap was identical across cycles, but macOS allocator-held empty regions retained substantial resident memory. Closed RSS reached about 590 MiB. See the [prior resource results](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/RESOURCE_RESULTS.md).
+Closing a review does not promise that process RSS returns to its opening value. In the prior three-cycle patch-host schedule, closed live heap was identical across cycles, but macOS allocator-held empty regions retained substantial resident memory. Closed RSS reached about 590 MiB. See the prior resource results (external record `native-diff-local-engine-milestone/RESOURCE_RESULTS.md`, not in this repository).
 
 A preceding three-cycle host qualification covered a 12,000-line file pair, a pinned 12-file Git review, and small-patch replacement.
 Each ordinary and diagnostic process passed 96 stages. Closed live malloc heap was 1,116,528 bytes at all three diagnostic checkpoints, without retained regular file descriptors.
 Ordinary first-close RSS medians rose from 33.516 to 34.188 MiB.
-The [historical full-source results](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/FULL_SOURCE_RESOURCES.md) identify those earlier builds and diagnostic limits.
+The historical full-source results (external record `native-diff-production-hardening/FULL_SOURCE_RESOURCES.md`, not in this repository) identify those earlier builds and diagnostic limits.
 
 The final ordinary host passed the same 96-stage schedule across three cycles. Maximum held RSS was 33.98 MiB, with a 42.00 MiB sampled process-group peak.
 Closed RSS medians rose 0.41 MiB. Closed states retained no numeric regular-file descriptor, named private source, or owned child.
-The [final resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md) identifies the exact host and workload.
+The final resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) identifies the exact host and workload.
 These finite observations do not establish indefinite stability, live-heap size, a largest-input capacity bound, or a total-memory guarantee.
 
 ## Try the host example

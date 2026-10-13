@@ -15,7 +15,7 @@ Formatting and strict application Clippy passed. The absent Rust 1.88 toolchain 
 The normal source, executable, fixtures, and dependencies remain unchanged.
 Container-storage schema 2 reports the `std-btree` provider and explicitly unavailable totals.
 Activity schema 3 retains semantic counters without invented capacity data.
-The [checkpoint report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-tree-cache.bCkChG/report.html) records the evidence and retained engineering failures.
+The checkpoint report (temporary verification record `2026-09-27-tree-cache.bCkChG/report.html`, not retained) records the evidence and retained engineering failures.
 The ordered tasks describe the original plan. Tasks 1 and 2 are complete except for the unavailable MSRV check.
 Task 3 remains the next gate. This checkpoint does not establish memory savings or responsiveness.
 
@@ -45,7 +45,7 @@ The public-entry insertion experiment retained the same table allocations and re
 Neither input name nor its measurements will control product behavior.
 
 Evidence: [integrated storage report](STYLE_CACHE_STORAGE_REPORT.md#integration-and-bounded-owner-observations),
-[raw final observations](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-integration.IhX6h6/owner-analysis.json),
+raw final observations (temporary verification record `2026-09-27-cache-integration.IhX6h6/owner-analysis.json`, not retained),
 [cache ownership](../../src/highlight.rs:747), and [charge calculation](../../src/highlight.rs:74).
 
 ## Decision

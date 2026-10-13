@@ -21,17 +21,16 @@ The [pre-cleanup README](evidence/clean-baseline-v1/before/documents/README.md) 
 
 ## Run the viewer
 
-Build from the project root:
+Build from the repository root:
 
 ```sh
-cd /Users/ramos/oss/native-diff
 cargo build --release --locked
 ```
 
 The output is `target/release/native-diff`.
 If all dependencies are cached locally, add `--offline`.
-The [current resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md) identifies the measured viewer and host, target misses, and interpretation limits.
-The [installation record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/INSTALLATION_RESULTS.md) identifies the separate normal and minimum-compiler builds. Different executable hashes do not inherit timings.
+The current resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) identifies the measured viewer and host, target misses, and interpretation limits.
+The installation record (external record `native-diff-production-hardening/INSTALLATION_RESULTS.md`, not in this repository) identifies the separate normal and minimum-compiler builds. Different executable hashes do not inherit timings.
 
 The qualified build environment is macOS arm64 with Rust 1.96.0, the separately checked Rust 1.88.0 minimum, and Xcode command-line build tools. Other platforms remain unqualified. For an isolated source installation, use `cargo install --path . --locked --root /absolute/path/to/an/isolated/prefix`; add `--offline` only after locked dependencies have been acquired. This does not add the prefix to PATH.
 
@@ -42,7 +41,7 @@ The build rejects an override that would select an unpatched system library.
 In an existing Ghostty window, open the sample patch:
 
 ```sh
-/Users/ramos/oss/native-diff/target/release/native-diff patch /Users/ramos/oss/native-diff/fixtures/review.patch
+target/release/native-diff patch fixtures/review.patch
 ```
 
 The viewer uses the current terminal. It does not open windows or tabs, or change terminal preferences.
@@ -53,7 +52,7 @@ The minimum usable size is 40 columns by 10 rows.
 If `NO_COLOR` is set, remove it for this invocation to inspect the colors:
 
 ```sh
-env -u NO_COLOR /Users/ramos/oss/native-diff/target/release/native-diff patch /Users/ramos/oss/native-diff/fixtures/review.patch
+env -u NO_COLOR target/release/native-diff patch fixtures/review.patch
 ```
 
 Other supported invocations:
@@ -225,7 +224,7 @@ The input loop checks the current request and source before publication. Cancele
 After publication, cancellation cannot undo the saved file. A cleanup error reports that the file was saved and identifies remaining staging.
 New output files have owner-only permissions. The viewer does not copy source permissions or create missing parent directories.
 Cancellation checks run between bounded copies. Filesystem calls can still block, and interrupted-machine durability is not guaranteed.
-Finite save-resource and cleanup checks pass in the [final resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md). Physical-terminal acceptance remains pending.
+Finite save-resource and cleanup checks pass in the final resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository). Physical-terminal acceptance remains pending.
 
 ### Copy original source
 

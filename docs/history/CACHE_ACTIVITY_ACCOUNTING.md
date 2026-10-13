@@ -30,7 +30,7 @@ The existing budget-eviction tests verify admitted and evicted payload totals. T
 
 Seven real-process census controls passed: startup, bounded repeated snapshots, three output-collision cases, feature-disabled behavior, and no output request. They checked unchanged settled cells and process cleanup. Formatting and strict application Clippy passed. The pre-existing vendored Syntect lifetime warning remains.
 
-The [verification bundle](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-invalidation.I2cuvL/report.html) preserves the plan, build recipe and source archive, logs, real snapshots, reader controls, and review. The normal executable remains byte-for-byte unchanged at `53d28a87bd1669910adfc6f28aedb20063ddb9db270310ad056da5a20a3bd838`.
+The verification bundle (temporary verification record `2026-09-26-invalidation.I2cuvL/report.html`, not retained) preserves the plan, build recipe and source archive, logs, real snapshots, reader controls, and review. The normal executable remains byte-for-byte unchanged at `53d28a87bd1669910adfc6f28aedb20063ddb9db270310ad056da5a20a3bd838`.
 
 ## Next investigation
 

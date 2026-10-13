@@ -14,8 +14,8 @@ It does not reduce memory, correct history-dependent table growth, or enforce a 
 The normal source and executable remain unchanged.
 
 The [plan](STYLE_CACHE_STORAGE_PLAN.md) defines the ownership boundaries and unchanged behavior.
-The [verification report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-cache-storage.pdKhDF/report.html) links this checkpoint to its evidence.
-The isolated source, preserved executables, logs, and records are in [the run directory](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-cache-storage.pdKhDF).
+The verification report (temporary verification record `2026-09-26-cache-storage.pdKhDF/report.html`, not retained) links this checkpoint to its evidence.
+The isolated source, preserved executables, logs, and records are in the run directory (temporary verification record `2026-09-26-cache-storage.pdKhDF`, not retained).
 
 ## Implementation
 
@@ -115,7 +115,7 @@ No performance improvement, production adoption, new budget, or new storage poli
 
 Date: 2026-09-27.
 
-The [ordinary qualification decision](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-resume.6qXEpJ/DECISION.md) accepted the accounting foundation for integration.
+The ordinary qualification decision (temporary verification record `2026-09-27-cache-resume.6qXEpJ/DECISION.md`, not retained) accepted the accounting foundation for integration.
 It retained mixed timing results, the higher final Linux RSS, different power conditions, and the reference-to-candidate time gap.
 The Rust 1.88 ordinary checks passed before integration.
 These results supersede the original pending gates, without a performance-neutrality or memory-saving claim.
@@ -136,7 +136,7 @@ Integration checks:
 - The activity reader rejected 40 corruption cases.
 - Formatting and strict application Clippy passed. The existing vendored Syntect lifetime warning remains.
 
-The [executable-selection note](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-integration.IhX6h6/TEST_SCOPE.md) records the process-suite limitation.
+The executable-selection note (temporary verification record `2026-09-27-cache-integration.IhX6h6/TEST_SCOPE.md`, not retained) records the process-suite limitation.
 Consistent executable selection is a separate harness improvement. No helper or expectation changed during this exact integration.
 
 The diagnostic observation used the existing Bun and Linux traces, serially, for three tours each.
@@ -168,7 +168,7 @@ Its final table occupied 12,713,992 bytes.
 Neither capture proves an indefinite plateau, a leak, or a causal difference from an older run.
 No ordinary timing or sustained-RSS comparison of the integrated executable ran in this checkpoint.
 
-The [evidence directory](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-integration.IhX6h6) preserves the commands, raw snapshots, environment records, and audits.
+The evidence directory (temporary verification record `2026-09-27-cache-integration.IhX6h6`, not retained) preserves the commands, raw snapshots, environment records, and audits.
 The [next candidate scope](STYLE_CACHE_STORAGE_PLAN.md#next-isolated-candidate-public-entry-insertion) uses only the public entry API.
 That scope was unimplemented at the integration checkpoint. Its completed experiment follows.
 Budgets, eviction, token storage, and source behavior remain unchanged.
@@ -215,6 +215,6 @@ The candidate remains isolated. No ordinary performance campaign or production a
 This decision does not establish a general speed regression or defect in the entry API.
 The component counts are not process RSS or a total-memory guarantee.
 
-The [decision and evidence](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-entry-insertion.kPXXk5/DECISION.md) preserve all outcomes.
-The [next harness task](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-entry-insertion.kPXXk5/FOLLOW_UP.md) closes executable selection before another storage experiment.
+The decision and evidence (temporary verification record `2026-09-27-entry-insertion.kPXXk5/DECISION.md`, not retained) preserve all outcomes.
+The next harness task (temporary verification record `2026-09-27-entry-insertion.kPXXk5/FOLLOW_UP.md`, not retained) closes executable selection before another storage experiment.
 No new cache representation or retention policy is selected.

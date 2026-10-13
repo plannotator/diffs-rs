@@ -177,15 +177,15 @@ The completed performance cohorts do not need another run to reconsider this can
 
 ## Current evidence
 
-[Residency verification report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-residency.gOQFhS/report.html), [reconciled native and owner records](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-residency.gOQFhS/analysis.json), [source review and decision](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-residency.gOQFhS/REVIEW.md), and [capture plan](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-residency.gOQFhS/PLAN.md).
+Residency verification report (temporary verification record `2026-09-26-token-residency.gOQFhS/report.html`, not retained), reconciled native and owner records (temporary verification record `2026-09-26-token-residency.gOQFhS/analysis.json`, not retained), source review and decision (temporary verification record `2026-09-26-token-residency.gOQFhS/REVIEW.md`, not retained), and capture plan (temporary verification record `2026-09-26-token-residency.gOQFhS/PLAN.md`, not retained).
 
-[Verification report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-qualification.HUqf24/report.html), [combined audit](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-qualification.HUqf24/analysis-focused-latency-memory-owners.json), [residency audit](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-qualification.HUqf24/residency.json), and [review](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-qualification.HUqf24/REVIEW.md).
+Verification report (temporary verification record `2026-09-26-token-qualification.HUqf24/report.html`, not retained), combined audit (temporary verification record `2026-09-26-token-qualification.HUqf24/analysis-focused-latency-memory-owners.json`, not retained), residency audit (temporary verification record `2026-09-26-token-qualification.HUqf24/residency.json`, not retained), and review (temporary verification record `2026-09-26-token-qualification.HUqf24/REVIEW.md`, not retained).
 
 ## Preserved earlier checkpoint
 
-[Verification report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-direct-tokens.45MLJC/report.html)
+Verification report (temporary verification record `2026-09-26-direct-tokens.45MLJC/report.html`, not retained)
 
-[Audit](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-direct-tokens.45MLJC/analysis.json), [code review](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-direct-tokens.45MLJC/REVIEW.md), and [remaining adoption gate](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-direct-tokens.45MLJC/NEXT.md).
+Audit (temporary verification record `2026-09-26-direct-tokens.45MLJC/analysis.json`, not retained), code review (temporary verification record `2026-09-26-direct-tokens.45MLJC/REVIEW.md`, not retained), and remaining adoption gate (temporary verification record `2026-09-26-direct-tokens.45MLJC/NEXT.md`, not retained).
 The exact candidate source, executable, build recipe, raw checks, interrupted capture, and corrected wrapper are in that report directory.
 
 The preserved ordinary candidate is `candidate/native-diff`, SHA-256 `3a78596f433300569c429b48bac7516584211b67b399e020fff672fe5b818a3e`.

@@ -160,12 +160,12 @@ The battery-powered captures retain raw diagnostic fields, but none counts as ac
 
 The local records are outside the product source:
 
-`/Users/ramos/Documents/Codex/2026-09-21/native-diff-readiness/`
+`native-diff-readiness/` (external record, not in this repository)
 
 The folder contains the build recipe and source archive, install checks, workload identities, stopped rehearsals, and mismatch analysis.
 The follow-up evidence is in:
 
-`/Users/ramos/Documents/Codex/2026-09-21/native-diff-battery-readiness/`
+`native-diff-battery-readiness/` (external record, not in this repository)
 
 It contains the reviewed focused packet, raw captures, matched builds, minimum-compiler checks, and offline large-patch inventories.
 The [current project state](../../CURRENT_STATE.md) owns the overall status.

@@ -5,8 +5,8 @@ Historical plans describe their original checkpoints, not additional active task
 
 ## Current checkpoint
 
-The integration-ready local engine milestone is complete; its [closeout](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/CLOSEOUT.md) supersedes pending status in its sealed historical reports.
-The active milestone is production hardening of the engine and standalone viewer. Its [goal](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/GOAL.md), [acceptance matrix](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/ACCEPTANCE.md), and [checkpoint](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/STATE.md) cover repeated full-source use, memory/responsiveness, standalone search/selection/copy, actual-terminal acceptance, and a new local release candidate. Plannotator TUI/Herdr integration remains proposal-only; no consumer implementation is active.
+The integration-ready local engine milestone is complete; its closeout (external record `native-diff-local-engine-milestone/CLOSEOUT.md`, not in this repository) supersedes pending status in its sealed historical reports.
+The active milestone is production hardening of the engine and standalone viewer. Its goal (external record `native-diff-production-hardening/GOAL.md`, not in this repository), acceptance matrix (external record `native-diff-production-hardening/ACCEPTANCE.md`, not in this repository), and checkpoint (external record `native-diff-production-hardening/STATE.md`, not in this repository) cover repeated full-source use, memory/responsiveness, standalone search/selection/copy, actual-terminal acceptance, and a new local release candidate. Plannotator TUI/Herdr integration remains proposal-only; no consumer implementation is active.
 
 ### Current integrated candidate
 
@@ -23,7 +23,7 @@ Independent review corrected diagnostic-file growth, prompt cancellation warning
 The measured ordinary viewer is SHA-256 `125be0d888b98ae656d84f6ba397b787dd6dae73a37fdce587549e5042d85667`.
 The measured host is SHA-256 `5f309a219f75ae9aa955eb6f444421c0ac28f3b2244208536dde399eceaa6bae`.
 Functional evidence remains in `2026-10-03-clipboard.f6xKbt` under the verification temp root.
-The [final resource record](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/RESOURCE_RESULTS.md) covers all four accepted cohorts and their exact identities.
+The final resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) covers all four accepted cohorts and their exact identities.
 
 The five-patch cohort completed 30 processes. Largest-patch settled/peak RSS was 542.84/594.33 MiB, and median index readiness was 5.12 seconds.
 Node and Bun missed the 128 MiB settled target. Linux missed that target, the 192 MiB peak target, and the two-second indexing target.
@@ -43,7 +43,7 @@ The settled medians rose 4.97 MiB across three cycles that retained the last que
 These are finite warm-filesystem PTY observations, not physical paint, instrumented cache-hit counts, instantaneous worker-stop measurements, or indefinite memory guarantees.
 The accepted storage tradeoff and adverse results remain recorded. The separate workloads and historical builds do not establish a paired improvement.
 
-Both [isolated installations](/Users/ramos/Documents/Codex/2026-09-28/native-diff-production-hardening/INSTALLATION_RESULTS.md), with Rust 1.96.0 and Rust 1.88.0, passed 74 viewer and six host checks.
+Both isolated installations (external record `native-diff-production-hardening/INSTALLATION_RESULTS.md`, not in this repository), with Rust 1.96.0 and Rust 1.88.0, passed 74 viewer and six host checks.
 Their executable identities differ from the measured binaries. Their functional checks do not transfer performance results.
 
 The final lockfile contains 194 packages. The fresh advisory/yanked scan found no known vulnerability or yanked warning, but retained two maintenance warnings.
@@ -99,7 +99,7 @@ Its initial ordinary suite passed 126 checks and the diagnostic library suite pa
 This does not attribute the earlier diagnostic timeout. Two earlier recorder attempts were ineligible and remain preserved, not counted as product failures. The historical cause remains unknown; the declared ordinary completion scope passed.
 
 The tree-cache proposal is closed without adoption; do not resume its old comparison instructions.
-The [decision](/Users/ramos/Documents/Codex/2026-09-28/native-diff-cache-decision/DECISION.md) and durable evidence archive preserve the disposition.
+The decision (external record `native-diff-cache-decision/DECISION.md`, not in this repository) and durable evidence archive preserve the disposition.
 The isolated tree candidate was subsequently checked with Rust 1.88; the previous statement that the compiler was unavailable is historical. The integrated local engine has now also passed its own minimum-compiler installation and contracts.
 
 The new `Engine` owns review orchestration and is shared by the standalone viewer and a bounded-pane host example. Hosts retain terminal modes, input and outer focus. Patch, local-source, coloring, key and signal workers now have owned shutdown. Input errors remain readable/recoverable; cleanup errors and worker panics are preserved. The patch reader uses safe readiness waits and restores stream flags, including cancellation of no-writer FIFOs and partial lines. Interactive stdin must be piped or redirected, not the keyboard TTY. [EMBEDDING.md](EMBEDDING.md) documents source coordinates, lifecycle, descriptor limits and the required downstream Cargo patches.
@@ -110,13 +110,13 @@ The integrated ordinary suite passed 135 checks, including 61 process checks, wi
 
 The exact measured viewer completed 30 large-patch slots, including 5,125 checked latency destinations and five three-tour memory runs. It also passed 108 complete-source short views and 146 sustained views. The host completed 18 lifecycle stages, followed by six paired native heap/VM snapshots. These are finite shared-workstation observations, not an indefinite memory plateau or physical paint measurements.
 
-The largest patch peaked at 809.22 MiB RSS and needed 6.6 to 11.5 seconds for full-index receipt. It misses the unchanged 192 MiB peak and two-second index targets; Node, Bun and Linux also miss the 128 MiB settled target. Early text and visible coloring arrive separately. Timed navigation and quit passed the declared goals. See [RESOURCE_RESULTS.md](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/RESOURCE_RESULTS.md) for the complete measurements, target misses, inherited allocator environment and scope limits.
+The largest patch peaked at 809.22 MiB RSS and needed 6.6 to 11.5 seconds for full-index receipt. It misses the unchanged 192 MiB peak and two-second index targets; Node, Bun and Linux also miss the 128 MiB settled target. Early text and visible coloring arrive separately. Timed navigation and quit passed the declared goals. See RESOURCE_RESULTS.md (external record `native-diff-local-engine-milestone/RESOURCE_RESULTS.md`, not in this repository) for the complete measurements, target misses, inherited allocator environment and scope limits.
 
 A persistent host retains high RSS after closing large reviews. Native snapshots show identical closed live heap across three cycles while empty allocator regions retain the bulk residency. This supports owner release in that finite schedule, not an RSS-return guarantee. Complete-source tours and patch-host replacement are separately qualified scopes.
 
 Normal Rust 1.96.0 and minimum Rust 1.88.0 isolated installations each passed all 61 viewer and two host contracts on macOS arm64. Acquisition used an initially empty Cargo cache; subsequent builds were offline. Normal checkout builds passed the same contracts. All build/check groups exited, and source/configuration/toolchain postflight passed. Post-restart checks confirmed the unrelated stuck helper absent; no cleanup issue remains from that milestone. Its original cause is unknown.
 
-The exact lockfile advisory/yanked scan reports no known vulnerability and two unmaintained-dependency warnings, with scoped retention rationale. The independently reviewed notice inventory covers all 169 locked metadata packages, three vendored inventories, 66 grammar entries and theme notices. See [DEPENDENCIES.md](/Users/ramos/Documents/Codex/2026-09-28/native-diff-local-engine-milestone/DEPENDENCIES.md). No public-release, universal security or legal-clearance claim follows.
+The exact lockfile advisory/yanked scan reports no known vulnerability and two unmaintained-dependency warnings, with scoped retention rationale. The independently reviewed notice inventory covers all 169 locked metadata packages, three vendored inventories, 66 grammar entries and theme notices. See DEPENDENCIES.md (external record `native-diff-local-engine-milestone/DEPENDENCIES.md`, not in this repository). No public-release, universal security or legal-clearance claim follows.
 
 Combined packaging, selected reference presentation and whole-milestone review are complete and preserved in the sealed handoff. Physical-terminal acceptance remains pending and is required by the new goal. This baseline is a local integration candidate, not a public release or completion of every feature in SPEC.md.
 
@@ -136,7 +136,7 @@ The reference was a preserved copy of the same normal build. This checks selecti
 Formatting, strict application Clippy, and the evidence audit passed.
 All 2,085 production files, fixtures, and the normal executable remain unchanged. Test expectations and assertions remain unchanged.
 The four opt-in checks stayed excluded from each default run. The compatible-reference check ran separately.
-The [selection report](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-executable-selection.WcZiAZ/report.html) records commands, identities, controls, and limits.
+The selection report (temporary verification record `2026-09-27-executable-selection.WcZiAZ/report.html`, not retained) records commands, identities, controls, and limits.
 This checkpoint adds no performance, total-memory, or physical-terminal measurement.
 
 ### Closed insertion experiment
@@ -146,7 +146,7 @@ The isolated candidate passed 125 ordinary checks, 141 diagnostic checks, 96 exp
 Its two diagnostic captures passed 1,034 expected views and eight owner snapshots, with clean exits and no sleep interruption.
 Neither retained table became smaller. Linux still retained a 48.50 MiB table, and Bun retained a 12.125 MiB table.
 The small vector-capacity differences do not establish a memory improvement.
-The [decision](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-entry-insertion.kPXXk5/DECISION.md) closes this experiment without another comparison campaign.
+The decision (temporary verification record `2026-09-27-entry-insertion.kPXXk5/DECISION.md`, not retained) closes this experiment without another comparison campaign.
 
 The executable-selection gap identified by that experiment is now closed.
 The subsequent lookup review selected a standard tree as an isolated control.
@@ -174,7 +174,7 @@ The table allocation stayed unchanged across the three end-of-tour snapshots. Th
 
 These component counts are not process RSS or a memory-saving result.
 
-The [integration plan](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-integration.IhX6h6/PLAN.md) defines this checkpoint.
+The integration plan (temporary verification record `2026-09-27-cache-integration.IhX6h6/PLAN.md`, not retained) defines this checkpoint.
 The [storage report](docs/history/STYLE_CACHE_STORAGE_REPORT.md#integration-and-bounded-owner-observations) records the completed checks and limitations.
 
 The accounting reports table allocation, retained vector capacity, FIFO capacity, and inline cache storage separately.
@@ -182,7 +182,7 @@ The existing style charge, budget, eviction order, invalidation, and source/colo
 This is an accounting change, not a memory reduction or total-memory guarantee.
 The previous executable and affected files remain preserved for rollback.
 
-The [ordinary qualification](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-resume.6qXEpJ/report.html) completed all five pairs.
+The ordinary qualification (temporary verification record `2026-09-27-cache-resume.6qXEpJ/report.html`, not retained) completed all five pairs.
 It matched 6,500 corpus views and 78 focused views, with 2,952 settled holds and 62,169 corpus RSS queries.
 The isolated Linux candidate peaked at 798.92 MiB and ended at 781.42 MiB.
 The reference peaked at 801.88 MiB and ended at 777.72 MiB.
@@ -224,7 +224,7 @@ The paired performance values belong to preserved comparison binaries; the integ
 
 The source-span representation experiment remains unadopted. Remote acquisition, broader release qualification, and physical terminal verification remain open.
 
-The [retained highlighting census](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-25-1000-owners.CdqXDf/report.html) is complete.
+The retained highlighting census (temporary verification record `2026-09-25-1000-owners.CdqXDf/report.html`, not retained) is complete.
 The diagnostic validator accepts both the preceding 24-byte and current 16-byte source identities and checks their key/FIFO accounting.
 Seven final real-process controls passed, seven corrupted records were rejected, and four historical record formats remained readable.
 Two serial three-tour captures passed 1,034 expected views and eight snapshots. Runtime sources and the normal executable stayed unchanged.
@@ -235,7 +235,7 @@ These counts exclude unused map buckets and allocator overhead and do not partit
 The largest map recorded capacity growth without a new population peak during tour one; its entry and capacity high-water marks did not increase afterward.
 Three tours do not establish an indefinite plateau or explain the earlier approximately 17 MiB RSS difference.
 
-The [source-identity candidate's initial qualification](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-25-1331-identities.JPm1Gk/report.html) is complete.
+The source-identity candidate's initial qualification (temporary verification record `2026-09-25-1331-identities.JPm1Gk/report.html`, not retained) is complete.
 Standard nonzero context coordinates reduce each identity from 24 to 16 bytes on the current compiler without narrowing patch/file IDs.
 Checked-source correspondence, source bytes, rendering, cache weights, budgets and FIFO policy are unchanged.
 The candidate passes 124 enabled ordinary checks, including 61 real-terminal checks, plus 44 targeted diagnostic checks.
@@ -248,7 +248,7 @@ All observations are retained. One process per role per patch does not establish
 The earlier focused timing packet predates the sidebar. Its reference failure is preserved; fresh focused grids are correctness-only.
 The current sidebar-aware corpus protocol supplies the ordinary observations. No matcher or product behavior was weakened.
 
-The [sustained-memory qualification and adoption](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-25-2141-memory.vsW7IR/report.html) are complete.
+The sustained-memory qualification and adoption (temporary verification record `2026-09-25-2141-memory.vsW7IR/report.html`, not retained) are complete.
 The unchanged five-patch, three-tour schedule passed all ten processes, 4,450 exact views, 2,952 settled holds and 52,372 audited RSS queries.
 There were no interrupted or repeated captures. No sleep event occurred; power was recorded without requiring AC.
 Every candidate peak and third-tour settled maximum was lower than its paired reference in this cohort.
@@ -257,7 +257,7 @@ That approximately 5.36 MiB difference is a single-pair observation, not a demon
 The `pierre-0800fb` candidate's unusually large late residency decrease is unexplained and is not credited to the representation change.
 Node, Bun, and Linux still miss the unchanged memory goals. Three tours do not establish an indefinite plateau or total-memory guarantee.
 
-The [adoption decision](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-25-2141-memory.vsW7IR/DECISION.md) preserves all paired observations and accepted timing tradeoffs.
+The adoption decision (temporary verification record `2026-09-25-2141-memory.vsW7IR/DECISION.md`, not retained) preserves all paired observations and accepted timing tradeoffs.
 Only the reviewed representation and test adaptations were integrated. Cache admission, budgets, weights and eviction remain unchanged.
 The normal build was restored after Cargo's test build replaced its executable, then checked directly. Both binaries and the failed identity-check log remain preserved.
 The memory measurements belong to the preserved candidate, not a new measurement of the integrated executable.
@@ -267,7 +267,7 @@ Real source replacement, revocation, recovery, stale replies, unrelated-file sur
 The ordinary suite, compatible-baseline grids, and seven real-process census controls also passed; the normal executable is unchanged.
 Historical activity records retain their original scope. This change does not alter renderer invalidation, cache policy, or the completed patch-only measurements.
 
-The [bounded complete-source owner observation](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-full-source-owners.cG8lk4/REPORT.md) is complete without a production change.
+The bounded complete-source owner observation (temporary verification record `2026-09-26-full-source-owners.cG8lk4/REPORT.md`, not retained) is complete without a production change.
 The 12,000-line file pair and twelve-file Git review passed 58 source/color-checked views, 29 ordinary/diagnostic grid pairs, eight owner snapshots, and four clean exits.
 On revisit, styles occupied 20,712 and 119,000 charged bytes; compiled inner-engine estimates were 6.59 and 8.50 MiB. These are partial owner measurements, not process-memory partitions.
 Ordinary held RSS was about 29.42 and 33.45 MiB, unchanged between the final deep view and revisit in each short run. Diagnostic overhead and a diagnostic-only RSS increase remain explicit.
@@ -277,13 +277,13 @@ That observation did not include shared page occupancy, geometry, or live parser
 The [retained-owner extension](docs/history/RETAINED_OWNER_ACCOUNTING.md) now measures those owners and current checkpoints in opt-in builds only.
 It passed 124 ordinary checks, 43 targeted diagnostic checks, 96 compatible terminal grids, two canonical source streams, seven real-process census controls, and 11 malformed-record checks.
 Repeated observations preserve owner addresses, reference counts, cache contents, and terminal cells in the tested cases. The normal executable remains unchanged.
-The [new bounded observation](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-retained-owners.6F99J4/REPORT.md) is partial.
+The new bounded observation (temporary verification record `2026-09-26-retained-owners.6F99J4/REPORT.md`, not retained) is partial.
 The paired 12,000-line file case passed nine matching grids and four owner snapshots. It retained 132,456 page-payload bytes, 10,846 geometry-payload bytes, 1,168 live parser/highlighter heap bytes, and a 31,784-byte checkpoint charge at revisit.
 These small owner counts do not explain large-patch memory and do not justify a new cache policy.
 The ordinary twelve-file Git review passed 20 views, but its paired owner observation remains incomplete after two unavailable startup RSS queries across the two attempts.
 All successful processes and both failed captures are preserved. No further capture retry was made.
 
-The [settled capture repair and remaining Git observation](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-ready-rss.RXOm0G/REPORT.md) now complete that bounded diagnostic checkpoint.
+The settled capture repair and remaining Git observation (temporary verification record `2026-09-26-ready-rss.RXOm0G/REPORT.md`, not retained) now complete that bounded diagnostic checkpoint.
 The failing ps rows described exiting process-group members with unavailable RSS. The strict parser remains unchanged.
 An explicit harness option collects RSS only during independently validated settled holds; it does not measure or protect startup/transition memory and makes no peak or timing claim.
 Real-process controls passed for the default sampler and the new mode, including 102 navigation views, safety rejection, terminal restoration, and cleanup without starting a sampler.
@@ -310,7 +310,7 @@ Its partial evidence and successful cleanup are preserved; the Linux reference d
 The corrected resume wrapper passes seven real-process controls. The resumed Linux pair now passes 1,232 exact views and eight owner snapshots, with clean exits and reconciled accounting.
 The prototype retains more Linux style entries within the same charge, with the same map/FIFO capacity high-water behavior in that three-tour pair.
 
-The [ordinary qualification](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-token-qualification.HUqf24/report.html) is complete.
+The ordinary qualification (temporary verification record `2026-09-26-token-qualification.HUqf24/report.html`, not retained) is complete.
 Thirty ordinary processes passed 6,500 corpus views, 78 focused views, 2,952 settled holds, and 59,004 audited corpus RSS queries. No comparison capture was repeated or excluded, and no sleep event occurred.
 The focused capture schema now accepts the existing boolean sidebar state in an isolated helper; negative controls and a separate unmeasured reference control passed. The product's runtime source did not change.
 Navigation and focused coloring remained close in the observed pairs. Linux index receipt was 3.749 versus 4.033 seconds, and its latency-process sampled peak increased from 710.12 to 765.12 MiB.
@@ -489,10 +489,9 @@ The preceding change improves alignment-gap contrast through one color expressio
 Source text, alignment, wrapping, and navigation remain unchanged.
 The accepted storage changes remain present. Deferred experiments stay outside the active build.
 
-Normal Cargo commands build the accepted viewer from this folder:
+Normal Cargo commands build the accepted viewer from the repository root:
 
 ```sh
-cd /Users/ramos/oss/native-diff
 cargo build --release --locked
 cargo test --release --locked -- --test-threads=1
 ```

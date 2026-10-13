@@ -3,8 +3,9 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 mod sidebar;
@@ -193,6 +194,7 @@ pub(crate) fn draw_with_controls(
         app.protect_visible_styles();
         frame.render_widget(
             Paragraph::new("Enlarge terminal to at least 40 columns × 10 rows\nq quit")
+                .wrap(Wrap { trim: true })
                 .style(Style::new().fg(colors.fg)),
             area,
         );
@@ -209,14 +211,16 @@ pub(crate) fn draw_with_controls(
         app.appearance.name()
     );
     let right_width = right.width().min(area.width as usize) as u16;
+    // Keep a visible gap so a long label never runs into the file count.
+    let title_width = area.width.saturating_sub(right_width + 2);
     let buf = frame.buffer_mut();
     fill(buf, Rect::new(area.x, area.y, area.width, 1), colors.chrome);
     label(
         buf,
         area.x,
         area.y,
-        area.width.saturating_sub(right_width),
-        &title,
+        title_width,
+        &ellipsize(&title, title_width.into()),
         colors.fg,
         colors.chrome,
         false,
@@ -317,7 +321,13 @@ pub(crate) fn draw_with_controls(
             }
         },
     );
+    let hint = if failure.is_none() && !app.loading && app.sidebar.notice.is_none() {
+        footer_hint(hint, &status, area.width, app.sidebar.focused(), controls)
+    } else {
+        hint
+    };
     let hint_width = hint.width().min(area.width as usize) as u16;
+    let status_width = area.width.saturating_sub(hint_width + 1);
     fill(
         buf,
         Rect::new(area.x, area.bottom() - 1, area.width, 1),
@@ -327,8 +337,8 @@ pub(crate) fn draw_with_controls(
         buf,
         area.x + 1,
         area.bottom() - 1,
-        area.width.saturating_sub(hint_width + 1),
-        &status,
+        status_width,
+        &ellipsize(&status, usize::from(status_width.saturating_sub(1))),
         colors.dim,
         colors.chrome,
         false,
@@ -357,6 +367,7 @@ pub(crate) fn draw_with_controls(
             if help.lines().count() > usize::from(area.height.saturating_sub(2)) {
                 help = " j/k ↑↓ move; PgUp/PgDn page\n g/G first/last; n/N next/prev file\n ←/→ scroll; Tab switch side\n u layout; w wrap; t theme\n f files; Enter reveal context\n".into();
                 if let Some(controls) = controls {
+                    help.push(' ');
                     help.push_str(controls.hint);
                     help.push('\n');
                 }
@@ -387,6 +398,63 @@ pub(crate) fn draw_with_controls(
         );
     }
     Ok(())
+}
+
+/// Shortens the footer hint until the status fits beside it.
+///
+/// The status describes the current reading state, so the engine's optional hints give way
+/// first: the view toggles, then the Files hint. `? help  q quit` and caller hints remain;
+/// callers already choose their hint for the available width. A status that still does not
+/// fit is truncated by the caller.
+fn footer_hint(
+    hint: String,
+    status: &str,
+    width: u16,
+    sidebar_focused: bool,
+    controls: Option<&crate::engine::ReadingControls<'_>>,
+) -> String {
+    if sidebar_focused || controls.is_some_and(|controls| controls.status.is_some()) {
+        return hint;
+    }
+    // One leading cell, the status, and at least one cell before the hint.
+    let fits = |hint: &str| status.width() + hint.width() + 2 <= usize::from(width);
+    if fits(&hint) {
+        return hint;
+    }
+    let with_controls = |base: &str| match controls {
+        Some(controls) => format!("{}  {} ", base.trim_end(), controls.hint),
+        None => base.to_owned(),
+    };
+    let shortest = with_controls(" ? help  q quit ");
+    [with_controls(" f files  ? help  q quit ")]
+        .into_iter()
+        .find(|candidate| candidate.width() < hint.width() && fits(candidate))
+        .unwrap_or(if shortest.width() < hint.width() {
+            shortest
+        } else {
+            hint
+        })
+}
+
+/// Truncates `text` to `width` display cells, marking the cut with an ellipsis.
+fn ellipsize(text: &str, width: usize) -> String {
+    if text.width() <= width {
+        return text.into();
+    }
+    let mut result = String::new();
+    let mut used = 0;
+    for grapheme in text.graphemes(true) {
+        let next = grapheme.width();
+        if used + next >= width {
+            break;
+        }
+        result.push_str(grapheme);
+        used += next;
+    }
+    if width > 0 {
+        result.push('…');
+    }
+    result
 }
 
 fn draw_diff(buf: &mut Buffer, app: &mut App, area: Rect) -> anyhow::Result<()> {
@@ -794,3 +862,6 @@ fn label(
     });
     buf.set_stringn(x, y, text, width as usize, style);
 }
+
+#[cfg(test)]
+mod tests;

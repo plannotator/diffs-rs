@@ -95,7 +95,7 @@ impl Reading {
 
     pub fn controls(&self, width: u16) -> ReadingControls<'_> {
         ReadingControls {
-            hint: if width < 120 {
+            hint: if width < 160 {
                 "/ search  V select"
             } else {
                 "/ search  F3/Shift-F3 next/prev  V select  y copy  Ctrl-S save"

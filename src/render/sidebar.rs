@@ -1,8 +1,7 @@
 use ratatui::buffer::Buffer;
-use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use super::{fill, label};
+use super::{ellipsize, fill, label};
 use crate::{app::App, tree::Kind};
 
 pub(super) const HELP: &str = "  ↑/↓, j/k     Move cursor; PgUp/PgDn page; Home/End bounds\n  ←/→          Collapse / expand folders; parent / child\n  Enter        Open file or toggle folder; Space toggles\n  Esc, Tab     Return to diff; f hides Files\n  Wheel        Scroll the pane under the pointer\n  *            Current diff file; > keyboard cursor\n  Esc, ?       Close help\n  q, Ctrl-C    Quit / cancel";
@@ -129,24 +128,4 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             false,
         );
     }
-}
-
-fn ellipsize(text: &str, width: usize) -> String {
-    if text.width() <= width {
-        return text.into();
-    }
-    let mut result = String::new();
-    let mut used = 0;
-    for grapheme in text.graphemes(true) {
-        let next = grapheme.width();
-        if used + next >= width {
-            break;
-        }
-        result.push_str(grapheme);
-        used += next;
-    }
-    if width > 0 {
-        result.push('…');
-    }
-    result
 }

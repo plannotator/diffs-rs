@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "corpus_id": "diffshub-showcase-2026-09-10",
+  "retrieved_utc": "2026-09-11T02:29:54Z",
+  "source_revision": "0a7a733078f093577cd21ca65d2508806a22238a",
+  "mapping_source": "https://github.com/pierrecomputer/pierre/blob/0a7a733078f093577cd21ca65d2508806a22238a/apps/diffshub/app/api/diff/route.ts",
+  "identity_rule": "The downloaded CDN bytes and SHA-256 define each input. PR refs and CDN URLs are not immutable content identifiers.",
+  "body_status": "downloaded_and_sha256_pinned",
+  "source_blob_oracle_status": "unverified; separately tracked, not a patch-viewer acceptance blocker",
+  "viewer_performance_status": "original parse/index diagnostic recorded; terminal performance not measured",
+  "inventory_tools": {
+    "git": "2.50.1 (Apple Git-155)",
+    "counts": "git apply --numstat; wc -lc; LC_ALL=C awk for physical shape"
+  },
+  "inventory_notes": [
+    "Counts describe exact cached bodies, not current GitHub file-list API responses.",
+    "File records are patch records, not unique path counts.",
+    "Physical line count includes metadata and newline markers. It is not a displayed row count.",
+    "Maximum physical-line length excludes LF and can include the patch prefix.",
+    "Maximum file-patch bytes include headers and count LF per physical record; all corpus files end with LF.",
+    "Git numstat validates count/parse structure, not full source or display correctness.",
+    "Related revision metadata is not yet verified against every cached old/new blob.",
+    "Raw fixtures keep upstream content and licenses. Do not execute their contents or relicense them as the viewer."
+  ],
+  "fixtures": [
+    {
+      "id": "pierre-0800fb",
+      "title": "Pierre package cleanup commit",
+      "role": "small showcase regression",
+      "required": true,
+      "showcase_url": "https://diffshub.com/pierrecomputer/pierre/commit/0800fb",
+      "github_url": "https://github.com/pierrecomputer/pierre/commit/0800fb",
+      "download_url": "https://diffshub.pierrecdn.com/patches/0800fb.diff",
+      "local_path": "evidence/diffshub-corpus/0800fb.diff",
+      "sha256": "320c4ee720786b34b5c8a1df9d4a91f5fa11259a40220e63ffc3b3e388ee12f9",
+      "bytes": 610480,
+      "physical_lines": 18857,
+      "http": {
+        "etag": "\"ee507059d65037036892f4abd9e69bc8\"",
+        "last_modified": "Wed, 20 May 2026 00:00:56 GMT"
+      },
+      "git_numstat": {
+        "file_records": 73,
+        "binary_records": 0,
+        "added_source_lines": 8000,
+        "deleted_source_lines": 9904
+      },
+      "physical_shape": {
+        "hunk_headers": 109,
+        "max_physical_line_bytes_excluding_lf": 236,
+        "max_file_patch_bytes": 130649
+      },
+      "related_revision_metadata": {
+        "base": "b1740cf0258d675894df9817ef111dce502d7813",
+        "head": "0800fb67632765d8663ecb2c4e8d24ced208abf3",
+        "source": "local pinned Pierre Git object"
+      },
+      "related_revisions_match_cached_body": "unverified",
+      "expected_segment_digests": {
+        "source_sha256": "57d001623fc743ed70be31d578f06d343fb31ffed471003fea19fa607998cfb1",
+        "source_records": 18420,
+        "reference": "fixtures/diffshub/reference.json"
+      }
+    },
+    {
+      "id": "ghostty-12291",
+      "title": "libghostty: Remove all libc++ and libc++ ABI dependencies",
+      "role": "large changed file",
+      "required": true,
+      "showcase_url": "https://diffshub.com/ghostty-org/ghostty/pull/12291",
+      "github_url": "https://github.com/ghostty-org/ghostty/pull/12291",
+      "download_url": "https://diffshub.pierrecdn.com/patches/12291.diff",
+      "local_path": "evidence/diffshub-corpus/12291.diff",
+      "sha256": "2aa96a2453d5790cbbe9ad91cc886d0796dc1720244784e8e197d9cd8e98f668",
+      "bytes": 4183400,
+      "physical_lines": 93812,
+      "http": {
+        "etag": "\"d45ef525444ed92c9a13869712b3acdd\"",
+        "last_modified": "Wed, 20 May 2026 00:00:57 GMT"
+      },
+      "git_numstat": {
+        "file_records": 25,
+        "binary_records": 0,
+        "added_source_lines": 51016,
+        "deleted_source_lines": 36654
+      },
+      "physical_shape": {
+        "hunk_headers": 130,
+        "max_physical_line_bytes_excluding_lf": 855,
+        "max_file_patch_bytes": 3558787
+      },
+      "related_revision_metadata": {
+        "additions": 51016,
+        "base": {
+          "ref": "main",
+          "repo": "ghostty-org/ghostty",
+          "sha": "efa8da6aea1e9cc099412c86405791bb0734ec0e"
+        },
+        "changed_files": 25,
+        "deletions": 36654,
+        "diff_url": "https://github.com/ghostty-org/ghostty/pull/12291.diff",
+        "head": {
+          "ref": "push-ltnvwwrsowru",
+          "repo": "ghostty-org/ghostty",
+          "sha": "e51de8b58faba2c851604b813e569f926910f522"
+        },
+        "html_url": "https://github.com/ghostty-org/ghostty/pull/12291",
+        "merged_at": "2026-04-15T18:36:16Z",
+        "patch_url": "https://github.com/ghostty-org/ghostty/pull/12291.patch",
+        "state": "closed",
+        "title": "libghostty: Remove all libc++ and libc++ ABI dependencies",
+        "updated_at": "2026-04-15T18:36:18Z"
+      },
+      "related_revisions_match_cached_body": "unverified",
+      "expected_segment_digests": {
+        "source_sha256": "e5d6b3e43863fde3c66861de304352f800ce9cf907bfd6b982653b181ba11aa4",
+        "source_records": 93579,
+        "reference": "fixtures/diffshub/reference.json"
+      }
+    },
+    {
+      "id": "node-59805",
+      "title": "deps: update V8 to 14.1",
+      "role": "many-file dependency update",
+      "required": true,
+      "showcase_url": "https://diffshub.com/nodejs/node/pull/59805",
+      "github_url": "https://github.com/nodejs/node/pull/59805",
+      "download_url": "https://diffshub.pierrecdn.com/patches/59805.diff",
+      "local_path": "evidence/diffshub-corpus/59805.diff",
+      "sha256": "1ed6796aa5604b2e3c5013219c53b0ebe3a11661a8e9ba9bee2b033824c25b17",
+      "bytes": 21469511,
+      "physical_lines": 452727,
+      "http": {
+        "etag": "\"d4386cf5ec7e5fd952cb96eeaa6dd729-3\"",
+        "last_modified": "Wed, 20 May 2026 00:01:02 GMT"
+      },
+      "git_numstat": {
+        "file_records": 3420,
+        "binary_records": 2,
+        "added_source_lines": 168778,
+        "deleted_source_lines": 99119
+      },
+      "physical_shape": {
+        "hunk_headers": 19198,
+        "max_physical_line_bytes_excluding_lf": 3992,
+        "max_file_patch_bytes": 1118006
+      },
+      "related_revision_metadata": {
+        "additions": 168778,
+        "base": {
+          "ref": "main",
+          "repo": "nodejs/node",
+          "sha": "0817b40c1b2938cff3c30f026d0ad4b255beb11d"
+        },
+        "changed_files": 3420,
+        "deletions": 99119,
+        "diff_url": "https://github.com/nodejs/node/pull/59805.diff",
+        "head": {
+          "ref": "v8-141",
+          "repo": "targos/node",
+          "sha": "cc53301d5f240b5fbb32ecc1995ee82bda01647a"
+        },
+        "html_url": "https://github.com/nodejs/node/pull/59805",
+        "merged_at": null,
+        "patch_url": "https://github.com/nodejs/node/pull/59805.patch",
+        "state": "closed",
+        "title": "deps: update V8 to 14.1",
+        "updated_at": "2025-11-13T07:29:05Z"
+      },
+      "related_revisions_match_cached_body": "unverified",
+      "expected_segment_digests": {
+        "source_sha256": "edc54fc8c682db6eeafff3f71fd023572d6df5887dff44362fdb2672b066c796",
+        "source_records": 419306,
+        "reference": "fixtures/diffshub/reference.json"
+      }
+    },
+    {
+      "id": "bun-30412",
+      "title": "Rewrite Bun in Rust",
+      "role": "million-line addition-heavy change",
+      "required": true,
+      "showcase_url": "https://diffshub.com/oven-sh/bun/pull/30412",
+      "github_url": "https://github.com/oven-sh/bun/pull/30412",
+      "download_url": "https://diffshub.pierrecdn.com/patches/30412.diff",
+      "local_path": "evidence/diffshub-corpus/30412.diff",
+      "sha256": "17c68a069c24b2e2689c9a367b1cba1431c40ccf9868ea6f7524b80c847bd11c",
+      "bytes": 43306655,
+      "physical_lines": 1029583,
+      "http": {
+        "etag": "\"770ce546bfbdde2471cd7288fdedb617-6\"",
+        "last_modified": "Wed, 20 May 2026 00:00:59 GMT"
+      },
+      "git_numstat": {
+        "file_records": 2188,
+        "binary_records": 1,
+        "added_source_lines": 1009257,
+        "deleted_source_lines": 4024
+      },
+      "physical_shape": {
+        "hunk_headers": 2129,
+        "max_physical_line_bytes_excluding_lf": 1420,
+        "max_file_patch_bytes": 515415
+      },
+      "related_revision_metadata": {
+        "additions": 1009257,
+        "base": {
+          "ref": "main",
+          "repo": "oven-sh/bun",
+          "sha": "0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+        },
+        "changed_files": 2188,
+        "deletions": 4024,
+        "diff_url": "https://github.com/oven-sh/bun/pull/30412.diff",
+        "head": {
+          "ref": "claude/phase-a-port",
+          "repo": "oven-sh/bun",
+          "sha": "ed1a70f81708d7d137de8de057d11668c5f4e220"
+        },
+        "html_url": "https://github.com/oven-sh/bun/pull/30412",
+        "merged_at": "2026-05-14T08:09:34Z",
+        "patch_url": "https://github.com/oven-sh/bun/pull/30412.patch",
+        "state": "closed",
+        "title": "Rewrite Bun in Rust",
+        "updated_at": "2026-08-11T10:04:14Z"
+      },
+      "related_revisions_match_cached_body": "unverified",
+      "expected_segment_digests": {
+        "source_sha256": "ed41440675c3799639f7de668ddac3d06ca65ef81d8964ae0931be2f3b29ad9a",
+        "source_records": 1016971,
+        "reference": "fixtures/diffshub/reference.json"
+      }
+    },
+    {
+      "id": "linux-v6-v7",
+      "title": "Linux v6.0...v7.0",
+      "role": "required scale acceptance; not optional stress",
+      "required": true,
+      "showcase_url": "https://diffshub.com/torvalds/linux/compare/v6.0...v7.0",
+      "github_url": "https://github.com/torvalds/linux/compare/v6.0...v7.0",
+      "download_url": "https://diffshub.pierrecdn.com/patches/v6.0-v7.0.diff",
+      "local_path": "evidence/diffshub-corpus/v6.0-v7.0.diff",
+      "sha256": "510693d1f6c028751a04171dbd0b5fdc39fd18420e3720402db2c1b28ab2cb90",
+      "bytes": 710870899,
+      "physical_lines": 20064075,
+      "http": {
+        "etag": "\"e82d924df2bc37a71226b51c814474e1-85\"",
+        "last_modified": "Wed, 20 May 2026 00:01:13 GMT"
+      },
+      "git_numstat": {
+        "file_records": 76872,
+        "binary_records": 1,
+        "added_source_lines": 11457617,
+        "deleted_source_lines": 4333921
+      },
+      "physical_shape": {
+        "hunk_headers": 421819,
+        "max_physical_line_bytes_excluding_lf": 357709,
+        "max_file_patch_bytes": 15785181
+      },
+      "related_revision_metadata": {
+        "base_ref": "v6.0",
+        "base": "4fe89d07dcc2804c8b562f6c7896a45643d34b2f",
+        "head_ref": "v7.0",
+        "head": "028ef9c96e96197026887c0f092424679298aae8",
+        "source": "GitHub commit API"
+      },
+      "related_revisions_match_cached_body": "unverified",
+      "expected_segment_digests": {
+        "source_sha256": "de872932e4fc81ff6f3107a4fe2bacde448be667c7ecc4402b73a199f1d134f4",
+        "source_records": 19299175,
+        "reference": "fixtures/diffshub/reference.json"
+      }
+    }
+  ],
+  "supplied_patch_oracle_status": "all supplied source streams matched; normalized metadata and complete terminal-grid expectations pending"
+}

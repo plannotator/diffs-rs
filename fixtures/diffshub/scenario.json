@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "id": "large-diff-foundation-v1",
+  "status": "content_grid_baseline_v1_resolved; style_and_memory_tour_trace_pending",
+  "corpus": "fixtures/diffshub/corpus.json",
+  "resolved_trace": "fixtures/diffshub/measurement-v1/trace.json.gz",
+  "trace_rule": "Resolve selectors with an independent patch decoder. Freeze exact anchors, expected grids, fallback states, and public commands before changed-viewer timings.",
+  "scope": "Single-viewer product acceptance, not a comparison benchmark.",
+  "profile": {
+    "terminal_cells": [160, 50],
+    "layout": "split",
+    "theme": "dark",
+    "color": "truecolor",
+    "wrap": false,
+    "line_numbers": true,
+    "inline_changes": "word",
+    "tab_width": 4,
+    "network_during_run": false,
+    "parallel_corpus_runs": false,
+    "filesystem_warmups": 1,
+    "fresh_process_repeats": 5,
+    "condition_label": "fresh-process, warm-filesystem",
+    "settings_and_executable_hashes_required": true
+  },
+  "latency": {
+    "clock": "monotonic",
+    "start": "Actual public-command injection, before the first byte including any numeric prefix; opening starts immediately before process spawn.",
+    "completion": "First complete PTY grid with independently expected source content and destination. A cursor-only change does not complete a scroll sample.",
+    "minimum_input_interval_ms": 50,
+    "maximum_pending_measured_commands": 1,
+    "on_late_completion": "Delay the next injection. Retain the late sample.",
+    "watchdog_ms": 30000,
+    "samples_per_category_per_repeat": 40,
+    "samples_per_category_per_fixture": 200,
+    "category_order": ["forward", "reverse", "distant_seek", "layout", "resize"],
+    "categories": {
+      "forward": {
+        "setup": "First source viewport, with at least 120 display rows remaining.",
+        "command": "SGR mouse-wheel down at a fixed code cell",
+        "count": 40,
+        "expected": "Each input advances the viewport by the specified three display rows."
+      },
+      "reverse": {
+        "setup": "End state of the forward category.",
+        "command": "SGR mouse-wheel up at the same code cell",
+        "count": 40,
+        "expected": "Each input reverses three display rows; the final viewport matches the forward start."
+      },
+      "distant_seek": {
+        "setup": "Input/index ready, first available source row.",
+        "commands": ["G", "g"],
+        "cycles": 20,
+        "expected": "Alternating last and first available source rows, with complete expected grids."
+      },
+      "layout": {
+        "setup": "Middle supplied source line in the largest hunk; split layout.",
+        "command": "u",
+        "count": 40,
+        "expected": "Alternate unified/split, retaining source identity and the permitted screen-relative anchor."
+      },
+      "resize": {
+        "setup": "Same largest-hunk anchor, split layout, 160x50 cells.",
+        "sizes": [[100, 30], [160, 50]],
+        "cycles": 20,
+        "command": "Actual PTY resize with SIGWINCH",
+        "expected": "Correct geometry and retained source identity, without stale cells."
+      }
+    },
+    "reducers": {
+      "scope": "Each fixture and each category separately; never pooled.",
+      "p95": "Sort all 200 samples ascending; choose one-based rank ceil(0.95 * 200), which is 190.",
+      "report": ["sample_count", "median_ms", "p95_ms", "maximum_ms", "failures"],
+      "failure_rule": "A wrong grid, lost input, timeout, or missing changed-viewer operation fails acceptance. Unsupported baseline operations remain explicit missing data.",
+      "incomplete_series": "Do not report a passing percentile from a shortened series."
+    }
+  },
+  "structural_selectors": {
+    "ordinal_base": 0,
+    "file_quantiles": "Unique ascending floor(i * (file_count - 1) / 31), for i = 0..31, including metadata-only files.",
+    "largest_file": "Greatest exact file-patch byte extent.",
+    "largest_hunk": "Greatest count of supplied patch source records; context counts once.",
+    "longest_line": "Greatest source-byte length, excluding the patch sign and physical delimiter.",
+    "tie_break": "Earliest file, hunk, then source-record ordinal in patch order.",
+    "style_targets": "Midpoint and final supplied source line of the largest hunk; midpoint of the largest file's supplied source sequence; longest line.",
+    "side_choice": "New side when present, otherwise old side.",
+    "fallback_inventory": "Freeze selected grammar, missing-context status, and the existing 10000-scalar fallback for every target. Unknown syntax is not a discretionary large-input shortcut.",
+    "public_navigation": "Use public counted file/hunk/row/page/horizontal movement. Record the whole setup sequence and final measured command. No hidden jump API.",
+    "unsupported_baseline": "Record missing counted-navigation coverage; do not pretend the old executable implements the new commands."
+  },
+  "styling": {
+    "layouts": ["split", "unified"],
+    "cold_trials": "Each designated target gets five fresh-process trials. Freeze a source-derived approach using counted movement. Record target cache misses and the nearest checkpoint/replay distance; approaching through intermediate styled viewports does not qualify as cold.",
+    "cold_start": "Injection of the final public command that exposes the target viewport.",
+    "cold_completion": "Every visible source line has its expected final syntax/inline style or its predeclared context/fallback status.",
+    "revisit_trials": "Leave the target viewport, then return once without changing theme or layout. Record checkpoint/cache retention and replay distance.",
+    "eviction_rule": "An evicted revisit is a cold sample, remains in the report, and must meet the cold limit. It is not counted as a retained-checkpoint pass.",
+    "reference": "Sequential highlighting from each actual known source-context boundary; never initialize parser state at an arbitrary seek destination.",
+    "watchdog_is_not_a_fallback": true
+  },
+  "memory": {
+    "tour_repeats": 3,
+    "anchor_order": "File-quantile headers in ascending order, then style targets in their declared order, with exact duplicate source anchors removed.",
+    "per_anchor": "Reach the anchor through public controls. Check its split grid and settled styles, toggle unified and check again, then restore split.",
+    "long_line_tail": "On the longest source line, page through all wrapped segments once; then check its unwrapped first, middle, and last visible cell ranges with counted horizontal movement. Freeze the exact public inputs.",
+    "steady_rss": "Maximum process-group RSS during the third tour's one-second settled holds at every checked viewport, including the long-line cases.",
+    "peak_rss": "From process spawn through exit, including ingestion, all three tours, and transient work.",
+    "sampler_maximum_hz": 20,
+    "os_high_water_required": true,
+    "scope": "Viewer and all owned workers/helpers; report terminal RSS separately. Threads belong to the viewer process and are not double-counted.",
+    "also_report": ["spool_bytes", "source_index_bytes", "cache_payload_bytes", "container_capacities", "allocator_overhead_when_available"],
+    "coverage_note": "These tours sample rendered viewports. The independent full-content check covers every supplied source segment."
+  },
+  "correctness_variants": {
+    "additional_terminal_cells": [[80, 24]],
+    "themes": ["dark", "light"],
+    "keyboard_sequence": ["PageDown", "PageDown", "Down", "Up", "PageUp", "PageUp"],
+    "rapid_input": "Inject 20 wheel-down events then 20 wheel-up events at 5 ms intervals from a fixed interior viewport. Verify the final expected viewport and no direction/input loss.",
+    "lifecycle": "Real FIFO: complete A, blocked B, complete B; then malformed B and EOF. Repeat cancellation while blocked and while styling.",
+    "full_content": "Compare all supplied bytes, side identities, ranges, metadata, and newline markers against independent reference digests."
+  },
+  "targets": {
+    "status": "proposed_engineering_targets; no_results_yet",
+    "first_correct_content_ms": 500,
+    "first_content_requirement": "At least one actual source line with correct file/hunk context; a loading screen, header, or metadata-only card is insufficient.",
+    "index_ready_ms": {"smaller_four": 2000, "linux-v6-v7": 10000},
+    "initial_viewport_styled_ms": 1000,
+    "cold_seek_styled_ms": 2000,
+    "retained_revisit_styled_ms": 100,
+    "navigation_p95_ms": 50,
+    "navigation_maximum_ms": 200,
+    "quit_or_cancel_ms": 250,
+    "rss_mib": {
+      "smaller_four": {"steady": 128, "peak": 192},
+      "linux-v6-v7": {"steady": 512, "peak": 768}
+    },
+    "disposable_payload_mib": 64,
+    "source_page_cache_mib": 32,
+    "non_percentile_gate": "Use the maximum of all applicable repeats for opening, indexing, styling, quit, and memory. Also report medians."
+  },
+  "visual_evidence": {
+    "surface": "Existing visible Ghostty window; no automatic window creation or preference changes.",
+    "recording_pass": "Separate from unrecorded PTY timing; one short representative clip per fixture.",
+    "record": ["terminal_version", "font", "cell_geometry", "refresh_rate", "capture_frame_rate", "frame_time_uncertainty"],
+    "claim_limit": "PTY-grid completion is not a pixel-presentation timestamp. Missing GUI access blocks visual signoff, not engine work."
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "sha256": {
+    "tools/trace_reference.py": "99cc950989f93c1deeaad8c485cc6ce94eb086b49ffcf80aeddac7b33d9a902d",
+    "tools/patch_reference.py": "00356f949fe4ef5f69dc17d28d63998367edeb82180e00ce54b0d8b7a86b1996",
+    "tools/freeze_trace.py": "a1784f4a262595c27cc87d292a372ab8fcf360381d7bed44d3f0e84e43d4452c",
+    "tools/terminal_baseline.py": "1bd9ae5999d8c35a4a1aef0b821c8fcd267b3d11e60e68a7e89e88618a295b9a",
+    "tools/check_measurement.py": "d9ce4804221cd3723dbe7e7c14107d27acf6b8ff1f8aa6b2eb518bed6353cbe5",
+    "tools/measurement-requirements.txt": "0f22430799028cf7a23e8a977e3b31d24b8e8c1acbf00260e76cae5a22ae9e48",
+    "evidence/large-diff-baseline/native-diff-before": "52646a55a3635d2df506ab6e3e458b4fca2386f861ead2c0e62c57739308ed78",
+    "fixtures/diffshub/corpus.json": "bbc6ddad51aa9f84c89f14686d9c6c3493da3abdb0179d1aae75450cd8ea839f",
+    "fixtures/diffshub/scenario.json": "134647995b33ddf3784bec606f754c94f89bc3f3f7967fd1162cee89032c991b",
+    "fixtures/diffshub/reference.json": "4073b8e04df310eb8afd78807f8c5f6c49b83cad9d2c7d9ea33a7cf1f5fd7c7e",
+    "MEASUREMENT.md": "edbbcfea2242b432da9c90c3d6f319b4bf42e5da8746fa752e102091f156e744",
+    "SPEC.md": "b1d617a175a37c11c61228d535381e601599d3cb43774c416ca229e58e3680d8",
+    "LARGE_DIFFS.md": "0ed43e6eb882da729ebeb200d96ddd8524359ae6e97eb256ed2c420750d052b5",
+    "src/app.rs": "f7bd2acadd49ea9ff34603ef2e7fb83030bf43a76d6d1c3617b7b1a33ccc21ff",
+    "src/highlight.rs": "59c8c0f6eaac2e62a43c3a2f193ccf45a2701a55d1bd71bc362173dd8ed9ebae",
+    "src/ingest.rs": "98db0cb88e62cf29dbfbff49d24bdacb44bc9b70e6a12d290d9169a79a884e7f",
+    "src/layout.rs": "45e746e37aa823a46592cabef9351aaae4cd5c0a233a124787423b5f04d93a5d",
+    "src/lib.rs": "b7ae47b29722a052929eb153754f7381178d33010602978ecd783c2cdb0861e9",
+    "src/main.rs": "58efa3be5bfee2304a77e1717df2c5364ae553738dd084486a66e1d377c72806",
+    "src/model.rs": "c67dfe60c1d45721b6d7765e37f76b0335ff98ff1f1fd61d03d35f5e8a5c3b7a",
+    "src/render.rs": "6596253a9c55b811e8c1965349c487deabf25ab9ee6f43fdf43949885f299bf7",
+    "src/storage.rs": "413164c9a98a8bf2874e79c4c58983954e7fa97ea8c9eb7df7666cae2122ea9f",
+    "src/text.rs": "041f26186268bfc45842dbc16d0d2be8ce3727975fc19153ab0e7d3f6d5b74cb",
+    "src/theme.rs": "3938a29034cdca137c38206d107c0dd327c8067a42764ce445ebe1d0a2811eca",
+    "evidence/large-diff-baseline/pierre.reference.json": "7666e7fdede883ceae1b3fc812e3e819a392ce76d8450559d7b982892fa01300",
+    "evidence/diffshub-corpus/0800fb.diff": "320c4ee720786b34b5c8a1df9d4a91f5fa11259a40220e63ffc3b3e388ee12f9",
+    "evidence/large-diff-baseline/ghostty.reference.json": "94754eb68e8c9a01b4f50d1766cd2e682217a547826bb8418044445bee38e1ff",
+    "evidence/diffshub-corpus/12291.diff": "2aa96a2453d5790cbbe9ad91cc886d0796dc1720244784e8e197d9cd8e98f668",
+    "evidence/large-diff-baseline/node.reference.json": "151028de46df8da87ee16c2e7c27d456e26180760bd6e024c03fedcd81dd6205",
+    "evidence/diffshub-corpus/59805.diff": "1ed6796aa5604b2e3c5013219c53b0ebe3a11661a8e9ba9bee2b033824c25b17",
+    "evidence/large-diff-baseline/bun.reference.json": "ed1bcfd46f5e1d712b4fa5970dc70e121d7f8370a0ea8c440192b297a3dd0f80",
+    "evidence/diffshub-corpus/30412.diff": "17c68a069c24b2e2689c9a367b1cba1431c40ccf9868ea6f7524b80c847bd11c",
+    "evidence/large-diff-baseline/linux.reference.json": "0325619c619a89233cdab3851fc7a27e7648be00b9f75f52e675475c9538ada4",
+    "evidence/diffshub-corpus/v6.0-v7.0.diff": "510693d1f6c028751a04171dbd0b5fdc39fd18420e3720402db2c1b28ab2cb90",
+    "fixtures/diffshub/measurement-v1/trace.json.gz": "ce8ad25165e18c96c6a204b28f16fbcab1ce8d8e3b3bc4cd70f86ad1390e5a95"
+  },
+  "trace_sha256": "ce8ad25165e18c96c6a204b28f16fbcab1ce8d8e3b3bc4cd70f86ad1390e5a95",
+  "runtime": {
+    "python_sha256": "bc9a27bd52c265e86fcd73ef1d4165ec8a47695cffb7624cb0ee618dca83e6c0",
+    "python_version": "3.12.13 (main, Jun  2 2026, 22:42:28) [Clang 22.1.3 ]",
+    "dependencies": {
+      "pyte": "0.8.2",
+      "wcwidth": "0.2.13",
+      "regex": "2024.11.6"
+    }
+  }
+}

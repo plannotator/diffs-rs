@@ -1,0 +1,20 @@
+diff --git "a/empty space" "b/empty space"
+new file mode 100644
+index 0000000..e69de29
+diff --git a/old-name.txt b/new-name.txt
+similarity index 100%
+rename from old-name.txt
+rename to new-name.txt
+diff --git a/run.sh b/run.sh
+old mode 100644
+new mode 100755
+diff --git a/日本語.rs b/日本語.rs
+--- a/日本語.rs
++++ b/日本語.rs
+@@ -2147483600,2 +2147483601,2 @@ café() 🦀
+-let before = true;
++let after = false;
+ shared
+diff --git "a/quote\"name" "b/quote\"name"
+deleted file mode 100644
+index e69de29..0000000

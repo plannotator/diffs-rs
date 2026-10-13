@@ -1,0 +1,91 @@
+diff --git a/src/retry.rs b/src/retry.rs
+index 1234567..abcdef0 100644
+--- a/src/retry.rs
++++ b/src/retry.rs
+@@ -1,12 +1,16 @@
+ use std::time::Duration;
+ 
+ pub struct RetryPolicy {
+-    attempts: usize,
++    max_attempts: usize,
+     delay: Duration,
+ }
+ 
+ impl RetryPolicy {
+     pub fn new() -> Self {
+-        Self { attempts: 3, delay: Duration::from_secs(1) }
++        // Keep a short delay while the service recovers.
++        Self {
++            max_attempts: 5,
++            delay: Duration::from_millis(250),
++        }
+     }
+ }
+diff --git a/src/cache.c b/src/cache.c
+index 1234567..abcdef0 100644
+--- a/src/cache.c
++++ b/src/cache.c
+@@ -1,10 +1,13 @@
+ #include <stdbool.h>
+ #include <stddef.h>
+ 
+ /* A bounded cache for completed responses. */
+ bool cache_insert(struct cache *cache, const char *key) {
+-    if (cache->size == 256) {
+-        return false;
++    if (cache == NULL || key == NULL) {
++        return false;
++    }
++    if (cache->size >= cache->capacity) {
++        cache_evict_oldest(cache);
+     }
+     return cache_store(cache, key);
+ }
+diff --git a/web/Review.tsx b/web/Review.tsx
+index 1234567..abcdef0 100644
+--- a/web/Review.tsx
++++ b/web/Review.tsx
+@@ -1,8 +1,11 @@
+ import { useState } from "react";
+ 
+ export function Review({ files }: { files: string[] }) {
+-  const [selected, setSelected] = useState(0);
++  const [selected, setSelected] = useState<string | null>(null);
++  const count = files.length;
+   return (
+-    <main>{files[selected]}</main>
++    <main aria-label={`Review ${count} files`}>
++      {selected ?? "Select a file to review"}
++    </main>
+   );
+ }
+diff --git a/tools/review.py b/tools/review.py
+index 1234567..abcdef0 100644
+--- a/tools/review.py
++++ b/tools/review.py
+@@ -1,7 +1,9 @@
+ from pathlib import Path
+ 
+ 
+ def read_patch(path: Path) -> bytes:
+     """Read the original patch bytes without changing line endings."""
+-    return path.read_text().encode()
++    if not path.is_file():
++        raise ValueError(f"Not a file: {path}")
++    return path.read_bytes()
+ 
+diff --git a/settings.json b/settings.json
+index 1234567..abcdef0 100644
+--- a/settings.json
++++ b/settings.json
+@@ -1,6 +1,7 @@
+ {
+-  "layout": "unified",
++  "layout": "auto",
+   "theme": "dark",
+-  "tabWidth": 8,
+-  "message": "ready"
++  "tabWidth": 4,
++  "message": "Ready · 日本語 · café ☕",
++  "readOnly": true
+ }

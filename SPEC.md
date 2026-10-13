@@ -1,7 +1,7 @@
 # Native diff viewer: product spec v0.1
 
 Status: proposed behavior, not a description of an existing implementation.
-Implementation progress is recorded separately in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+Implementation progress is recorded separately in [IMPLEMENTATION_STATUS.md](docs/history/IMPLEMENTATION_STATUS.md).
 The [large-diff implementation specification](LARGE_DIFFS.md) now owns the next batch, exact scale corpus, and proposed performance targets.
 Date: 2026-09-10.
 Scope: a read-only Rust terminal viewer. The name and proposed defaults remain open to user review.
@@ -101,7 +101,7 @@ Both layouts use the same source identities and inline-change spans. A layout sw
 - Syntax colors remain visible over change backgrounds. Whole changed lines do not become solid red or green text.
 - Inline emphasis covers changed spans, not the entire replacement line.
 - Inline comparison separates punctuation from words and preserves complete graphemes. Unchanged separators do not receive emphasis.
-- Identifiers retain word-level emphasis. The [inline policy](INLINE_HIGHLIGHTING.md) defines boundaries and covered checks.
+- Identifiers retain word-level emphasis. The [inline policy](docs/history/INLINE_HIGHLIGHTING.md) defines boundaries and covered checks.
 - A small gutter marker identifies the active source line without covering its inline highlights.
 - No blinking decoration, scrolling animation, or automatic movement accompanies background highlighting.
 

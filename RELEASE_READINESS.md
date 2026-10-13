@@ -85,7 +85,7 @@ The local export contains 66 syntax notice entries from the pinned package's pub
 The export does not select the package's unused theme notices.
 Distribution preparation still needs the runtime dependency notices, bundled-component notices, and existing theme attribution.
 No dependency, vendored source, or notice changed during this inventory.
-The later [local-source hardening pass](LOCAL_SOURCE_HARDENING_REPORT.md) updated the two patch notes without changing runtime source or notices.
+The later [local-source hardening pass](docs/history/LOCAL_SOURCE_HARDENING_REPORT.md) updated the two patch notes without changing runtime source or notices.
 
 ## Historical release gates
 

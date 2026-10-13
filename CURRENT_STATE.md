@@ -175,7 +175,7 @@ The table allocation stayed unchanged across the three end-of-tour snapshots. Th
 These component counts are not process RSS or a memory-saving result.
 
 The [integration plan](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-27-cache-integration.IhX6h6/PLAN.md) defines this checkpoint.
-The [storage report](STYLE_CACHE_STORAGE_REPORT.md#integration-and-bounded-owner-observations) records the completed checks and limitations.
+The [storage report](docs/history/STYLE_CACHE_STORAGE_REPORT.md#integration-and-bounded-owner-observations) records the completed checks and limitations.
 
 The accounting reports table allocation, retained vector capacity, FIFO capacity, and inline cache storage separately.
 The existing style charge, budget, eviction order, invalidation, and source/color behavior remain unchanged.
@@ -261,7 +261,7 @@ The [adoption decision](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-veri
 Only the reviewed representation and test adaptations were integrated. Cache admission, budgets, weights and eviction remain unchanged.
 The normal build was restored after Cargo's test build replaced its executable, then checked directly. Both binaries and the failed identity-check log remain preserved.
 The memory measurements belong to the preserved candidate, not a new measurement of the integrated executable.
-The [diagnostic invalidation accounting](CACHE_ACTIVITY_ACCOUNTING.md) is qualified.
+The [diagnostic invalidation accounting](docs/history/CACHE_ACTIVITY_ACCOUNTING.md) is qualified.
 Activity schema 2 counts source-driven removals separately from budget eviction and reconciles retained entries, payload, and usable map capacity.
 Real source replacement, revocation, recovery, stale replies, unrelated-file survivors, theme reset, and owner release passed.
 The ordinary suite, compatible-baseline grids, and seven real-process census controls also passed; the normal executable is unchanged.
@@ -274,7 +274,7 @@ Ordinary held RSS was about 29.42 and 33.45 MiB, unchanged between the final dee
 The file pair's opening already colored its deep patch sections; later jumps were cached. These bounded complete-source observations do not replace the large patch-only memory evidence or establish a long-term plateau.
 That observation did not include shared page occupancy, geometry, or live parser storage. No additional cache policy or representation change was selected.
 
-The [retained-owner extension](RETAINED_OWNER_ACCOUNTING.md) now measures those owners and current checkpoints in opt-in builds only.
+The [retained-owner extension](docs/history/RETAINED_OWNER_ACCOUNTING.md) now measures those owners and current checkpoints in opt-in builds only.
 It passed 124 ordinary checks, 43 targeted diagnostic checks, 96 compatible terminal grids, two canonical source streams, seven real-process census controls, and 11 malformed-record checks.
 Repeated observations preserve owner addresses, reference counts, cache contents, and terminal cells in the tested cases. The normal executable remains unchanged.
 The [new bounded observation](/var/folders/xg/f67qq94s1qsbxl_nlh9hd_xc0000gn/T/pe-verify/native-diff/2026-09-26-retained-owners.6F99J4/REPORT.md) is partial.
@@ -293,13 +293,13 @@ The final Git snapshot retained 94,958 page-payload bytes, 55,177 geometry-paylo
 Those owner counts and the existing style/engine counts stayed unchanged on revisit. Diagnostic RSS rose by 655,360 bytes; that difference remains unattributed, not a demonstrated leak or an optimization result.
 Power was battery for this capture. The earlier ordinary process is a grid control, not a matched memory or timing comparison.
 
-The [current allocation attribution](CURRENT_ALLOCATION_ATTRIBUTION.md) is complete without a runtime change.
+The [current allocation attribution](docs/history/CURRENT_ALLOCATION_ATTRIBUTION.md) is complete without a runtime change.
 One current diagnostic Bun process passed 418 exact views, four owner snapshots, twelve native commands, 1,233 audited queries, and clean exit.
 Direct color-output and matched style-table/FIFO classes account for 77.23% of its first-to-third-tour native heap increase.
 The final style vectors retained 11.41 MiB of spare capacity, already included in their charge. This is not a process-memory saving.
 Pages stayed unchanged across tours. Geometry, checkpoints, and live parser state remained small in this workload.
 The grammar/outer-regex review did not justify a storage change or more instrumentation.
-The [direct token collection prototype](DIRECT_TOKEN_COLLECTION_REPORT.md) is implemented in an isolated copy, without token merging, boxed storage, or cache-policy changes.
+The [direct token collection prototype](docs/history/DIRECT_TOKEN_COLLECTION_REPORT.md) is implemented in an isolated copy, without token merging, boxed storage, or cache-policy changes.
 It passes 126 ordinary checks, 45 targeted diagnostic checks, 96 compatible terminal grids, and all 20,847,451 supplied source records.
 The preserved ordinary candidate separately passes all 61 enabled terminal-process checks.
 Exact token and syntax-state comparisons pass across 2,358 source-line advances. Recorded capacities are smaller for 2,142 visible lines, equal for 104, and larger for none.
@@ -317,15 +317,15 @@ Navigation and focused coloring remained close in the observed pairs. Linux inde
 All five prototype sustained-process peaks were lower, including Linux at 800.56 versus 770.30 MiB. That does not establish a causal saving.
 Linux's third-tour settled maximum was 800.50 versus 663.56 MiB, but its final held sample was 634.70 versus 663.56 MiB. Bun's final held sample was also higher for the prototype, despite its lower process peak.
 Both roles contain substantial residency declines. Host-wide VM statistics do not attribute them to viewer allocation release or compression. Those decreases are not credited to the prototype.
-The [qualification report](DIRECT_TOKEN_COLLECTION_REPORT.md) preserves every patch, both directions of the memory observations, and the bounded follow-up scope.
-The [bounded residency investigation](DIRECT_TOKEN_COLLECTION_REPORT.md#completed-bounded-residency-investigation) is complete.
+The [qualification report](docs/history/DIRECT_TOKEN_COLLECTION_REPORT.md) preserves every patch, both directions of the memory observations, and the bounded follow-up scope.
+The [bounded residency investigation](docs/history/DIRECT_TOKEN_COLLECTION_REPORT.md#completed-bounded-residency-investigation) is complete.
 One small control and two Linux diagnostic processes passed 414 expected views, six owner snapshots, twelve native commands, twelve holds, and 2,531 audited RSS queries.
 The prototype's final native heap was 646.25 MiB versus 624.46 MiB, despite less vector slack.
 Its style-table capacity high-water mark was 458,752 versus 229,376. The larger table arose during insertion and eviction without a new entry-count peak.
 Other measured final page, geometry, parser/checkpoint, and engine owners matched. This supports a container-growth mechanism, not complete attribution of earlier ordinary RSS.
 Direct token collection is closed without adoption. All evidence remains preserved, and the normal executable remains unchanged.
 
-The [whole style-cache accounting checkpoint](STYLE_CACHE_STORAGE_REPORT.md) is complete in an isolated copy.
+The [whole style-cache accounting checkpoint](docs/history/STYLE_CACHE_STORAGE_REPORT.md) is complete in an isolated copy.
 It reports table allocation, retained vector capacity, FIFO capacity, and observed-build inline storage without overlap.
 The existing style charge and retention policy remain unchanged. This is accounting, not a memory reduction or a total-cache limit.
 The prototype passed 124 ordinary checks, 140 diagnostic checks, 96 preserved-viewer grids, and two canonical source streams.
@@ -340,7 +340,7 @@ No measurement or diagnostic is currently active. See [Next work](#next-work) fo
 
 This section preserves prior results and build identities. Its measurements do not describe the current executable.
 
-The [Git-completion notification](LOCAL_SOURCE_GIT_WAKE_REPORT.md) is implemented independently of checkpoint retention.
+The [Git-completion notification](docs/history/LOCAL_SOURCE_GIT_WAKE_REPORT.md) is implemented independently of checkpoint retention.
 It uses the existing stderr reader to wake the child-status check, while preserving cancellation and the actual exit-status requirement.
 At that checkpoint, the normal suite passed 118 checks, with 18 diagnostic opening grids and 198 ordinary action grids.
 Git and Rust-source opening improved in every ordinary pair. Large-source opening and later actions remained mixed.
@@ -355,12 +355,12 @@ Those observations remain accepted tradeoffs, not claims of a universal speedup 
 Integrated local-source responsiveness and sustained-resource qualification remain separate from the patch-only corpus campaign.
 No further retention-policy experiment is selected.
 
-The [sidebar-aware corpus qualification](SIDEBAR_CORPUS_REPORT.md) prepared ten current-build workload packets across the five pinned patches.
+The [sidebar-aware corpus qualification](docs/history/SIDEBAR_CORPUS_REPORT.md) prepared ten current-build workload packets across the five pinned patches.
 All 1,765 selected workload views passed source and sequential-color checks, with 272 rejected corruption cases.
 The separate 15-view geometry trace and its 15-view frozen-matcher replay also passed.
 The normal executable and runtime source remain unchanged. These preparation results are separate from the measurements below.
 
-The [current-build patch measurements](SIDEBAR_MEASUREMENT_REPORT.md) are complete: 30 successful processes and 7,350 checked views.
+The [current-build patch measurements](docs/history/SIDEBAR_MEASUREMENT_REPORT.md) are complete: 30 successful processes and 7,350 checked views.
 All measured navigation categories, initial text/color goals, and normal exits passed.
 Linux completed-index receipt took a median 4.65 seconds and did not meet the 2-second goal.
 The final memory tours reached 174.1 MiB for Bun and 663.6 MiB for Linux.
@@ -371,17 +371,17 @@ These are shared-workstation PTY observations, not physical-paint measurements o
 One preserved memory failure exposed a test-only sidebar reset omission. A qualified public-input reset corrected all five memory traces.
 No viewer code changed, and none of the 25 completed latency trials repeated.
 
-The [current ownership investigation](CURRENT_MEMORY_OWNERS_REPORT.md) is complete without a runtime change.
+The [current ownership investigation](docs/history/CURRENT_MEMORY_OWNERS_REPORT.md) is complete without a runtime change.
 Current document accounting totals 361.82 MiB for Linux and 9.36 MiB for Bun.
 One native Bun profile passed all 418 expected views and clean shutdown.
 Live allocations increased by 30.45 MiB between tours one and three.
 Direct color-token output and matched style-cache container classes account for 79.62% of that diagnostic increase.
 Those instrumented values do not partition the earlier ordinary RSS observations.
-The [source-span representation census](SOURCE_SPAN_CENSUS_REPORT.md) is complete without a production change.
+The [source-span representation census](docs/history/SOURCE_SPAN_CENSUS_REPORT.md) is complete without a production change.
 All 20,847,451 corpus records reconcile with preserved counts and storage extents.
 The conditional model saves 35.05 MiB of accounted storage on Linux after descriptor costs, but adds 75,238 allocations.
 These are modeled extents, not a heap, RSS, or performance improvement. Some small fixtures become larger.
-The [isolated exact-length storage prototype](SOURCE_SPAN_PROTOTYPE_REPORT.md) now passes correctness qualification without a production change.
+The [isolated exact-length storage prototype](docs/history/SOURCE_SPAN_PROTOTYPE_REPORT.md) now passes correctness qualification without a production change.
 Its source suite passed 122 checks. The preserved ordinary release matched 96 compatibility grids and all 1,770 corpus workload views.
 All 20,847,451 source records and 42,657,296 split/unified projection rows matched independent expectations.
 Actual retained storage matches the census model, including descriptor costs and small-file increases.
@@ -410,25 +410,25 @@ The [storage/reference groundwork](SOURCE_STORAGE_REPORT.md) is implemented and 
 The [local source input checkpoint](LOCAL_SOURCE_INPUT_REPORT.md) implements captured two-file and fixed two-commit comparisons.
 The [complete-context coloring checkpoint](FULL_SOURCE_COLOR_REPORT.md) uses those checked sources for independent old/new syntax replay.
 The [context expansion checkpoint](CONTEXT_EXPANSION_REPORT.md) adds incremental `Show 20` actions for checked local sources.
-The [source-readiness correction](SOURCE_READINESS_REPORT.md) keeps the selected source visible as lazy source replies insert gap rows.
-The [local-source hardening pass](LOCAL_SOURCE_HARDENING_REPORT.md) reviews ownership and failure recovery without changing runtime code.
+The [source-readiness correction](docs/history/SOURCE_READINESS_REPORT.md) keeps the selected source visible as lazy source replies insert gap rows.
+The [local-source hardening pass](docs/history/LOCAL_SOURCE_HARDENING_REPORT.md) reviews ownership and failure recovery without changing runtime code.
 It adds input-worker shutdown checks and updates dependency maintenance notes. The prepared executable remains unchanged.
-The [short local-source timing checkpoint](LOCAL_SOURCE_TIMING_REPORT.md) passed ten AC-powered runs and all 110 expected views.
+The [short local-source timing checkpoint](docs/history/LOCAL_SOURCE_TIMING_REPORT.md) passed ten AC-powered runs and all 110 expected views.
 It measures two modest local-source workloads, not sustained scrolling or the five-patch memory campaign.
-The [coloring investigation](LOCAL_SOURCE_COLORING_REPORT.md) attributes the two-file delay mainly to hidden-source parsing.
+The [coloring investigation](docs/history/LOCAL_SOURCE_COLORING_REPORT.md) attributes the two-file delay mainly to hidden-source parsing.
 Its diagnostic and ordinary sampled processes passed all 33 final views. No runtime source changed.
-The [saved-state reuse checkpoint](LOCAL_SOURCE_REPLAY_REPORT.md) implements compatible checkpoint reuse across hidden gaps and theme changes.
+The [saved-state reuse checkpoint](docs/history/LOCAL_SOURCE_REPLAY_REPORT.md) implements compatible checkpoint reuse across hidden gaps and theme changes.
 Exact colors and source identities pass the new work-count and replacement checks.
-The [completed ordinary comparison](LOCAL_SOURCE_REPLAY_COMPARISON.md) retains all eighteen runs across the power interruption, with 198 exact views.
+The [completed ordinary comparison](docs/history/LOCAL_SOURCE_REPLAY_COMPARISON.md) retains all eighteen runs across the power interruption, with 198 exact views.
 It finds workload-dependent recoloring benefits and mixed navigation results. The large local-source case still repeats all hidden parsing after checkpoint eviction.
-The [retention investigation](LOCAL_SOURCE_RETENTION_REPORT.md) now reproduces how replay evicts states that the same request can reuse later.
+The [retention investigation](docs/history/LOCAL_SOURCE_RETENTION_REPORT.md) now reproduces how replay evicts states that the same request can reuse later.
 Its isolated diagnostic passed 27 measured worker requests, 520 old/new token lists, and 33 exact terminal views.
 That investigation did not change the normal implementation or executable.
-The [original prototype](LOCAL_SOURCE_RETENTION_PROTOTYPE.md) preserves the first experiment and its adverse observations.
+The [original prototype](docs/history/LOCAL_SOURCE_RETENTION_PROTOTYPE.md) preserves the first experiment and its adverse observations.
 The [adoption report](LOCAL_SOURCE_RETENTION_DECISION.md) adds matched attribution and the explicit tradeoff decision without increasing cache limits.
 Isolated expansion now has separate evidence. Cached layout and resize actions issue no coloring requests in the targeted diagnostic.
 That rules out direct checkpoint planning in those actions, not every indirect or host effect.
-The [updated retention plan](LOCAL_SOURCE_RETENTION_PLAN.md) closes the decision and identifies the next qualification work.
+The [updated retention plan](docs/history/LOCAL_SOURCE_RETENTION_PLAN.md) closes the decision and identifies the next qualification work.
 Remote acquisition remains unimplemented. Integrated resource and physical-terminal qualification remain open.
 
 ## Preserved retention build
@@ -455,7 +455,7 @@ Git source preparation is lazy and cancellable. Source failure preserves the pat
 Both modes now use complete-source syntax after source checks pass. Pending or unavailable sources use plain syntax.
 Replay includes hidden prefixes and keeps each side's parser state across patch boundaries.
 Source origins, explicit side scopes, and theme epochs prevent incompatible checkpoint and style reuse.
-The [readiness report](SOURCE_READINESS_REPORT.md) records the current correction and qualification limits.
+The [readiness report](docs/history/SOURCE_READINESS_REPORT.md) records the current correction and qualification limits.
 The source-readiness executable and archive remain preserved under `evidence/source-readiness-v1/` as historical evidence.
 That checkpoint's final checks are `suite.log`, `diagnostic-suite.log`, `ordinary-pty.log`, and `compatibility.log`.
 The later test/documentation-only checkpoint is `evidence/local-source-hardening-v1/`, including its new `suite.log` and ownership report.
@@ -500,8 +500,8 @@ cargo test --release --locked -- --test-threads=1
 The preserved pre-sidebar executable is `evidence/sidebar-v1/baseline-native-diff`.
 Its checked SHA-256 is `6cf039592f9bc400ee9e90ea510eb4b2daa48ebc24ae1b75371d7d6cc16e2eb3`.
 The [paired-emphasis report](evidence/inline-pair-v1/REPORT.md) records the preceding defect, correction, and qualification.
-The [gap report](ALIGNMENT_GAPS.md) records that change, checks, and incomplete physical captures.
-The [inline report](INLINE_HIGHLIGHTING.md) records the preceding inline-emphasis change.
+The [gap report](docs/history/ALIGNMENT_GAPS.md) records that change, checks, and incomplete physical captures.
+The [inline report](docs/history/INLINE_HIGHLIGHTING.md) records the preceding inline-emphasis change.
 The [cancellation report](evidence/cached-navigation-cancel-v1/REPORT.md) preserves the preceding source archive, executable, and rollback copies.
 The [preceding integration report](evidence/required-bytes-adoption-v1/REPORT.md) remains intact.
 Normal builds exclude diagnostic features. Optional diagnostic tests use a separate Cargo target directory.
@@ -571,7 +571,7 @@ They do not prove every possible patch or grammar, ideal replacement pairing, ph
 ## Historical performance evidence and accepted tradeoff
 
 The [ordinary comparison](evidence/required-bytes-comparison-v1/REPORT.md) measured the candidate source before integration.
-The preserved source-readiness executable has [short local-source timing observations](LOCAL_SOURCE_TIMING_REPORT.md).
+The preserved source-readiness executable has [short local-source timing observations](docs/history/LOCAL_SOURCE_TIMING_REPORT.md).
 Its two-file opening medians are 46.99 ms for expected text and 581.30 ms for complete cells.
 Its fixed-commit Git opening medians are 132.09 ms and 172.05 ms, respectively.
 Its theme changes in the two-file case take about 510 ms to reach complete cells.
@@ -580,9 +580,9 @@ An ordinary stack sample also locates active work in parsing and regex matching.
 Those diagnostic values do not replace the accepted ordinary timings or establish an improvement.
 The series passed 110 final-grid checks, all cleanup checks, and 120 AC-power boundary checks.
 Its Page Up/Down actions move only the selection, so they do not establish scrolling performance.
-The preserved sidebar executable has [five-patch timing and sustained-memory observations](SIDEBAR_MEASUREMENT_REPORT.md).
+The preserved sidebar executable has [five-patch timing and sustained-memory observations](docs/history/SIDEBAR_MEASUREMENT_REPORT.md).
 That campaign does not extend the short local-source series into sustained complete-source qualification.
-The [saved-state reuse comparison](LOCAL_SOURCE_REPLAY_COMPARISON.md) completed all eighteen declared runs and 198 exact views.
+The [saved-state reuse comparison](docs/history/LOCAL_SOURCE_REPLAY_COMPARISON.md) completed all eighteen declared runs and 198 exact views.
 The interrupted attempt remains excluded and preserved. Eight resumed runs retain the original schedule, executables, inputs, and references.
 Offline replay and RSS checks pass. The series spans two shared-workstation sessions, with mixed opening and navigation observations.
 Real-source theme medians improve from approximately 53–55 ms to 21 ms, but no general timing improvement is accepted.
@@ -591,7 +591,7 @@ Its 64-entry checkpoint limit triggers 212 evictions over the sequence. The Git 
 All 33 new diagnostic views match. Short-workload peak RSS medians remain approximately 17–34 MiB, not results for the largest patch.
 The separate real-worker count check reduced repeated sparse parsing from 11,266 to 2,056 source lines while preserving exact tokens.
 The remaining evidence in this section applies to preserved pre-sidebar builds.
-The [measurement-readiness checkpoint](MEASUREMENT_READINESS.md) checked workload identities and an isolated build/install without accepting performance samples.
+The [measurement-readiness checkpoint](docs/history/MEASUREMENT_READINESS.md) checked workload identities and an isolated build/install without accepting performance samples.
 The 39 focused views now have reviewed expectations for the accepted gap and inline changes.
 The pre-sidebar executable passed those views and saved-output replay.
 Two matched ordinary comparison builds also passed all 39 views against their separate presentation answers.
@@ -634,8 +634,8 @@ Its CPU, cache-occupancy, and process-memory effects remain unmeasured.
 Less offscreen work can also leave fewer styles available for a later revisit.
 The [next checkpoint](evidence/cached-navigation-cancel-v1/NEXT.md) scopes an ordinary-build observation without another scheduling change.
 
-The user reported an inline-emphasis discrepancy in the visual gallery. The [inline change](INLINE_HIGHLIGHTING.md) corrects the covered punctuation cases.
-The [alignment-gap change](ALIGNMENT_GAPS.md) makes empty alignment areas distinct from context rows in both themes.
+The user reported an inline-emphasis discrepancy in the visual gallery. The [inline change](docs/history/INLINE_HIGHLIGHTING.md) corrects the covered punctuation cases.
+The [alignment-gap change](docs/history/ALIGNMENT_GAPS.md) makes empty alignment areas distinct from context rows in both themes.
 Actual Ghostty light-theme captures show the complete multi-file view before and after the change.
 A dark capture has a framing discrepancy. The recorder lost window visibility before the wrapped captures.
 Those physical checks remain incomplete. The light multi-file gallery image uses the preceding alignment-gap executable.
@@ -653,12 +653,12 @@ The [product spec](SPEC.md) describes intended behavior. The [release checklist]
 
 | Candidate | Decision and location |
 | --- | --- |
-| Shared leading-syntax state | Deferred. The exact removed files are in [the saved experiment](evidence/clean-baseline-v1/before/deferred-source/). The [original report](SHARED_SYNTAX_PREFIX_REPORT.md) and all measurements remain intact. |
+| Shared leading-syntax state | Deferred. The exact removed files are in [the saved experiment](evidence/clean-baseline-v1/before/deferred-source/). The [original report](docs/history/SHARED_SYNTAX_PREFIX_REPORT.md) and all measurements remain intact. |
 | Borrowed loading records | Deferred. The [native diagnostic](evidence/borrowed-parser-residency-v1/REPORT.md) did not resolve the earlier ordinary-memory and exit observations. |
 | Borrowed capture results | Closed without adoption. The [review](evidence/borrowed-capture-review-v1/REPORT.md) preserves the mixed timing benefit and adverse memory observations. |
 | Unchanged regex save slots | Closed without adoption. The [comparison](evidence/redundant-save-comparison-v1/REPORT.md) preserves all three focused pairs and the mixed result. |
-| Earlier cache representations and direct input buffer | Not adopted. The [saved-style report](STYLE_STORAGE_REPORT.md), [boxed-value report](STYLE_INDIRECTION_REPORT.md), and [input-buffer report](evidence/input-buffer-v1/REPORT.md) preserve their decisions. |
-| Direct token collection | Closed without adoption. The [qualification and residency report](DIRECT_TOKEN_COLLECTION_REPORT.md) records reduced vector slack, mixed ordinary memory, and a larger cache table with higher final live heap. |
+| Earlier cache representations and direct input buffer | Not adopted. The [saved-style report](docs/history/STYLE_STORAGE_REPORT.md), [boxed-value report](docs/history/STYLE_INDIRECTION_REPORT.md), and [input-buffer report](evidence/input-buffer-v1/REPORT.md) preserve their decisions. |
+| Direct token collection | Closed without adoption. The [qualification and residency report](docs/history/DIRECT_TOKEN_COLLECTION_REPORT.md) records reduced vector slack, mixed ordinary memory, and a larger cache table with higher final live heap. |
 
 The complete pre-cleanup working source, test support, documents, and executable remain in `evidence/clean-baseline-v1/before/`.
 The separate experiment copies are evidence, not active build inputs.

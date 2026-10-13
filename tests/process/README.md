@@ -35,7 +35,7 @@ source bytes, numbers, newline markers, and retained-source export. The terminal
 case checks both layouts, exact file-header destinations, and clean exit.
 Names cover leading/interior/trailing spaces, quotes, tabs, and Unicode.
 Both `core.quotePath` settings and metadata-only/text changes are included.
-The [correction report](../../GIT_PATH_CORRECTNESS_REPORT.md) records the dependency
+The [correction report](../../docs/history/GIT_PATH_CORRECTNESS_REPORT.md) records the dependency
 change, reproduced failures, and additional CRLF controls.
 
 | Check | Independent expectation |
@@ -178,7 +178,7 @@ visible content to exercise their original boundaries without overscrolling.
 Run these checks with `cargo test --release --locked --test process syntax_contract -- --test-threads=1`.
 The preserved-executable override applies to all four checks.
 The pending-resize check also passed against the preserved pre-scratch executable, as recorded in the [qualification record](../../evidence/line-search-scratch-v1/QUALIFICATION.md).
-These are correctness gates. The separate [syntax diagnostic](../../SYNTAX_REPLAY.md) measures the cost of the same public reading actions.
+These are correctness gates. The separate [syntax diagnostic](../../docs/history/SYNTAX_REPLAY.md) measures the cost of the same public reading actions.
 
 ## Shared leading-state contracts
 

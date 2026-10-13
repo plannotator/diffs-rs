@@ -1,6 +1,6 @@
 # Large-diff foundation: implementation specification
 
-Date: 2026-09-10. Status: implementation started, not performance-accepted. See the [progress report](LARGE_DIFF_PROGRESS.md).
+Date: 2026-09-10. Status: implementation started, not performance-accepted. See the [progress report](docs/history/LARGE_DIFF_PROGRESS.md).
 
 ## 1. Decision and scope
 

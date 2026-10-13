@@ -73,7 +73,10 @@ impl Engine {
                 Side::New => location.new_line,
             }
             .context("The selected side has no source line")?;
-            let app = self.app.as_mut().unwrap();
+            let app = self
+                .app
+                .as_mut()
+                .context("The review has no viewer state")?;
             app.old_side = location.side == Side::Old;
             let checked = matches!(
                 app.sources

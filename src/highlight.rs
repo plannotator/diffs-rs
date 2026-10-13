@@ -2,7 +2,7 @@ use std::{
     collections::{VecDeque, hash_map::RandomState},
     ops::Range,
     path::Path,
-    sync::{Arc, Condvar, Mutex, mpsc},
+    sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, mpsc},
     thread,
 };
 
@@ -298,7 +298,7 @@ impl Worker {
         &self,
         request: crate::owner_census::Request,
     ) -> anyhow::Result<()> {
-        let mut pending = self.requests.pending.lock().unwrap();
+        let mut pending = self.requests.lock();
         anyhow::ensure!(
             !pending.closed && pending.census.is_none(),
             "Census worker unavailable"
@@ -310,38 +310,31 @@ impl Worker {
 
     pub fn try_reply(&self) -> Result<anyhow::Result<Reply>, mpsc::TryRecvError> {
         // Pair capacity release with the publisher's atomic unlock-and-wait.
-        let _pending = self.requests.pending.lock().unwrap();
+        let _pending = self.requests.lock();
         let reply = self.replies.try_recv()?;
         self.requests.ready.notify_one();
         Ok(reply)
     }
 
     pub fn request<S: Into<LineId>>(&self, request: Request<S>) {
-        let mut pending = self.requests.pending.lock().unwrap();
+        let mut pending = self.requests.lock();
         if pending.closed {
             return;
         }
+        let epoch = request.epoch;
         pending.request = Some(Request {
-            epoch: request.epoch,
+            epoch,
             appearance: request.appearance,
             ids: request.ids.into_iter().map(Into::into).collect(),
             files: request.files,
         });
         pending.generation = pending.generation.wrapping_add(1);
-        crate::delivery_event!(
-            "request",
-            pending.generation,
-            pending.request.as_ref().unwrap().epoch
-        );
+        crate::delivery_event!("request", pending.generation, epoch);
         self.requests.ready.notify_one();
     }
 
     pub fn cancel(&self) {
-        let mut pending = self
-            .requests
-            .pending
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut pending = self.requests.lock();
         pending.request = None;
         pending.generation = pending.generation.wrapping_add(1);
         crate::delivery_event!("cancel", pending.generation, 0);
@@ -351,11 +344,7 @@ impl Worker {
     /// Cancel outstanding work and wait for the syntax worker to release its owners.
     pub fn close(&mut self) -> anyhow::Result<()> {
         {
-            let mut pending = self
-                .requests
-                .pending
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut pending = self.requests.lock();
             pending.closed = true;
             pending.request = None;
             #[cfg(feature = "owner-census")]
@@ -381,12 +370,25 @@ impl Drop for Worker {
 }
 
 impl Mailbox {
+    /// Locks the shared request state, recovering it after a panic on the other thread.
+    /// The state stays consistent at every unlock, so a worker panic surfaces to the host
+    /// as a disconnected reply channel instead of a second panic on the host thread.
+    fn lock(&self) -> MutexGuard<'_, Pending> {
+        self.pending.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn wait<'a>(&self, pending: MutexGuard<'a, Pending>) -> MutexGuard<'a, Pending> {
+        self.ready
+            .wait(pending)
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
     fn take(
         &self,
         #[cfg(feature = "owner-census")] syntaxes: &syntect::parsing::SyntaxSet,
         #[cfg(feature = "owner-census")] inspect: impl Fn() -> serde_json::Value,
     ) -> Option<(u64, Request<LineId>)> {
-        let mut pending = self.pending.lock().unwrap();
+        let mut pending = self.lock();
         loop {
             if pending.closed {
                 return None;
@@ -399,15 +401,15 @@ impl Mailbox {
                 drop(pending);
                 census.capture(syntaxes, &inspect);
                 let _ = self.wake.try_send(());
-                pending = self.pending.lock().unwrap();
+                pending = self.lock();
                 continue;
             }
-            pending = self.ready.wait(pending).unwrap();
+            pending = self.wait(pending);
         }
     }
 
     fn current(&self, generation: u64) -> bool {
-        let pending = self.pending.lock().unwrap();
+        let pending = self.lock();
         !pending.closed && pending.generation == generation
     }
 
@@ -419,7 +421,7 @@ impl Mailbox {
     ) -> bool {
         #[cfg(feature = "delivery-trace")]
         crate::delivery_trace::source_event("ready", generation, reply.as_ref().ok().map(|r| r.id));
-        let mut pending = self.pending.lock().unwrap();
+        let mut pending = self.lock();
         loop {
             if pending.closed || pending.generation != generation {
                 return false;
@@ -441,7 +443,7 @@ impl Mailbox {
                 Err(mpsc::TrySendError::Full(value)) => reply = value,
             }
             crate::delivery_event!("full", generation, 0);
-            pending = self.ready.wait(pending).unwrap();
+            pending = self.wait(pending);
         }
     }
 }
@@ -881,3 +883,7 @@ mod cache_tests;
 #[cfg(test)]
 #[path = "highlight/syntax_tests.rs"]
 mod syntax_tests;
+
+#[cfg(test)]
+#[path = "highlight/mailbox_tests.rs"]
+mod mailbox_tests;

@@ -307,9 +307,9 @@ impl Engine {
             if self.full_sources {
                 app.sources = Some(Vec::new());
             }
-            self.app = Some(app);
+            return Ok(self.app.insert(app));
         }
-        Ok(self.app.as_mut().unwrap())
+        self.app.as_mut().context("The review has no viewer state")
     }
 
     /// Clear the host wake token before calling this. Each drain is bounded so input can run.
@@ -319,7 +319,10 @@ impl Engine {
         }
         if (self.loading || self.full_sources) && self.error.is_none() {
             for _ in 0..64 {
-                match self.input.as_ref().unwrap().try_reply() {
+                let Some(input) = &self.input else {
+                    break;
+                };
+                match input.try_reply() {
                     Ok(Ok(input::Message::File(file))) => {
                         let app = self.app()?;
                         let exposes_more = app

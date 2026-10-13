@@ -225,7 +225,7 @@ fn compare(actual: impl Read, expected: impl Read + Send) -> Result<Counts> {
     thread::scope(|scope| {
         let (send, recv) = mpsc::sync_channel(1);
         let worker = scope.spawn(move || {
-            ingest::visit_files(BufReader::new(expected), |unit| {
+            ingest::visit_files(BufReader::new(expected), |_, unit| {
                 let mut parsed = reference::Document::parse_file(unit)?;
                 parsed.index_rows();
                 if !parsed.files.is_empty() {

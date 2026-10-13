@@ -61,8 +61,14 @@ Other supported invocations:
 ```sh
 target/release/native-diff --layout unified --theme light patch fixtures/review.patch
 git --no-pager diff --no-ext-diff --no-textconv --no-color | target/release/native-diff patch -
+git --no-pager log -p -3 --no-color | target/release/native-diff patch -
+git format-patch --stdout -3 | target/release/native-diff patch -
 target/release/native-diff inspect fixtures/review.patch --summary
 ```
+
+`patch` reads Git patch text, including `git show`, `git log -p`, `git format-patch`, and `--stat -p` output.
+Commit headers, messages, diffstats, and mail signatures between file patches are skipped. Source offsets still address the original input.
+Text without a `diff --git` file header, traditional `diff -u` output, and combined merge diffs (`diff --cc`) remain errors.
 
 `inspect` emits diagnostic JSON. It is not a formatted pager mode.
 `inspect --canonical` emits a binary source stream for independent checks and refuses terminal stdout.

@@ -1,0 +1,138 @@
+commit 1c06d15badbf382ff444f778297d9c4fd7cac59a
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    last change
+
+diff --git a/Makefile b/Makefile
+index c51a4d4..494b482 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,2 +1,2 @@
+ all:
+-	echo hi
++	echo bye
+\ No newline at end of file
+diff --git a/main.rs b/main.rs
+index 0ae5e80..3b6e0be 100644
+--- a/main.rs
++++ b/main.rs
+@@ -1,3 +1,3 @@
+ fn main() {
+-    println!("two");
++    println!("three");
+ }
+
+commit 1c7d2edda44681f2433d7009f73665d088b99c2e
+Merge: 6aa961e 0c16b15
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    merge side
+
+commit 6aa961e853fafc7381e6aad2b381e62bebf5e702
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    add binary
+
+diff --git a/blob.bin b/blob.bin
+new file mode 100644
+index 0000000..0f49c4a
+Binary files /dev/null and b/blob.bin differ
+
+commit 0c16b15a7886358fb9c2d7810d0a9e3db1a91256
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    side change
+
+diff --git a/side.txt b/side.txt
+new file mode 100644
+index 0000000..2299c37
+--- /dev/null
++++ b/side.txt
+@@ -0,0 +1 @@
++side
+
+commit 21d211e8340e20ae151c9bf851f284516803a5d0
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    make script executable
+
+diff --git a/script.sh b/script.sh
+old mode 100644
+new mode 100755
+
+commit 36b0dffe88798e99abd2361fc4d7f857ea2de5d6
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    rename notes
+
+diff --git a/notes.txt b/docs.txt
+similarity index 100%
+rename from notes.txt
+rename to docs.txt
+
+commit 48d1918398b79f81fed63101490033d5bd3bff74
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    change main
+    
+    This body mentions diff --git and --- a/main.rs inside the message.
+
+diff --git a/main.rs b/main.rs
+index 0674140..0ae5e80 100644
+--- a/main.rs
++++ b/main.rs
+@@ -1,3 +1,3 @@
+ fn main() {
+-    println!("one");
++    println!("two");
+ }
+
+commit 629418fd562692cf6f12630c2ad496c947c35657
+Author: Fixture <fixture@example.com>
+Date:   Thu Jan 1 00:00:00 2026 +0000
+
+    initial commit
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..c51a4d4
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,2 @@
++all:
++	echo hi
+diff --git a/empty.txt b/empty.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/main.rs b/main.rs
+new file mode 100644
+index 0000000..0674140
+--- /dev/null
++++ b/main.rs
+@@ -0,0 +1,3 @@
++fn main() {
++    println!("one");
++}
+diff --git a/notes.txt b/notes.txt
+new file mode 100644
+index 0000000..85c3040
+--- /dev/null
++++ b/notes.txt
+@@ -0,0 +1,3 @@
++alpha
++beta
++gamma
+diff --git a/script.sh b/script.sh
+new file mode 100644
+index 0000000..5bd7bd5
+--- /dev/null
++++ b/script.sh
+@@ -0,0 +1 @@
++echo run

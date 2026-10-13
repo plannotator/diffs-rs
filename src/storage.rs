@@ -494,9 +494,10 @@ pub(crate) fn read_with(
     let spool = writer.store();
     let mut index = StoreWriter::sharing(&spool)?;
     let input = io::BufReader::new(Spooling { input, writer });
-    let (mut unit_base, mut file_id, mut source_base, mut split_base, mut unified_base) =
-        (0u64, 0, 0, 0, 0);
-    crate::ingest::visit_files(input, |unit| {
+    let (mut file_id, mut source_base, mut split_base, mut unified_base) = (0, 0, 0, 0);
+    // Text between file patches, such as commit headers, is skipped. Each unit carries
+    // its own offset in the original stream, which the spool retains unchanged.
+    let total = crate::ingest::visit_files(input, |unit_base, unit| {
         check()?;
         let mut parsed = Parsed::parse_file(unit)?;
         for mut meta in std::mem::take(&mut parsed.files) {
@@ -533,13 +534,10 @@ pub(crate) fn read_with(
             file_id += 1;
             publish(file, identity)?;
         }
-        unit_base = unit_base
-            .checked_add(unit.len() as u64)
-            .context("Patch offset overflow")?;
         Ok(())
     })?;
     ensure!(
-        unit_base == spool.len(),
+        total == spool.len(),
         "Spool and parsed patch lengths disagree"
     );
     Ok(spool)

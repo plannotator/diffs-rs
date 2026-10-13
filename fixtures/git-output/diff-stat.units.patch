@@ -1,0 +1,36 @@
+diff --git a/Makefile b/Makefile
+index c51a4d4..494b482 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,2 +1,2 @@
+ all:
+-	echo hi
++	echo bye
+\ No newline at end of file
+diff --git a/blob.bin b/blob.bin
+new file mode 100644
+index 0000000..0f49c4a
+Binary files /dev/null and b/blob.bin differ
+diff --git a/notes.txt b/docs.txt
+similarity index 100%
+rename from notes.txt
+rename to docs.txt
+diff --git a/main.rs b/main.rs
+index 0674140..3b6e0be 100644
+--- a/main.rs
++++ b/main.rs
+@@ -1,3 +1,3 @@
+ fn main() {
+-    println!("one");
++    println!("three");
+ }
+diff --git a/script.sh b/script.sh
+old mode 100644
+new mode 100755
+diff --git a/side.txt b/side.txt
+new file mode 100644
+index 0000000..2299c37
+--- /dev/null
++++ b/side.txt
+@@ -0,0 +1 @@
++side

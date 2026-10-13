@@ -86,7 +86,7 @@ impl Document {
 
     pub fn read(input: impl BufRead) -> Result<Self> {
         let mut doc = Self::default();
-        crate::ingest::visit_files(input, |unit| {
+        crate::ingest::visit_files(input, |_, unit| {
             let mut part = Self::parse_file(unit)?;
             let base = doc.lines.len();
             for file in &mut part.files {

@@ -28,6 +28,9 @@ mod horizontal_contract;
 #[path = "process/git_paths_contract.rs"]
 mod git_paths_contract;
 
+#[path = "process/git_output_contract.rs"]
+mod git_output_contract;
+
 #[path = "process/syntax_contract.rs"]
 mod syntax_contract;
 

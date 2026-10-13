@@ -209,8 +209,8 @@ impl Replay {
             wanted.iter().filter_map(|(_, info)| info.new).min(),
             job,
         )?;
-        let same_syntax = known_syntax(&file.old_path, job.syntaxes)
-            .zip(known_syntax(&file.path, job.syntaxes))
+        let same_syntax = syntax_for_path(&file.old_path, job.syntaxes)
+            .zip(syntax_for_path(&file.path, job.syntaxes))
             .is_some_and(|(old, new)| std::ptr::eq(old, new));
         for (id, info) in wanted {
             job.current()?;
@@ -262,14 +262,6 @@ struct Reader<'a> {
     source: &'a Snapshot,
     input: BufReader<StoreReader>,
     bytes: Vec<u8>,
-}
-
-fn known_syntax<'s>(path: &str, syntaxes: &'s SyntaxSet) -> Option<&'s SyntaxReference> {
-    let ext = Path::new(path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    syntaxes.find_syntax_by_extension(ext)
 }
 
 fn advance_pair(
@@ -381,7 +373,7 @@ impl<'a> Reader<'a> {
         }
         let state = slot.get_or_insert_with(|| {
             let path = if old { &file.old_path } else { &file.path };
-            let known = known_syntax(path, job.syntaxes);
+            let known = syntax_for_path(path, job.syntaxes);
             let syntax = known.unwrap_or_else(|| job.syntaxes.find_syntax_plain_text());
             let mut side = Side::new(syntax, job.highlighter);
             if known.is_none() {

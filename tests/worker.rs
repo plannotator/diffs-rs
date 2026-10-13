@@ -254,3 +254,39 @@ fn full_reply_queue_resumes_replaces_and_releases_real_worker_sources() {
         );
     }
 }
+
+#[test]
+fn patch_only_coloring_selects_grammars_by_file_name() {
+    let colors = |path: &str, line: &str| {
+        let patch = format!(
+            "diff --git a/{path} b/{path}\nnew file mode 100644\n--- /dev/null\n+++ b/{path}\n@@ -0,0 +1 @@\n+{line}\n"
+        );
+        let mut files = Vec::new();
+        storage::read(patch.as_bytes(), |file| {
+            files.push(file);
+            Ok(())
+        })
+        .unwrap();
+        let (wake, notified) = mpsc::sync_channel(4);
+        let worker = highlight::start(wake);
+        worker.request(Request {
+            epoch: 0,
+            appearance: Appearance::Dark,
+            ids: vec![0],
+            files: vec![files.pop().unwrap().into()],
+        });
+        notified.recv_timeout(Duration::from_secs(5)).unwrap();
+        let reply = worker.try_reply().unwrap().unwrap();
+        let mut colors: Vec<_> = reply.style.tokens.iter().map(|t| t.color).collect();
+        colors.dedup();
+        colors.len()
+    };
+    let line = "FROM alpine:3.20 AS build";
+    // Without a grammar the line has one plain color; the file name selects the Dockerfile grammar.
+    assert_eq!(colors("notes", line), 1);
+    assert!(colors("Dockerfile", line) > 1);
+    assert!(colors("deploy/Dockerfile", line) > 1);
+    let line = "build: deps ## compile";
+    assert_eq!(colors("notes", line), 1);
+    assert!(colors("Makefile", line) > 1);
+}

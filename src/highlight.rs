@@ -25,6 +25,34 @@ use crate::{
     view::LineId,
 };
 
+/// Selects a bundled grammar for a patch path without reading file contents.
+///
+/// Patch-only and checked-source coloring share this choice. Whole file names that a grammar
+/// lists, such as `Makefile`, `Dockerfile`, `Cargo.lock`, and `.bashrc`, take precedence over
+/// extensions, in the same order as Syntect's `find_syntax_for_file`. Unlike Syntect, the
+/// whole-name match is case-sensitive, so a Bazel `BUILD` file does not select the grammar
+/// for `.build` files. Extensions still ignore ASCII case.
+pub(crate) fn syntax_for_path<'s>(
+    path: &str,
+    syntaxes: &'s SyntaxSet,
+) -> Option<&'s SyntaxReference> {
+    let path = Path::new(path);
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    let by_name = (!name.is_empty())
+        .then(|| {
+            syntaxes
+                .syntaxes()
+                .iter()
+                .rev()
+                .find(|syntax| syntax.file_extensions.iter().any(|known| known == name))
+        })
+        .flatten();
+    by_name.or_else(|| {
+        let extension = path.extension().and_then(|s| s.to_str())?;
+        syntaxes.find_syntax_by_extension(extension)
+    })
+}
+
 mod checkpoint;
 use checkpoint::Checkpoints;
 mod full_source;
@@ -505,12 +533,7 @@ pub fn start(wake: mpsc::SyncSender<()>) -> Worker {
                 let patch_ids: Vec<_> = selected.iter().filter_map(|id| id.patch()).collect();
                 let mut wanted = patch_ids.as_slice();
                 full = full_source::Replay::default();
-                let ext = Path::new(file.path.as_ref())
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("");
-                let syntax = syntaxes
-                    .find_syntax_by_extension(ext)
+                let syntax = syntax_for_path(file.path.as_ref(), &syntaxes)
                     .unwrap_or_else(|| syntaxes.find_syntax_plain_text());
                 while let Some(&first) = wanted.first() {
                     let hunk_index = file.hunks.partition_point(|h| h.lines.end <= first);
@@ -854,3 +877,7 @@ impl Cache {
 #[cfg(test)]
 #[path = "highlight/cache_tests.rs"]
 mod cache_tests;
+
+#[cfg(test)]
+#[path = "highlight/syntax_tests.rs"]
+mod syntax_tests;

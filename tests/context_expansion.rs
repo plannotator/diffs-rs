@@ -473,3 +473,45 @@ fn many_file_readiness_expansion_and_later_publication_keep_original_destination
         }
     }
 }
+
+#[test]
+fn footer_source_status_describes_the_cursor_file() {
+    let mut patch = String::new();
+    for name in ["first", "second"] {
+        patch.push_str(&format!(
+            "diff --git a/{name}.rs b/{name}.rs\n--- a/{name}.rs\n+++ b/{name}.rs\n@@ -1 +1 @@\n-old {name}\n+new {name}\n"
+        ));
+    }
+    let mut doc = storage::Document::default();
+    storage::read(patch.as_bytes(), |file| doc.append(file)).unwrap();
+    let (wake, _) = mpsc::sync_channel(1);
+    let mut app = App::new(doc, "status".into(), Layout::Split, Appearance::Dark, wake).unwrap();
+    app.loading = false;
+    app.set_sidebar_preference(SidebarPreference::Hide);
+    app.sources = Some(vec![
+        SourceState::Metadata,
+        SourceState::Unavailable("second source missing".into()),
+    ]);
+    let footer = |text: &str| text.chars().skip(160 * 49).collect::<String>();
+
+    // Both files are visible; the cursor's file decides the status.
+    let text = draw(&mut app);
+    assert!(text.contains("new first") && text.contains("new second"));
+    assert_eq!(app.row(app.cursor.row).unwrap().file, 0);
+    let status = footer(&text);
+    assert!(status.contains("Metadata only"), "{status}");
+    assert!(!status.contains("Source unavailable"), "{status}");
+
+    app.jump_section(true, true);
+    let text = draw(&mut app);
+    assert_eq!(app.row(app.cursor.row).unwrap().file, 1);
+    assert!(
+        footer(&text).contains("Source unavailable: second source missing"),
+        "{}",
+        footer(&text)
+    );
+
+    app.jump_section(false, true);
+    let text = draw(&mut app);
+    assert!(footer(&text).contains("Metadata only"), "{}", footer(&text));
+}

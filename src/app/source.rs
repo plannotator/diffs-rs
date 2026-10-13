@@ -221,29 +221,33 @@ impl App {
         Ok(true)
     }
 
+    /// Describes the source of the cursor's file. Other files visible on the same screen keep
+    /// their own state, which the footer reports once the cursor reaches them.
     pub(crate) fn source_status(&self) -> Option<SourceStatus> {
         let sources = self.sources.as_ref()?;
-        let mut preparing = false;
-        let mut checked = false;
+        let cursor = self.row(self.cursor.row);
+        let file = cursor.map(|row| row.file);
+        let (mut preparing, mut checked) = (false, false);
+        match file.and_then(|file| sources.get(file)) {
+            Some(SourceState::Unavailable(reason)) => {
+                return Some(SourceStatus {
+                    text: format!("Source unavailable: {reason} · patch view retained"),
+                    attention: true,
+                });
+            }
+            Some(SourceState::Pending) => preparing = true,
+            Some(SourceState::Checked(_)) => checked = true,
+            _ => {}
+        }
         let mut pending = false;
         let mut fallback = None;
         for row in self
             .visible
             .iter()
             .filter_map(|(position, _)| self.row(position.row))
-            .chain(self.row(self.cursor.row))
+            .filter(|row| Some(row.file) == file)
+            .chain(cursor)
         {
-            match sources.get(row.file) {
-                Some(SourceState::Unavailable(reason)) => {
-                    return Some(SourceStatus {
-                        text: format!("Source unavailable: {reason} · patch view retained"),
-                        attention: true,
-                    });
-                }
-                Some(SourceState::Pending) => preparing = true,
-                Some(SourceState::Checked(_)) => checked = true,
-                _ => {}
-            }
             if let RowKind::Code { left, right } = row.kind {
                 for id in left.into_iter().chain(right) {
                     pending |= self.cache.get(id).is_none();

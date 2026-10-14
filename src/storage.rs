@@ -16,6 +16,7 @@ mod metadata;
 pub use metadata::{FileMetadata, HunkMetadata};
 
 mod bytes;
+pub(crate) use bytes::private_tempfile;
 pub use bytes::{ByteStore, SourceRef, StoreReader, StoreWriter};
 mod reader;
 pub(crate) use reader::ReadWindow;

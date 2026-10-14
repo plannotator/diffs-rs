@@ -99,7 +99,7 @@ impl Git {
         cancel: &Cancellation,
     ) -> Result<File> {
         cancel.check()?;
-        let mut output = tempfile::tempfile()?;
+        let mut output = crate::storage::private_tempfile()?;
         let mut cmd = self.command();
         cmd.args(args)
             .stdin(input.map(Stdio::from).unwrap_or_else(Stdio::null))
@@ -183,7 +183,7 @@ impl Git {
     }
 
     pub fn objects(&self, ids: &[git2::Oid], cancel: &Cancellation) -> Result<File> {
-        let mut requests = tempfile::tempfile()?;
+        let mut requests = crate::storage::private_tempfile()?;
         for id in ids {
             writeln!(requests, "{id}")?;
         }

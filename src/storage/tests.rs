@@ -210,3 +210,12 @@ fn range_read_skips_opposite_side_payload_without_losing_source_order() {
     assert_eq!(output, b"old 1\nold 2\n");
     assert_eq!(doc.files[0].spool.cached_bytes(), 0);
 }
+
+#[test]
+fn private_temporary_files_are_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    // Linux creates unnamed files with the umask-derived mode unless it is set explicitly.
+    let file = private_tempfile().unwrap();
+    let metadata = file.metadata().unwrap();
+    assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+}

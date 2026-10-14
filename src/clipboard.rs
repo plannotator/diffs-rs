@@ -151,7 +151,11 @@ impl Prepared {
     pub fn prepare(source: Arc<SourceRead>, cancel: &impl Fn() -> Result<()>) -> Result<Self> {
         cancel()?;
         source.check()?;
+        // Linux `O_TMPFILE` files take the umask-derived mode, so restrict it explicitly.
         let mut input = tempfile::tempfile().context("Cannot create private clipboard input")?;
+        input
+            .set_permissions(std::os::unix::fs::PermissionsExt::from_mode(0o600))
+            .context("Cannot restrict private clipboard input")?;
         let bytes = {
             let mut output = Limited {
                 output: BufWriter::with_capacity(64 * 1024, &mut input),

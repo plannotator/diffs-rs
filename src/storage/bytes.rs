@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::File,
     io::{self, Read, Write},
-    os::unix::fs::FileExt,
+    os::unix::fs::{FileExt, PermissionsExt},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -14,6 +14,17 @@ use anyhow::{Context, Result, ensure};
 const PAGE: usize = 64 * 1024;
 const SOURCE_CACHE: usize = 32 * 1024 * 1024;
 static NEXT_STORE: AtomicU64 = AtomicU64::new(1);
+
+/// Creates an unnamed temporary file readable and writable only by its owner.
+///
+/// On Linux, `tempfile()` uses `O_TMPFILE`, which applies the process umask to mode 0666
+/// (usually 0644) because the file has no name. Setting the mode keeps private data
+/// owner-only on every platform, including through `/proc/<pid>/fd`.
+pub(crate) fn private_tempfile() -> std::io::Result<File> {
+    let file = tempfile::tempfile()?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    Ok(file)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct StoreId(u64);
@@ -68,7 +79,7 @@ impl StoreWriter {
     }
 
     fn with_pages(pages: Arc<Mutex<Pages>>) -> Result<Self> {
-        let file = tempfile::tempfile().context("Cannot create the private source store")?;
+        let file = private_tempfile().context("Cannot create the private source store")?;
         Self::with_file(file, pages)
     }
 

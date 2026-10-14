@@ -83,7 +83,11 @@ fn embedded_host_repeats_files_and_pinned_git_with_expansion_and_reflow() {
     session.keys(b"uwt");
     session.wait(|s| s.contents().contains("UNIFIED") && s.contents().contains("light"));
     for cycle in 0..2 {
-        session.keys(b"r\t");
+        // The host handles one event per loop and draws in between, and the input thread
+        // queues one event at a time. Tab must precede `r`, so the new review's readiness
+        // also proves the focus change was handled. With `r` first, a fast load can draw a
+        // ready frame before Tab arrives.
+        session.keys(b"\tr");
         let value = if cycle == 0 { 444 } else { 999 };
         ready(&mut session, &format!("file_044 = {value}"));
         let text = session.parser.screen().contents();

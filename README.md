@@ -346,7 +346,7 @@ Theme assets retain their Apache-2.0 license and attribution in [NOTICE.md](NOTI
 
 ## Run the process checks
 
-The tests require Rust, Git, Python 3.11 or later, `shasum`, and a Unix PTY.
+The tests require Rust, Git 2.50 or later, Python 3.11 or later, `shasum`, and a Unix PTY.
 They run the actual executable with real files, pipes, keys, and signals.
 They do not launch a GUI terminal or capture the screen.
 

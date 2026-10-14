@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The viewer is Unix-only: it needs a PTY, /dev/tty, and Unix signals.
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Configure Git for test repositories
+        run: |
+          git config --global user.name "native-diff CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Clippy, all features
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - name: Tests
+        run: cargo test --release --locked -- --test-threads=1
+      - name: Embedded host checks
+        run: |
+          cargo build --release --locked --example embedded_viewer
+          NATIVE_DIFF_HOST_BINARY="$PWD/target/release/examples/embedded_viewer" \
+            cargo test --release --locked --test process engine_host_contract -- --ignored --test-threads=1

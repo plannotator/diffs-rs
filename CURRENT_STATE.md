@@ -21,6 +21,7 @@ These correctness fixes landed after the 2026-10-03 checkpoint below:
 - The footer keeps its status readable at 100–160 columns by dropping optional view hints first. The header label no longer runs into the file count, condensed help keeps its indentation, and the small-terminal notice wraps.
 - The footer source status describes the cursor's file instead of any file visible on screen.
 - Host calls into the syntax worker recover a poisoned mailbox lock instead of panicking; a dead worker surfaces through the existing `Engine::poll` error.
+- Unnamed temporary files (patch spool, Git helper output, clipboard input) are created owner-only. On Linux they previously took the umask-derived mode, usually 0644. Linux CI found this.
 
 Canonical source output is byte-identical to the 2026-10-03 build for the five DiffsHub corpus patches and the repository fixtures.
 The performance and resource results below were measured on earlier executables and do not transfer to this build.

@@ -1,7 +1,29 @@
 # Native-diff: current project state
 
-Updated 2026-10-03. This page owns the current status and next steps.
+Updated 2026-10-13. This page owns the current status and next steps.
 Historical plans describe their original checkpoints, not additional active tasks.
+Dated plans and reports from finished experiments are in [docs/history](docs/history/README.md).
+
+## Standalone repository cleanup, 2026-10-13
+
+The project is now a standalone Git repository with continuous integration on Linux and macOS
+(formatting, Clippy with default and all features, the release test suite, and the embedded-host checks).
+Linux had not been exercised before; the CI result is the first evidence for it.
+These correctness fixes landed after the 2026-10-03 checkpoint below:
+
+- `patch` accepts `git show`, `git log -p`, `git format-patch` (including `-- ` signatures), and `--stat -p` output.
+  Commit headers, messages, diffstats, and mail text between file patches are skipped, and source offsets still address the original input.
+  Header-only rename, mode, binary, and empty-file patches followed by a commit header are delimited correctly.
+  Plain text without a `diff --git` header, traditional `diff -u` output, combined diffs, and incorrect hunk counts remain errors.
+  Fixtures in `fixtures/git-output/` come from a scripted real repository and are checked against `git diff-tree` output for the same commits.
+- Syntax coloring selects grammars by whole file name before extension in both patch-only and checked-source modes
+  (`Makefile`, `Dockerfile`, `Cargo.lock`, `Gemfile`, `.bashrc`, `CMakeLists.txt`, and similar). Whole-name matches are case-sensitive.
+- The footer keeps its status readable at 100–160 columns by dropping optional view hints first. The header label no longer runs into the file count, condensed help keeps its indentation, and the small-terminal notice wraps.
+- The footer source status describes the cursor's file instead of any file visible on screen.
+- Host calls into the syntax worker recover a poisoned mailbox lock instead of panicking; a dead worker surfaces through the existing `Engine::poll` error.
+
+Canonical source output is byte-identical to the 2026-10-03 build for the five DiffsHub corpus patches and the repository fixtures.
+The performance and resource results below were measured on earlier executables and do not transfer to this build.
 
 ## Current checkpoint
 

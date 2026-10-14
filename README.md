@@ -363,7 +363,7 @@ cargo test --release --locked --all-features --target-dir target/diagnostic-test
 ```
 
 This keeps the normal executable separate from instrumented builds.
-The standard process suite passes 74 checks and excludes ten opt-in checks. Six host checks run separately with an explicit host executable.
+The standard process suite passes 77 checks and excludes ten opt-in checks. Six host checks run separately with an explicit host executable.
 The other four checks require pinned corpus or preserved-reference inputs. The corpus endpoint check requires the five downloaded patches:
 
 ```sh

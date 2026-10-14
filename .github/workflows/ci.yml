@@ -27,8 +27,11 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # The qualified compiler. Newer stable releases add lints and deprecations
+      # (for example `fetch_update`) whose fixes would raise the minimum Rust version.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.96.0"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v5
@@ -52,3 +55,15 @@ jobs:
           cargo build --release --locked --example embedded_viewer
           NATIVE_DIFF_HOST_BINARY="$PWD/target/release/examples/embedded_viewer" \
             cargo test --release --locked --test process engine_host_contract -- --ignored --test-threads=1
+
+  msrv:
+    name: minimum Rust (1.88)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88.0"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --locked --all-targets

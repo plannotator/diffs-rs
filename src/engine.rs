@@ -4,6 +4,7 @@ mod reading;
 mod selection;
 
 use std::{
+    collections::VecDeque,
     fs::File,
     path::PathBuf,
     sync::{
@@ -312,18 +313,24 @@ impl Engine {
         self.app.as_mut().context("The review has no viewer state")
     }
 
-    /// Clear the host wake token before calling this. Each drain is bounded so input can run.
+    /// Clear the host wake token before calling this. Each drain is bounded so input can run:
+    /// the input worker queues a bounded number of files, and this takes all of them at once.
     pub fn poll(&mut self) -> Result<()> {
         if self.input.is_none() {
             return Ok(());
         }
         if (self.loading || self.full_sources) && self.error.is_none() {
-            for _ in 0..64 {
-                let Some(input) = &self.input else {
-                    break;
-                };
-                match input.try_reply() {
-                    Ok(Ok(input::Message::File(file))) => {
+            let replies = match self.input.as_ref().map(input::Worker::try_replies) {
+                Some(Ok(replies)) => replies,
+                Some(Err(mpsc::TryRecvError::Disconnected)) => {
+                    self.fail_input("The input worker stopped before completing its work.".into());
+                    VecDeque::new()
+                }
+                Some(Err(mpsc::TryRecvError::Empty)) | None => VecDeque::new(),
+            };
+            for reply in replies {
+                match reply {
+                    Ok(input::Message::File(file)) => {
                         let app = self.app()?;
                         let exposes_more = app
                             .visible
@@ -337,7 +344,7 @@ impl Engine {
                         self.dirty |= exposes_more;
                         self.progress = true;
                     }
-                    Ok(Ok(input::Message::Complete { files })) => {
+                    Ok(input::Message::Complete { files }) => {
                         crate::delivery_event!("indexed", 0, 0);
                         ensure!(
                             self.app()?.doc.files.len() == files,
@@ -345,9 +352,8 @@ impl Engine {
                         );
                         self.loading = false;
                         self.dirty = true;
-                        break;
                     }
-                    Ok(Ok(input::Message::Source { file, state })) => {
+                    Ok(input::Message::Source { file, state }) => {
                         self.source_failed |= matches!(state, SourceState::Unavailable(_));
                         self.app
                             .as_mut()
@@ -356,17 +362,10 @@ impl Engine {
                         self.request = true;
                         self.dirty = true;
                     }
-                    Ok(Err(error)) => {
+                    Err(error) => {
                         self.fail_input(format!("{error:#}"));
                         break;
                     }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        self.fail_input(
-                            "The input worker stopped before completing its work.".into(),
-                        );
-                        break;
-                    }
-                    Err(mpsc::TryRecvError::Empty) => break,
                 }
             }
         }

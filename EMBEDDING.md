@@ -29,6 +29,8 @@ The patches provide required syntax-engine behavior and the corrected local Git 
 Do not substitute registry or system versions to make dependency resolution succeed.
 Keep the host's generated lockfile and use `--locked` for subsequent builds.
 Diagnostic crate features are not required for embedding.
+The default `dev-tty` feature makes Crossterm read keyboard input from `/dev/tty`, which the standalone viewer needs when a patch arrives on stdin.
+Crossterm features are shared by the whole build, so a host that reads its own input should add `default-features = false` and enable `clipboard` only if it wants the native clipboard.
 
 ## Ownership
 

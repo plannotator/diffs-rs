@@ -83,15 +83,12 @@ fn header_label_keeps_a_gap_before_the_file_count() {
         let title = header.strip_suffix(&right).unwrap();
         assert!(title.ends_with("  "), "width {width}: {header:?}");
         assert!(title.trim_end().ends_with('…'), "width {width}: {header:?}");
-        assert!(title.starts_with(" native-d"), "width {width}: {header:?}");
+        assert!(title.starts_with(" diffs"), "width {width}: {header:?}");
     }
     // A short label stays complete.
     let mut app = review(&rename(1), "review.patch");
     let header = draw(&mut app, 80, 24, None).remove(0);
-    assert!(
-        header.starts_with(" native-diff  /  review.patch "),
-        "{header:?}"
-    );
+    assert!(header.starts_with(" diffs  /  review.patch "), "{header:?}");
     assert!(!header.contains('…'), "{header:?}");
 }
 

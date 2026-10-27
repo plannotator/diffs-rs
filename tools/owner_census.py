@@ -463,7 +463,7 @@ def controls(binary, ordinary, trace, out):
     startup = out / "startup"
     with process(binary, trace, startup) as (session, report):
         deadline = time.monotonic() + 120
-        while not session.frames.screen.display[0].lstrip().startswith("native-diff"):
+        while not session.frames.screen.display[0].lstrip().startswith(("diffs", "native-diff")):
             packet = session.read(.01)
             if packet:
                 list(session.frames.feed(packet[0]))

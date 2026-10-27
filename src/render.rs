@@ -204,7 +204,7 @@ pub(crate) fn draw_with_controls(
         app.horizontal = app.horizontal.min(horizontal_limit(app)?);
     }
     let layout = if app.split() { "SPLIT" } else { "UNIFIED" };
-    let title = format!(" native-diff  /  {}", app.label);
+    let title = format!(" diffs  /  {}", app.label);
     let right = format!(
         "{} files  ·  {layout}  ·  {} ",
         app.doc.files.len(),

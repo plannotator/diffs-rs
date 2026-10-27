@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use native_diff::view::LineId;
+use diffs_rs::view::LineId;
 
 #[test]
 fn source_identities_keep_full_ranges_and_distinct_coordinates() {

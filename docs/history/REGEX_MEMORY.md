@@ -14,7 +14,7 @@ The lifetime review traced source-derived regexes through the actual parser: eac
 
 All 16 native-diff runtime Rust and palette files match the pre-change archive. Source storage, projection, pairing, reading anchors, event delivery, and fallback thresholds are unchanged. The root lockfile changes only Syntect's source to the vendored package; it updates no other dependency.
 
-The [dependency patch note](../../vendor/syntect/NATIVE_DIFF_PATCH.md) records provenance, ownership, clone/serialization behavior, and test inputs. This adds a small local dependency-maintenance obligation; it is not an upstream release.
+The [dependency patch note](../../crates/diffs-syntect/PATCHES.md) records provenance, ownership, clone/serialization behavior, and test inputs. This adds a small local dependency-maintenance obligation; it is not an upstream release.
 
 ## Correctness evidence
 

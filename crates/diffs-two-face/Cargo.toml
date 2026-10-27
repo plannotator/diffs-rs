@@ -1,0 +1,89 @@
+[package]
+name = "diffs-two-face"
+# Fork version, independent of upstream. The upstream base is two-face
+# 0.5.2+bat-0.26.1; see README.md.
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Fork of two-face 0.5.2 (bat 0.26.1 syntaxes and themes) maintained only for diffs-rs: built against diffs-syntect so its types match, with the acknowledgement URL pinned to the upstream release. Use upstream two-face (https://codeberg.org/CosmicHarper/two-face) instead."
+readme = "README.md"
+repository = "https://github.com/plannotator/diffs-rs"
+homepage = "https://github.com/plannotator/diffs-rs/tree/main/crates/diffs-two-face"
+keywords = ["syntect", "syntaxes", "themes"]
+categories = ["parser-implementations", "text-processing"]
+# Upstream declares 1.79.0; this fork is only built and tested with diffs-rs.
+rust-version = "1.88"
+include = [
+    "/src/**/*.rs",
+    "/generated/acknowledgements_full.bin",
+    "/generated/syntaxes-fancy-newlines.bin",
+    "/generated/syntaxes-fancy-no-newlines.bin",
+    "/generated/syntaxes-onig-newlines.bin",
+    "/generated/syntaxes-onig-no-newlines.bin",
+    "/generated/themes.bin",
+    "/Cargo.toml",
+    "/README.md",
+    "/UPSTREAM_README.md",
+    "/CHANGELOG.md",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
+]
+# Not published yet. RELEASE_READINESS.md in diffs-rs gives the publish order.
+publish = false
+
+[package.metadata.diffs-rs.upstream]
+crate = "two-face"
+version = "0.5.2+bat-0.26.1"
+repository = "https://codeberg.org/CosmicHarper/two-face"
+revision = "67b64e632ceefe70e5f20f3eb797d9e33560a11c"
+crate-sha256 = "915be7adc2ff6f4338acbf71f3eda0a146f46003b992a1669c674308610efdac"
+
+[package.metadata.docs.rs]
+features = ["syntect-default-fancy"]
+
+# The library keeps its upstream name; dependents rename the package:
+# `two-face = { package = "diffs-two-face", ... }`.
+[lib]
+name = "two_face"
+
+[features]
+# `syntect` can't compile without a regex implementation, so we match its
+# default of onig
+default = ["syntect-onig"]
+
+# A minimal set of `syntect` features with the onig regex implementation
+syntect-onig = ["syntect/regex-onig"]
+# A minimal set of `syntect` features with the fancy regex implementation
+syntect-fancy = ["syntect/regex-fancy"]
+
+# Toggles on `syntect`'s `default-onig` feature
+syntect-default-onig = ["syntect-onig", "syntect/default-onig"]
+# Toggles on `syntect`'s `default-fancy` feature
+syntect-default-fancy = ["syntect-fancy", "syntect/default-fancy"]
+
+[dependencies]
+serde = "1.0.228"
+serde_derive = "1.0.228"
+
+# The patched fork; the dependency keeps the `syntect` name, so `syntect::` paths
+# and the `syntect/...` features above resolve to it.
+[dependencies.syntect]
+package = "diffs-syntect"
+version = "0.1.0"
+path = "../diffs-syntect"
+default-features = false
+features = ["dump-load", "parsing"]
+
+# Upstream's other dev-dependencies serve its xtask, fuzz and snapshot tests,
+# which are not part of this fork.
+[dev-dependencies]
+strum = { version = "0.28.0", features = ["derive"] }
+
+# Upstream code keeps upstream's lint state. diffs-rs CI runs clippy with
+# `-D warnings`, which would otherwise apply to this workspace member too.
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ["cfg(fuzzing)"]
+
+[lints.clippy]
+all = { level = "allow", priority = -1 }

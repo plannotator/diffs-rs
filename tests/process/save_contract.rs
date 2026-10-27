@@ -16,7 +16,7 @@ fn no_staging(dir: &std::path::Path) {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".native-diff-save-")
+            .starts_with(".diffs-save-")
     }));
 }
 

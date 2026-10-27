@@ -1,5 +1,5 @@
 use super::*;
-use native_diff::{
+use diffs_rs::{
     engine::{Engine, Input, Options, Side},
     reading::SourceRange,
 };
@@ -50,7 +50,7 @@ fn staging(parent: &std::path::Path) -> Vec<PathBuf> {
             path.file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with(".native-diff-save-")
+                .starts_with(".diffs-save-")
         })
         .collect()
 }

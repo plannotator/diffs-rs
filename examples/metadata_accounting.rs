@@ -1,7 +1,7 @@
 use std::{fs::File, sync::Arc};
 
 use anyhow::{Context, Result, ensure};
-use native_diff::storage;
+use diffs_rs::storage;
 use serde::Serialize;
 use serde_json::json;
 

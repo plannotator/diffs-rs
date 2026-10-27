@@ -1,4 +1,4 @@
-use native_diff::highlight::{ChangeSide, changed_spans};
+use diffs_rs::highlight::{ChangeSide, changed_spans};
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 

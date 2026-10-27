@@ -6,7 +6,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=LIBGIT2_NO_VENDOR");
     if std::env::var_os("LIBGIT2_NO_VENDOR").is_some_and(|value| value != "0") {
         panic!(
-            "native-diff requires the libgit2 source vendored by libgit2-sys. \
+            "diffs-rs requires the libgit2 source vendored by libgit2-sys. \
              Unset LIBGIT2_NO_VENDOR or set it to 0."
         );
     }

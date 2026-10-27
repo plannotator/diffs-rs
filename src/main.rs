@@ -22,7 +22,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use native_diff::{
+use diffs_rs::{
     app::{Layout, SidebarPreference},
     engine::{Engine, Input, Options},
     input::{self, LocalInput, SourceState},
@@ -43,6 +43,7 @@ use terminal_input::TerminalInput;
 
 #[derive(Parser)]
 #[command(
+    name = "diffs",
     version,
     about = "Read-only native terminal diff viewer · visual prototype"
 )]
@@ -205,7 +206,7 @@ fn run(cli: Cli) -> Result<i32> {
         SidebarPreference::Auto
     };
     #[cfg(feature = "delivery-trace")]
-    let _trace = native_diff::delivery_trace::init()?;
+    let _trace = diffs_rs::delivery_trace::init()?;
     let (local, check) = match &cli.command {
         Command::Files { old, new, check } => (
             Some(LocalInput::Files {
@@ -291,7 +292,7 @@ fn run(cli: Cli) -> Result<i32> {
     }
     File::open("/dev/tty").context("No controlling terminal is available for keyboard input")?;
     #[cfg(feature = "owner-census")]
-    let mut owner_census = native_diff::owner_census::Capture::from_env()?;
+    let mut owner_census = diffs_rs::owner_census::Capture::from_env()?;
     let (wake, ready) = mpsc::sync_channel(1);
     let events = TerminalInput::start(wake.clone())?;
     terminal::enable_raw_mode()?;
@@ -371,7 +372,7 @@ fn run(cli: Cli) -> Result<i32> {
                         bail!("The terminal input worker stopped")
                     }
                     Err(mpsc::TryRecvError::Empty) => {
-                        native_diff::delivery_event!("wait_ready", 0, 0);
+                        diffs_rs::delivery_event!("wait_ready", 0, 0);
                         let _ = ready.recv_timeout(Duration::from_millis(100));
                         match guard.events.try_event() {
                             Ok(event) => event?,
@@ -382,7 +383,7 @@ fn run(cli: Cli) -> Result<i32> {
                         }
                     }
                 };
-                native_diff::delivery_event!("input", 0, 0);
+                diffs_rs::delivery_event!("input", 0, 0);
                 if let Event::Key(key) = event {
                     if key.kind == KeyEventKind::Release {
                         continue;
@@ -423,10 +424,7 @@ fn main() {
     let code = match run(Cli::parse()) {
         Ok(code) => code,
         Err(error) => {
-            eprintln!(
-                "native-diff: {}",
-                safe_text(format!("{error:#}").as_bytes())
-            );
+            eprintln!("diffs: {}", safe_text(format!("{error:#}").as_bytes()));
             1
         }
     };

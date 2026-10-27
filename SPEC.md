@@ -230,10 +230,10 @@ It is not an implementation-status claim. `CURRENT_STATE.md` identifies the curr
 The proposed commands are not installed commands yet:
 
 ```text
-native-diff patch change.patch
-git diff --no-ext-diff --no-textconv --no-color | native-diff patch -
-native-diff files OLD NEW
-native-diff git --repo PATH --base REV --head REV
+diffs patch change.patch
+git diff --no-ext-diff --no-textconv --no-color | diffs patch -
+diffs files OLD NEW
+diffs git --repo PATH --base REV --head REV
 ```
 
 The initial Git command compares two explicit commit revisions. It does not change the index or working tree.

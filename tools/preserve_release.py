@@ -22,7 +22,7 @@ def sources():
     paths = [ROOT / name for name in ("Cargo.toml", "Cargo.lock")]
     paths.extend(ROOT / name for name in ("build.rs", "rust-toolchain", "rust-toolchain.toml")
                  if (ROOT / name).is_file())
-    for directory in ("src", "vendor", "assets"):
+    for directory in ("src", "crates", "assets"):
         paths.extend(path for path in (ROOT / directory).rglob("*")
                      if path.is_file() and not {"target", ".git"}.intersection(path.relative_to(ROOT).parts))
     return {str(path.relative_to(ROOT)): digest(path) for path in sorted(paths)}
@@ -43,7 +43,7 @@ def main():
     if target.exists():
         raise ValueError("Use a new target directory, separate from tests and previous builds")
     output.mkdir(parents=True, exist_ok=False)
-    recipe = ["cargo", "build", "--release", "--locked", "--offline", "--bin", "native-diff",
+    recipe = ["cargo", "build", "--release", "--locked", "--offline", "--bin", "diffs",
               "--target-dir", str(target)]
     feature_args = ["--features", args.features] if args.features else []
     recipe += feature_args
@@ -80,8 +80,8 @@ def main():
             raise ValueError("Build source or compiler changed during preservation")
         if {str(path): digest(path) for path in config_paths if path.is_file()} != report["cargo_config_hashes"]:
             raise ValueError("Cargo configuration changed during preservation")
-        binary = output / "native-diff"
-        with (target / "release/native-diff").open("rb") as source, binary.open("xb") as destination:
+        binary = output / "diffs"
+        with (target / "release/diffs").open("rb") as source, binary.open("xb") as destination:
             shutil.copyfileobj(source, destination)
         binary.chmod(0o555)
         report["binary_sha256"] = digest(binary)

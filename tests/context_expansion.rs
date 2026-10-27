@@ -5,7 +5,7 @@ use std::{
 };
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use native_diff::{
+use diffs_rs::{
     app::{App, Layout, Position, SidebarPreference},
     input::{Cancellation, LocalInput, Review, SourceState},
     model::RowKind,
@@ -374,7 +374,7 @@ fn source_readiness_and_failure_preserve_patch_identity_and_reject_stale_context
 
 #[test]
 fn many_file_readiness_expansion_and_later_publication_keep_original_destinations() {
-    use native_diff::source::{SourceStore, check_pair};
+    use diffs_rs::source::{SourceStore, check_pair};
     let old = (1..=61)
         .map(|n| format!("return {n};\n"))
         .collect::<String>();

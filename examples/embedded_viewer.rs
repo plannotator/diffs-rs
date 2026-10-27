@@ -16,8 +16,8 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use native_diff::engine::{Engine, Input, Layout, Options, SidebarPreference};
-use native_diff::input::LocalInput;
+use diffs_rs::engine::{Engine, Input, Layout, Options, SidebarPreference};
+use diffs_rs::input::LocalInput;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -302,7 +302,7 @@ fn main() {
     if let Err(error) = run() {
         eprintln!(
             "embedded_viewer: {}",
-            native_diff::text::safe_text(format!("{error:#}").as_bytes())
+            diffs_rs::text::safe_text(format!("{error:#}").as_bytes())
         );
         std::process::exit(1);
     }

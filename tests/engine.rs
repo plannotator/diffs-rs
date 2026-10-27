@@ -7,7 +7,7 @@ use std::{
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use native_diff::engine::{
+use diffs_rs::engine::{
     Command, Engine, Input, InputEffect, Layout, Options, Side, SidebarPreference,
 };
 use ratatui::{
@@ -268,7 +268,7 @@ fn replace_after_failure_and_close_uses_fresh_identity_and_source() {
 
 #[test]
 fn checked_context_and_sidebar_keep_original_coordinates_inside_a_host_pane() {
-    use native_diff::input::LocalInput;
+    use diffs_rs::input::LocalInput;
     let mut host = Host::new();
     host.settle();
     let old = host.directory.path().join("before.rs");

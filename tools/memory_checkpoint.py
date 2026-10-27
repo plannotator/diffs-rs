@@ -15,7 +15,7 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--reuse-captures", type=Path)
-    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/native-diff")
+    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/diffs")
     parser.add_argument("--reference", type=Path, default=ROOT / "target/release/examples/sequential_style_reference")
     args = parser.parse_args()
     out = args.output.resolve()

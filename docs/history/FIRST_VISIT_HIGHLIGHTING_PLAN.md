@@ -52,10 +52,10 @@ It excludes unrelated indexing and renderer optimization.
 | `src/highlight.rs`: `Side::advance` | The timer surrounds `ParseState::parse_line`. Old and new sides advance separately. | The timer includes initialization encountered during parsing, but excludes initial `Side::new` work. |
 | `src/highlight.rs`: `start` | One worker resumes a compatible continuation or restores a checkpoint before replay. | A first unseen prefix still needs its supplied syntax context. |
 | `src/highlight/checkpoint.rs`: `SavedSide`, `set_epoch` | Saved data contains parser state, scope state, and validity. Identity also includes theme and epoch. | Theme-independent state reuse is a separate possible change. |
-| `vendor/syntect/src/parsing/syntax_set.rs`: `SyntaxReference::lazy_contexts` | A `OnceCell` initializer deserializes contexts and shares exact patterns. | Measure actual initialization, including work before the first parser call. |
-| `vendor/syntect/src/parsing/regex.rs`: `Regex::regex` | A `OnceCell` initializer prepares an outer regex. | Measure initialization inside the closure, not every cache access. |
-| `vendor/syntect/src/parsing/syntax_definition.rs`: `MatchPattern::regex_with_refs` | Captured delimiters construct source-dependent regexes. | Initialization can repeat. It is not always a one-time grammar cost. |
-| `vendor/fancy-regex/src/engine_cache.rs`: `EngineCache::compile` | An outer regex can reuse a compiled inner engine. | An outer initialization count is not a count of new inner engines. |
+| `crates/diffs-syntect/src/parsing/syntax_set.rs`: `SyntaxReference::lazy_contexts` | A `OnceCell` initializer deserializes contexts and shares exact patterns. | Measure actual initialization, including work before the first parser call. |
+| `crates/diffs-syntect/src/parsing/regex.rs`: `Regex::regex` | A `OnceCell` initializer prepares an outer regex. | Measure initialization inside the closure, not every cache access. |
+| `crates/diffs-syntect/src/parsing/syntax_definition.rs`: `MatchPattern::regex_with_refs` | Captured delimiters construct source-dependent regexes. | Initialization can repeat. It is not always a one-time grammar cost. |
+| `crates/diffs-fancy-regex/src/engine_cache.rs`: `EngineCache::compile` | An outer regex can reuse a compiled inner engine. | An outer initialization count is not a count of new inner engines. |
 | `src/highlight.rs`: `Mailbox::publish` | A bounded reply queue wakes the UI and waits for capacity. | Publication time includes downstream pressure. Observer delays need separate treatment. |
 
 ## Step 1: add only the missing attribution

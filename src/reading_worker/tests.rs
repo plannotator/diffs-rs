@@ -1,5 +1,5 @@
 use super::*;
-use native_diff::engine::{Engine, Input, Options, Side};
+use diffs_rs::engine::{Engine, Input, Options, Side};
 use std::{
     fs,
     sync::mpsc::Receiver,
@@ -219,7 +219,7 @@ fn completed_saves_are_private_and_discarded_by_cancel_supersession_and_close() 
         let mut worker = Worker::start(notify).unwrap();
         let read = Arc::new(
             engine
-                .source_read(native_diff::reading::SourceRange {
+                .source_read(diffs_rs::reading::SourceRange {
                     review: engine.review_id(),
                     file: 0,
                     side: Side::Old,
@@ -265,7 +265,7 @@ fn an_in_flight_save_can_be_canceled_and_followed_by_a_successful_save() {
     let mut worker = Worker::start(notify).unwrap();
     let read = Arc::new(
         engine
-            .source_read(native_diff::reading::SourceRange {
+            .source_read(diffs_rs::reading::SourceRange {
                 review: engine.review_id(),
                 file: 0,
                 side: Side::New,
@@ -314,7 +314,7 @@ fn accepted_copy_children_are_reaped_before_reuse_and_close() {
         let mut worker = Worker::start(notify).unwrap();
         let read = Arc::new(
             engine
-                .source_read(native_diff::reading::SourceRange {
+                .source_read(diffs_rs::reading::SourceRange {
                     review: engine.review_id(),
                     file: 0,
                     side: Side::Old,
@@ -366,7 +366,7 @@ fn accepted_copy_children_are_reaped_before_reuse_and_close() {
             Action::Supersede => {
                 let read = Arc::new(
                     engine
-                        .source_read(native_diff::reading::SourceRange {
+                        .source_read(diffs_rs::reading::SourceRange {
                             review: engine.review_id(),
                             file: 0,
                             side: Side::New,

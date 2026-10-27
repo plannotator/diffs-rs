@@ -1,0 +1,76 @@
+[package]
+name = "diffs-fancy-regex"
+# Fork version, independent of upstream. The upstream base is fancy-regex 0.16.2;
+# see README.md and PATCHES.md.
+version = "0.1.0"
+authors = ["Raph Levien <raph@google.com>", "Robin Stocker <robin@nibor.org>", "Keith Hall <keith.hall@available.systems>"]
+edition = "2018"
+license = "MIT"
+description = "Fork of fancy-regex 0.16.2 maintained only for diffs-rs: adds caller-owned search scratch, scoped engine sharing, and required-byte metadata. Use upstream fancy-regex (https://github.com/fancy-regex/fancy-regex) instead."
+readme = "README.md"
+repository = "https://github.com/plannotator/diffs-rs"
+homepage = "https://github.com/plannotator/diffs-rs/tree/main/crates/diffs-fancy-regex"
+categories = ["text-processing"]
+# Upstream declares 1.66; this fork is only built and tested with diffs-rs.
+rust-version = "1.88"
+include = [
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/README.md",
+    "/PATCHES.md",
+    "/UPSTREAM_README.md",
+    "/CHANGELOG.md",
+    "/AUTHORS",
+    "/LICENSE",
+]
+# Not published yet. RELEASE_READINESS.md in diffs-rs gives the publish order.
+publish = false
+
+[package.metadata.diffs-rs.upstream]
+crate = "fancy-regex"
+version = "0.16.2"
+repository = "https://github.com/fancy-regex/fancy-regex"
+revision = "68d300b2853cfb390a99020719114c22254878e5"
+crate-sha256 = "998b056554fbe42e03ae0e152895cd1a7e1002aec800fdc6635d20270260c46f"
+
+# The library keeps its upstream name, so `use fancy_regex::...` in the fork's own
+# tests, examples and doctests is unchanged. Dependents rename the package:
+# `fancy-regex = { package = "diffs-fancy-regex", ... }`.
+[lib]
+name = "fancy_regex"
+
+[features]
+shared-engines = ["std"]
+owner-census = []
+default = ["unicode", "perf", "std"]
+# Enable #[track_caller] in unit tests.
+track_caller = []
+perf = ["regex-automata/perf"]
+unicode = ["regex-automata/unicode", "regex-syntax/unicode"]
+std = ["regex-automata/std", "regex-syntax/std", "bit-set/std"]
+
+[dependencies.regex-automata]
+version = "0.4"
+default-features = false
+features = ["alloc", "syntax", "meta", "nfa", "dfa", "hybrid"]
+
+[dependencies.regex-syntax]
+version = "0.8"
+default-features = false
+
+[dependencies.bit-set]
+version = "0.8"
+default-features = false
+
+[dev-dependencies]
+matches = "0.1.10"
+quickcheck = "1.0"
+regex = "1.10"
+
+# Upstream code keeps upstream's lint state. diffs-rs CI runs clippy with
+# `-D warnings`, which would otherwise apply to this workspace member too.
+[lints.rust]
+mismatched_lifetime_syntaxes = "allow"
+
+[lints.clippy]
+all = { level = "allow", priority = -1 }

@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use native_diff::{engine::ReviewId, reading::SourceRead};
+use diffs_rs::{engine::ReviewId, reading::SourceRead};
 
 const MAX_BYTES: u64 = 16 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -241,7 +241,7 @@ impl Delivery {
                     if !status.success() {
                         anyhow::bail!(
                             "Clipboard helper exited {status}: {}",
-                            native_diff::text::safe_label(&self.diagnostics.tail)
+                            diffs_rs::text::safe_label(&self.diagnostics.tail)
                         );
                     }
                     cancel()?;

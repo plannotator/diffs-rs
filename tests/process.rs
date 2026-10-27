@@ -12,7 +12,7 @@ use serde_json::Value;
 
 fn viewer_binary() -> std::path::PathBuf {
     std::env::var_os("NATIVE_DIFF_CONTRACT_BINARY")
-        .unwrap_or_else(|| env!("CARGO_BIN_EXE_native-diff").into())
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_diffs").into())
         .into()
 }
 
@@ -1213,7 +1213,7 @@ fn stdin_and_signals_use_the_controlling_terminal_and_restore_it() {
     command.args([
         "-c",
         "cat \"$1\" | \"$2\" --no-sidebar patch -",
-        "native-diff-test",
+        "diffs-test",
     ]);
     command.arg(&path);
     command.arg(viewer_binary());

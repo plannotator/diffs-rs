@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use native_diff::{
+use diffs_rs::{
     app::{App, Layout},
     highlight::{self, Request},
     model::RowKind,

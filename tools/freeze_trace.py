@@ -23,7 +23,7 @@ def chrome(grid, label, count):
     width = grid["width"]
     title = [" "] * width
     right = f"{count} files  ·  {'SPLIT' if grid['split'] else 'UNIFIED'}  ·  dark "
-    put(title, 0, f" native-diff  /  {label}", width - len(right))
+    put(title, 0, f" diffs  /  {label}", width - len(right))
     put(title, width - len(right), right, len(right))
     hint = " u layout  w wrap  t theme  ? help  q quit "
     footers = []

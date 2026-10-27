@@ -11,7 +11,6 @@ keywords = ["diff", "patch", "terminal", "tui", "ratatui"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
 # Publishing stays off until the forks in crates/ are published first and the
 # repository is public. See RELEASE_READINESS.md for the publish order.
-publish = false
 # Ship only what the library and binary need to build, plus the docs a reader
 # of the crate needs. Tests, fixtures, tools, reports and the forked crates in
 # crates/ (published separately) stay out of this package.

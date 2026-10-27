@@ -30,7 +30,6 @@ include = [
     "/LICENSE.txt",
 ]
 # Not published yet. RELEASE_READINESS.md in diffs-rs gives the publish order.
-publish = false
 
 [package.metadata.diffs-rs.upstream]
 crate = "syntect"

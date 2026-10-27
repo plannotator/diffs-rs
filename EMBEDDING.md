@@ -11,7 +11,7 @@ Native clipboard, physical-terminal acceptance, and the final package remain pen
 
 Use a path dependency on the source package. The host must use Ratatui 0.30.
 Cargo does not inherit dependency patches from a dependency's manifest.
-The consuming workspace root therefore needs all three patches:
+The consuming workspace root therefore needs both patches:
 
 ```toml
 [dependencies]
@@ -21,11 +21,11 @@ ratatui = { version = "0.30.2", default-features = false, features = ["crossterm
 [patch.crates-io]
 syntect = { path = "../native-diff/vendor/syntect" }
 fancy-regex = { path = "../native-diff/vendor/fancy-regex" }
-libgit2-sys = { path = "../native-diff/vendor/libgit2-sys" }
 ```
 
 Adjust these paths for the host's workspace. Retain the vendor directories and their notices.
-The patches provide required syntax-engine behavior and the corrected local Git parser.
+The patches provide required syntax-engine behavior.
+The Git patch parser is the stock `libgit2-sys` crate. The build fails if `LIBGIT2_NO_VENDOR` asks it to link a system libgit2.
 Do not substitute registry or system versions to make dependency resolution succeed.
 Keep the host's generated lockfile and use `--locked` for subsequent builds.
 Diagnostic crate features are not required for embedding.

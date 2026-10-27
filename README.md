@@ -34,9 +34,9 @@ The installation record (external record `native-diff-production-hardening/INSTA
 
 The qualified build environment is macOS arm64 with Rust 1.96.0, the separately checked Rust 1.88.0 minimum, and Xcode command-line build tools. Other platforms remain unqualified. For an isolated source installation, use `cargo install --path . --locked --root /absolute/path/to/an/isolated/prefix`; add `--offline` only after locked dependencies have been acquired. This does not add the prefix to PATH.
 
-The build uses the [locally corrected parser](vendor/libgit2-sys/NATIVE_DIFF_PATCH.md).
+The build compiles the libgit2 source bundled with the published `libgit2-sys` crate.
 If `LIBGIT2_NO_VENDOR` is set to a nonzero value, unset it before building.
-The build rejects an override that would select an unpatched system library.
+The build rejects an override that would select a system library.
 
 In an existing Ghostty window, open the sample patch:
 
@@ -291,6 +291,7 @@ One Cargo package contains one library and one executable. Ratatui draws the ter
 | --- | --- |
 | `ingest.rs` | Read file-patch units and check their hunk boundaries |
 | `model.rs` | Parse file-patch units through libgit2 and apply the existing line-pairing rule |
+| `model/rename_names.rs` | Quote rename and copy names that libgit2 would cut at whitespace, and map parser offsets back |
 | `storage.rs` | Publish compact patch indexes and stable source identities |
 | `source.rs` | Capture immutable source bodies, disk line indexes, and exact correspondence |
 | `input` | Bind local comparisons, supervise Git, and prepare visible source pairs |

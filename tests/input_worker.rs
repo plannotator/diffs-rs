@@ -52,17 +52,17 @@ fn start(repo: &std::path::Path) -> (Worker, mpsc::Receiver<()>) {
 }
 
 #[test]
-fn closing_a_full_patch_queue_releases_the_producer_but_keeps_published_source_valid() {
+fn closing_queued_patch_files_releases_the_producer_but_keeps_published_source_valid() {
     let repo = readiness::repository(false);
     let (worker, notified) = start(repo.path());
-    for _ in 0..2 {
+    // All twelve files and the completion are queued without the screen draining any.
+    for _ in 0..13 {
         notified.recv_timeout(Duration::from_secs(10)).unwrap();
     }
     let Message::File(file) = worker.try_reply().unwrap().unwrap() else {
         panic!("expected the first file");
     };
     assert_eq!(file.id, 0);
-    notified.recv_timeout(Duration::from_secs(10)).unwrap();
     assert_eq!(
         notified.recv_timeout(Duration::from_millis(20)),
         Err(mpsc::RecvTimeoutError::Timeout)
@@ -152,7 +152,7 @@ fn closing_patch_readers_releases_blocked_input_and_queues_before_a_new_review()
         unistd::pipe,
     };
     use std::{fs::File, io::Write, os::fd::AsRawFd};
-    for mode in ["idle", "partial", "full-queue"] {
+    for mode in ["idle", "partial", "queued"] {
         let (read_end, write_end) = pipe().unwrap();
         let observed = File::from(read_end);
         let original = fcntl(observed.as_raw_fd(), FcntlArg::F_GETFL).unwrap();
@@ -166,17 +166,21 @@ fn closing_patch_readers_releases_blocked_input_and_queues_before_a_new_review()
             assert!(Instant::now() < deadline, "patch reader did not start");
             thread::sleep(Duration::from_millis(1));
         }
-        let retained = if mode == "full-queue" {
+        let retained = if mode == "queued" {
             for n in 0..8 {
                 writeln!(producer, "diff --git a/{n}.txt b/{n}.txt\n--- a/{n}.txt\n+++ b/{n}.txt\n@@ -1 +1 @@\n-old\n+new").unwrap();
             }
-            for _ in 0..2 {
+            // The eighth file stays pending until its successor's header or EOF frames it.
+            for _ in 0..7 {
                 notified.recv_timeout(Duration::from_secs(5)).unwrap();
             }
             let Message::File(file) = worker.try_reply().unwrap().unwrap() else {
                 panic!("expected file");
             };
-            notified.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(matches!(
+                notified.recv_timeout(Duration::from_millis(20)),
+                Err(mpsc::RecvTimeoutError::Timeout)
+            ));
             Some(file)
         } else {
             if mode == "partial" {

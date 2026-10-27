@@ -78,7 +78,7 @@ The inventory records each changed and added file separately.
 | --- | --- | --- |
 | Syntect 5.3.0 | [Patch note](vendor/syntect/NATIVE_DIFF_PATCH.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte rejection, retained-heap APIs, and affected files. Keep the documented checks during updates. |
 | Fancy Regex 0.16.2 | [Patch note](vendor/fancy-regex/NATIVE_DIFF_PATCH.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte metadata, public error behavior, and affected files. Keep the documented checks during updates. |
-| libgit2-sys 0.18.8+1.9.7 | [Parser correction](vendor/libgit2-sys/NATIVE_DIFF_PATCH.md), unchanged notices | Retain the parser regression checks during updates |
+| libgit2-sys 0.18.8+1.9.7 | Parser correction, unchanged notices | Removed 2026-10-27. The stock crate is used; `src/model/rename_names.rs` quotes rename and copy names before parsing. Retain the parser regression checks during updates. |
 
 The bundled grammar package supplies notices in addition to its crate license.
 The local export contains 66 syntax notice entries from the pinned package's public API.

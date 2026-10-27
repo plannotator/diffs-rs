@@ -11,12 +11,13 @@ keywords = ["diff", "patch", "terminal", "tui", "ratatui"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
 # Publishing stays off until the crate no longer needs the [patch.crates-io]
 # overrides below. crates.io ignores [patch], so a published build would
-# silently use unpatched upstream syntect, fancy-regex and libgit2-sys.
+# silently use unpatched upstream syntect and fancy-regex.
 publish = false
 # Ship only what the library and binary need to build, plus the docs a reader
 # of the crate needs. Tests, fixtures, tools, reports and vendor/ stay in Git.
 include = [
     "/src/**/*.rs",
+    "/build.rs",
     "/assets/pierre/**",
     "/examples/embedded_viewer.rs",
     "/Cargo.toml",
@@ -41,7 +42,6 @@ owner-census = ["regex-census", "syntect/owner-census"]
 [patch.crates-io]
 syntect = { path = "vendor/syntect" }
 fancy-regex = { path = "vendor/fancy-regex" }
-libgit2-sys = { path = "vendor/libgit2-sys" }
 
 [dependencies]
 anyhow = "1.0"

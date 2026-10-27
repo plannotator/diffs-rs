@@ -4,6 +4,8 @@ use anyhow::{Context, Result, bail};
 use git2::{Delta, Diff, Patch};
 use serde::Serialize;
 
+mod rename_names;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum Kind {
     Context,
@@ -138,7 +140,9 @@ impl Document {
             bail!("Combined merge diffs are not supported. Supply a two-sided patch.");
         }
         let normalized = empty_file_headers(input);
-        let diff = Diff::from_buffer(normalized.as_deref().unwrap_or(input))
+        let normalized = normalized.as_deref().unwrap_or(input);
+        let quoted = rename_names::quote_rename_names(normalized);
+        let diff = Diff::from_buffer(quoted.as_ref().map_or(normalized, |q| &q.bytes))
             .context("Cannot parse this patch")?;
         if diff.deltas().len() == 0 {
             bail!("The input contains no recognized file changes.");
@@ -245,9 +249,13 @@ impl Document {
                         file.deletions += usize::from(kind == Kind::Deletion);
                         let largest = old.unwrap_or(0).max(new.unwrap_or(0)).max(1);
                         file.digits = file.digits.max(largest.ilog10() as usize + 1);
-                        let offset = usize::try_from(line.content_offset())?
-                            .checked_add(1)
-                            .context("Source offset overflow")?;
+                        let offset = usize::try_from(line.content_offset())?;
+                        let offset = match &quoted {
+                            Some(quoted) => quoted.original_offset(offset),
+                            None => Some(offset),
+                        }
+                        .and_then(|offset| offset.checked_add(1))
+                        .context("Source offset overflow")?;
                         let end = offset
                             .checked_add(line.content().len())
                             .context("Source length overflow")?;

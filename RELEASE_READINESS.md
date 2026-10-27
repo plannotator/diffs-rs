@@ -6,7 +6,7 @@ This page records local build and distribution preparation, not performance acce
 
 ## crates.io publishing
 
-Prepared 2026-10-27; nothing is published. All four packages keep `publish = false`, and the repository stays private until the first publish.
+First release 0.1.0, 2026-10-27. `publish = false` is removed from all four manifests.
 
 | Package | Source | Version | Upstream base |
 | --- | --- | --- | --- |

@@ -43,10 +43,11 @@ def bindings(binary, reference):
                                       "fixtures/diffshub/scenario.json", "fixtures/diffshub/corpus.json"]]
     paths += sorted((ROOT / "src").rglob("*.rs"))
     paths += sorted((ROOT / "assets").rglob("*.json"))
-    for manifest in sorted((ROOT / "vendor").glob("*/Cargo.toml")):
+    for manifest in sorted((ROOT / "crates").glob("*/Cargo.toml")):
         paths += [manifest]
         paths += sorted((manifest.parent / "src").rglob("*.rs"))
-        paths += sorted(path for path in (manifest.parent / "assets").rglob("*") if path.is_file())
+        for data in ("assets", "generated"):
+            paths += sorted(path for path in (manifest.parent / data).rglob("*") if path.is_file())
     paths += [ROOT / "examples/sequential_style_reference.rs"]
     paths += [ROOT / "tools" / name for name in ["corpus_acceptance.py", "corpus_reference.py",
               "corpus_measure.py", "patch_reference.py", "trace_reference.py", "terminal_baseline.py",
@@ -319,7 +320,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/native-diff")
+    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/diffs")
     parser.add_argument("--reference", type=Path, default=ROOT / "target/release/examples/sequential_style_reference")
     parser.add_argument("--baseline-trace", type=Path)
     mode = parser.add_mutually_exclusive_group(required=True)

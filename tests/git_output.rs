@@ -7,7 +7,7 @@
 
 use std::{fs, path::PathBuf};
 
-use native_diff::{model::Document, storage};
+use diffs_rs::{model::Document, storage};
 
 const FIXTURES: &[&str] = &[
     "show",

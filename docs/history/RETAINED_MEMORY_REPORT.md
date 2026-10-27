@@ -22,16 +22,16 @@ The worker owns one syntax set for its lifetime. Each initialized grammar keeps
 its contexts; those contexts strongly own shared compiled patterns. The sharing
 registry holds weak references, so it is not independently keeping compiled
 engines alive. Source: [worker](../../src/highlight.rs:292),
-[grammar initialization](../../vendor/syntect/src/parsing/syntax_set.rs:483),
-[compiled owner](../../vendor/syntect/src/parsing/regex.rs:16).
+[grammar initialization](../../crates/diffs-syntect/src/parsing/syntax_set.rs:483),
+[compiled owner](../../crates/diffs-syntect/src/parsing/regex.rs:16).
 
 One outer pattern can contain several inner matching engines. Each inner engine
 retains both immutable matching structures and a pool of reusable search state.
 Dropping a search guard returns that state to the pool. A stable outer-pattern
 count therefore does not imply stable memory. Conversely, Syntect's per-line
 `SearchCache` and source-derived backreference expressions are temporary, not
-persistent collections. See [per-line state](../../vendor/syntect/src/parsing/parser.rs:241)
-and [backreference construction](../../vendor/syntect/src/parsing/syntax_definition.rs:269).
+persistent collections. See [per-line state](../../crates/diffs-syntect/src/parsing/parser.rs:241)
+and [backreference construction](../../crates/diffs-syntect/src/parsing/syntax_definition.rs:269).
 
 The new profile uses the unchanged Bun patch and checked three-tour sequence:
 

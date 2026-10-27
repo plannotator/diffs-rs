@@ -1,5 +1,5 @@
 [package]
-name = "native-diff"
+name = "diffs-rs"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
@@ -9,12 +9,12 @@ repository = "https://github.com/plannotator/diffs-rs"
 readme = "README.md"
 keywords = ["diff", "patch", "terminal", "tui", "ratatui"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
-# Publishing stays off until the crate no longer needs the [patch.crates-io]
-# overrides below. crates.io ignores [patch], so a published build would
-# silently use unpatched upstream syntect and fancy-regex.
+# Publishing stays off until the forks in crates/ are published first and the
+# repository is public. See RELEASE_READINESS.md for the publish order.
 publish = false
 # Ship only what the library and binary need to build, plus the docs a reader
-# of the crate needs. Tests, fixtures, tools, reports and vendor/ stay in Git.
+# of the crate needs. Tests, fixtures, tools, reports and the forked crates in
+# crates/ (published separately) stay out of this package.
 include = [
     "/src/**/*.rs",
     "/build.rs",
@@ -39,9 +39,15 @@ delivery-trace = ["syntect/syntax-timing"]
 regex-census = ["syntect/regex-census"]
 owner-census = ["regex-census", "syntect/owner-census"]
 
-[patch.crates-io]
-syntect = { path = "vendor/syntect" }
-fancy-regex = { path = "vendor/fancy-regex" }
+# The patched dependencies are forks published as their own crates from
+# crates/. Each keeps its upstream dependency name, so `syntect::`,
+# `two_face::` and `fancy_regex::` paths in this crate resolve to the forks.
+[workspace]
+members = ["crates/diffs-fancy-regex", "crates/diffs-syntect", "crates/diffs-two-face"]
+
+[[bin]]
+name = "diffs"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"
@@ -58,9 +64,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 signal-hook = "0.3"
 similar = "3.2"
-syntect = { version = "5.3", default-features = false, features = ["default-fancy", "shared-engines"] }
+syntect = { package = "diffs-syntect", version = "0.1.0", path = "crates/diffs-syntect", default-features = false, features = ["default-fancy", "shared-engines"] }
 tempfile = "3"
-two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
+two-face = { package = "diffs-two-face", version = "0.1.0", path = "crates/diffs-two-face", default-features = false, features = ["syntect-fancy"] }
 unicode-segmentation = "1.13"
 unicode-width = "0.2"
 
@@ -68,7 +74,7 @@ unicode-width = "0.2"
 arboard = { version = "3.6.1", default-features = false, optional = true }
 
 [dev-dependencies]
-fancy-regex = "0.16.2"
+fancy-regex = { package = "diffs-fancy-regex", version = "0.1.0", path = "crates/diffs-fancy-regex" }
 portable-pty = "0.9"
 vt100 = "0.16"
 

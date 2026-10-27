@@ -12,7 +12,7 @@ Build and select the exact example explicitly:
 
 ```sh
 cargo build --release --locked --example embedded_viewer
-NATIVE_DIFF_HOST_BINARY=/absolute/path/to/native-diff/target/release/examples/embedded_viewer \
+NATIVE_DIFF_HOST_BINARY=/absolute/path/to/diffs-rs/target/release/examples/embedded_viewer \
 cargo test --release --locked --test process engine_host_contract -- --ignored --test-threads=1
 ```
 

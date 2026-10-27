@@ -1,6 +1,6 @@
 # Embed the local diff engine
 
-`native_diff::engine::Engine` owns one review, its view state, source storage, and background workers.
+`diffs_rs::engine::Engine` owns one review, its view state, source storage, and background workers.
 The standalone viewer and `examples/embedded_viewer.rs` use this same implementation.
 This API is a local integration candidate, not a stable published crate API.
 [CURRENT_STATE.md](CURRENT_STATE.md) separates the completed local-engine milestone from the current candidate.
@@ -10,23 +10,18 @@ Native clipboard, physical-terminal acceptance, and the final package remain pen
 ## Dependency setup
 
 Use a path dependency on the source package. The host must use Ratatui 0.30.
-Cargo does not inherit dependency patches from a dependency's manifest.
-The consuming workspace root therefore needs both patches:
 
 ```toml
 [dependencies]
-native-diff = { path = "../native-diff" }
+diffs-rs = { path = "../diffs-rs" }
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
-
-[patch.crates-io]
-syntect = { path = "../native-diff/vendor/syntect" }
-fancy-regex = { path = "../native-diff/vendor/fancy-regex" }
 ```
 
-Adjust these paths for the host's workspace. Retain the vendor directories and their notices.
-The patches provide required syntax-engine behavior.
+Adjust the path for the host's workspace.
+The patched syntax engine comes from the forked crates `diffs-syntect`, `diffs-fancy-regex` and `diffs-two-face` in `crates/`. They are ordinary dependencies of `diffs-rs`, so the host needs no `[patch]` section.
+Their library names stay `syntect`, `fancy_regex` and `two_face`. A host that also depends on upstream Syntect gets a second, separate copy whose types do not interoperate with the fork's.
 The Git patch parser is the stock `libgit2-sys` crate. The build fails if `LIBGIT2_NO_VENDOR` asks it to link a system libgit2.
-Do not substitute registry or system versions to make dependency resolution succeed.
+Do not substitute upstream Syntect, Fancy Regex or two-face, or a system libgit2, to make dependency resolution succeed.
 Keep the host's generated lockfile and use `--locked` for subsequent builds.
 Diagnostic crate features are not required for embedding.
 The default `dev-tty` feature makes Crossterm read keyboard input from `/dev/tty`, which the standalone viewer needs when a patch arrives on stdin.

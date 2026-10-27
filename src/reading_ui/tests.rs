@@ -1,6 +1,6 @@
 use super::*;
 use crossterm::event::KeyEvent;
-use native_diff::engine::{Input, Options, SidebarPreference};
+use diffs_rs::engine::{Input, Options, SidebarPreference};
 use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, layout::Rect, style::Modifier};
 use std::{
     fs,

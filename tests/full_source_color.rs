@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use native_diff::{
+use diffs_rs::{
     app::{App, Layout},
     highlight::{self, Fallback, FileSource, Request, Token},
     input::{Cancellation, LocalInput, Review, SourceState},
@@ -120,9 +120,9 @@ fn request(
 
 #[test]
 fn hidden_runs_preserve_converging_and_divergent_histories_with_shifted_coordinates() {
-    use native_diff::view::LineId;
+    use diffs_rs::view::LineId;
     #[cfg(feature = "delivery-trace")]
-    let trace = native_diff::delivery_trace::init().unwrap();
+    let trace = diffs_rs::delivery_trace::init().unwrap();
     let syntaxes = two_face::syntax::extra_newlines();
     for (old_ext, new_ext) in [
         ("ts", "ts"),
@@ -250,9 +250,9 @@ fn shared_hidden_work_counts_real_calls_and_rejects_incompatible_histories() {
 
 #[test]
 fn sparse_checkpoint_boundaries_match_sequential_colors_on_revisit_and_retheme() {
-    use native_diff::view::LineId;
+    use diffs_rs::view::LineId;
     #[cfg(feature = "delivery-trace")]
-    let trace = native_diff::delivery_trace::init().unwrap();
+    let trace = diffs_rs::delivery_trace::init().unwrap();
     let (old, new) = fixture("ts", 6000);
     let pair = capture(old.as_bytes(), new.as_bytes(), "ts", "ts");
     let syntaxes = two_face::syntax::extra_newlines();
@@ -368,7 +368,7 @@ fn sparse_revisits_and_theme_changes_reuse_saved_hidden_source_work() {
 
 #[test]
 fn expanded_context_uses_exact_old_and_new_prefixes_with_mixed_patch_requests() {
-    use native_diff::view::LineId;
+    use diffs_rs::view::LineId;
     let mut a: Vec<_> = (0..1400)
         .map(|n| format!("return {n}; // unique line {n}"))
         .collect();
@@ -453,7 +453,7 @@ fn expanded_context_uses_exact_old_and_new_prefixes_with_mixed_patch_requests() 
 
 #[test]
 fn replacing_hidden_source_cannot_reuse_checkpoints_for_the_same_patch_entry() {
-    use native_diff::source::{SourceStore, check_pair};
+    use diffs_rs::source::{SourceStore, check_pair};
 
     let old = format!("/*\n{}return 1;\n", "return 1;\n".repeat(1200));
     let new = format!("/*\n{}return 2;\n", "return 1;\n".repeat(1200));

@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use native_diff::{
+use diffs_rs::{
     engine::ReviewId,
     input::Cancellation,
     reading::{SearchDirection, SearchMatch, SearchRead, SourceRead},

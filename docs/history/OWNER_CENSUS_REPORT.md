@@ -151,4 +151,4 @@ unpromoted; previous coloring delays and physical terminal verification remain o
 - [Declaration](../../evidence/owner-census-v1/PLAN.md), [offline audit](../../evidence/owner-census-v1/audit.json), and [audit program](../../evidence/owner-census-v1/audit.py).
 - [Raw observations and process record](../../evidence/owner-census-v1/census/process/process.json), [bound run inputs](../../evidence/owner-census-v1/census/declaration.json), and [completed controls](../../evidence/owner-census-v1/controls-3/report.json).
 - Ordinary control `18177558…` and diagnostic `81962762…`, each preserved with its exact source package under `evidence/owner-census-v1/`. The earlier ordinary `da5754e8…` executable is unchanged.
-- [Application feature](../../src/owner_census.rs), [borrowed engine inspection](../../vendor/fancy-regex/src/owner_census.rs), and [vendor provenance](../../vendor/fancy-regex/NATIVE_DIFF_PATCH.md).
+- [Application feature](../../src/owner_census.rs), [borrowed engine inspection](../../crates/diffs-fancy-regex/src/owner_census.rs), and [vendor provenance](../../crates/diffs-fancy-regex/PATCHES.md).

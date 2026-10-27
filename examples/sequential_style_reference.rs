@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use native_diff::theme::{self, Appearance};
+use diffs_rs::theme::{self, Appearance};
 use serde::{Deserialize, Serialize};
 use syntect::{easy::HighlightLines, highlighting::Theme, parsing::SyntaxReference};
 

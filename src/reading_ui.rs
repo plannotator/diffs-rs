@@ -2,7 +2,7 @@ use std::sync::{Arc, mpsc::SyncSender};
 
 use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-use native_diff::{
+use diffs_rs::{
     engine::{Command, Engine, InputEffect, ReadingControls, Side},
     reading::{SearchDirection, SearchMatch, SearchRead, SourceRange, SourceRead},
     text::safe_label,

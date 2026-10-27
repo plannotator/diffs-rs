@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use native_diff::{engine::ReviewId, reading::SourceRead};
+use diffs_rs::{engine::ReviewId, reading::SourceRead};
 use tempfile::{TempDir, TempPath};
 
 pub struct Prepared {
@@ -76,7 +76,7 @@ impl Prepared {
             .parent()
             .context("Save destination has no parent")?;
         let directory = tempfile::Builder::new()
-            .prefix(".native-diff-save-")
+            .prefix(".diffs-save-")
             .permissions(fs::Permissions::from_mode(0o700))
             .tempdir_in(parent)
             .context("Cannot create private staging in the destination directory")?;

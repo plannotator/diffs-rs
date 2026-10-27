@@ -4,6 +4,36 @@ Checkpoint: 2026-10-03. No public release is authorized or complete.
 The [current project state](CURRENT_STATE.md) owns the overall status.
 This page records local build and distribution preparation, not performance acceptance.
 
+## crates.io publishing
+
+Prepared 2026-10-27; nothing is published. All four packages keep `publish = false`, and the repository stays private until the first publish.
+
+| Package | Source | Version | Upstream base |
+| --- | --- | --- | --- |
+| `diffs-fancy-regex` | `crates/diffs-fancy-regex/` | 0.1.0 | fancy-regex 0.16.2 |
+| `diffs-syntect` | `crates/diffs-syntect/` | 0.1.0 | syntect 5.3.0 |
+| `diffs-two-face` | `crates/diffs-two-face/` | 0.1.0 | two-face 0.5.2+bat-0.26.1 |
+| `diffs-rs` | repository root | 0.1.0 | |
+
+The forks are workspace members. Fork versions are independent of upstream: crates.io ignores build metadata when it compares versions, so a fork cannot carry the upstream version plus its own suffix. Each fork records its upstream base in its description, README, and `[package.metadata.diffs-rs.upstream]`.
+`diffs-rs` depends on each fork with a `package =` rename and both `path` and `version`, so local builds use the workspace sources and the published package uses the registry versions.
+
+To publish, in this order:
+
+1. Remove `publish = false` from the four manifests and commit.
+2. Make the repository public.
+3. Run from the repository root, waiting for each command to finish:
+
+```sh
+cargo publish --locked -p diffs-fancy-regex
+cargo publish --locked -p diffs-syntect
+cargo publish --locked -p diffs-two-face
+cargo publish --locked -p diffs-rs
+```
+
+`cargo publish --locked --workspace` performs the same four steps in dependency order.
+Each step verifies the package against the crates already published by the previous steps.
+
 ## Current local candidate
 
 The local candidate qualifies macOS arm64, not other platforms or a stable published library API.
@@ -76,8 +106,8 @@ The inventory records each changed and added file separately.
 
 | Vendored crate | Existing maintenance record | Remaining work |
 | --- | --- | --- |
-| Syntect 5.3.0 | [Patch note](vendor/syntect/NATIVE_DIFF_PATCH.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte rejection, retained-heap APIs, and affected files. Keep the documented checks during updates. |
-| Fancy Regex 0.16.2 | [Patch note](vendor/fancy-regex/NATIVE_DIFF_PATCH.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte metadata, public error behavior, and affected files. Keep the documented checks during updates. |
+| Syntect 5.3.0 | [Patch note](crates/diffs-syntect/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte rejection, retained-heap APIs, and affected files. Keep the documented checks during updates. |
+| Fancy Regex 0.16.2 | [Patch note](crates/diffs-fancy-regex/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte metadata, public error behavior, and affected files. Keep the documented checks during updates. |
 | libgit2-sys 0.18.8+1.9.7 | Parser correction, unchanged notices | Removed 2026-10-27. The stock crate is used; `src/model/rename_names.rs` quotes rename and copy names before parsing. Retain the parser regression checks during updates. |
 
 The bundled grammar package supplies notices in addition to its crate license.

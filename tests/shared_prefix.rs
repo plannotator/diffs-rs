@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use native_diff::{
+use diffs_rs::{
     highlight::{self, Request, Token},
     storage::{self, FileIndex},
     theme::{self, Appearance},

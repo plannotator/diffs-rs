@@ -1,6 +1,8 @@
-# Native diff viewer
+# diffs-rs
 
-A read-only Rust terminal diff viewer. `native-diff` is a working name.
+A read-only Rust terminal diff viewer and embeddable diff engine.
+The crate is `diffs-rs` (library `diffs_rs`) and the executable is `diffs`.
+The project was previously called `native-diff`. That name remains in the viewer's title bar, in the `NATIVE_DIFF_*` diagnostic and test environment variables, and in historical reports and evidence paths.
 
 Status, 2026-10-03: local macOS arm64 candidate with one engine for standalone and embedded use.
 The standalone includes literal search, source-line selection, exact-byte save, and explicit clipboard copy.
@@ -16,7 +18,7 @@ The final notice inventory covers all 194 locked packages. Its upstream licensin
 This is not the complete v0.1 viewer in the [spec](SPEC.md).
 
 The [current project state](CURRENT_STATE.md) records capabilities, evidence, deferred work, and next steps.
-The [embedding guide](EMBEDDING.md) documents the engine, host-owned terminal lifecycle, and dependency patches.
+The [embedding guide](EMBEDDING.md) documents the engine, host-owned terminal lifecycle, and the forked dependencies.
 The [pre-cleanup README](evidence/clean-baseline-v1/before/documents/README.md) preserves the earlier checkpoint narrative.
 
 ## Run the viewer
@@ -27,7 +29,7 @@ Build from the repository root:
 cargo build --release --locked
 ```
 
-The output is `target/release/native-diff`.
+The output is `target/release/diffs`.
 If all dependencies are cached locally, add `--offline`.
 The current resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) identifies the measured viewer and host, target misses, and interpretation limits.
 The installation record (external record `native-diff-production-hardening/INSTALLATION_RESULTS.md`, not in this repository) identifies the separate normal and minimum-compiler builds. Different executable hashes do not inherit timings.
@@ -38,10 +40,15 @@ The build compiles the libgit2 source bundled with the published `libgit2-sys` c
 If `LIBGIT2_NO_VENDOR` is set to a nonzero value, unset it before building.
 The build rejects an override that would select a system library.
 
+The syntax engine needs patched Syntect and Fancy Regex. They are separate crates built from [`crates/`](crates/) in this repository:
+`diffs-fancy-regex` (Fancy Regex 0.16.2), `diffs-syntect` (Syntect 5.3.0), and `diffs-two-face` (two-face 0.5.2, built against `diffs-syntect` and otherwise essentially unchanged).
+Each keeps its upstream library name, so the source still uses `fancy_regex::`, `syntect::` and `two_face::`.
+Each fork's README and patch notes list its changes. The forks exist only for diffs-rs; other projects should use the upstream crates.
+
 In an existing Ghostty window, open the sample patch:
 
 ```sh
-target/release/native-diff patch fixtures/review.patch
+target/release/diffs patch fixtures/review.patch
 ```
 
 The viewer uses the current terminal. It does not open windows or tabs, or change terminal preferences.
@@ -52,17 +59,17 @@ The minimum usable size is 40 columns by 10 rows.
 If `NO_COLOR` is set, remove it for this invocation to inspect the colors:
 
 ```sh
-env -u NO_COLOR target/release/native-diff patch fixtures/review.patch
+env -u NO_COLOR target/release/diffs patch fixtures/review.patch
 ```
 
 Other supported invocations:
 
 ```sh
-target/release/native-diff --layout unified --theme light patch fixtures/review.patch
-git --no-pager diff --no-ext-diff --no-textconv --no-color | target/release/native-diff patch -
-git --no-pager log -p -3 --no-color | target/release/native-diff patch -
-git format-patch --stdout -3 | target/release/native-diff patch -
-target/release/native-diff inspect fixtures/review.patch --summary
+target/release/diffs --layout unified --theme light patch fixtures/review.patch
+git --no-pager diff --no-ext-diff --no-textconv --no-color | target/release/diffs patch -
+git --no-pager log -p -3 --no-color | target/release/diffs patch -
+git format-patch --stdout -3 | target/release/diffs patch -
+target/release/diffs inspect fixtures/review.patch --summary
 ```
 
 `patch` reads Git patch text, including `git show`, `git log -p`, `git format-patch`, and `--stat -p` output.
@@ -79,8 +86,8 @@ The interactive viewer requires terminal stdout and a controlling terminal for k
 These commands require Git 2.50 or newer. Qualification currently covers Git 2.50.1 on macOS arm64.
 
 ```sh
-target/release/native-diff files OLD NEW
-target/release/native-diff git --repo PATH --base REV --head REV
+target/release/diffs files OLD NEW
+target/release/diffs git --repo PATH --base REV --head REV
 ```
 
 The file command captures two regular files before comparison. It compares content, not original permission bits.
@@ -110,8 +117,8 @@ The original `patch` command never guesses a repository or loads full source.
 For a noninteractive source report, add `--check`:
 
 ```sh
-target/release/native-diff files OLD NEW --check
-target/release/native-diff git --repo PATH --base REV --head REV --check
+target/release/diffs files OLD NEW --check
+target/release/diffs git --repo PATH --base REV --head REV --check
 ```
 
 This mode checks all textual file entries, not only visible files. It emits JSON with pinned identities, source states, and byte/line counts.
@@ -384,8 +391,8 @@ Pass the pinned corpus paths to the same command for complete large-patch row, s
 To retain diagnostic terminal-cell previews, set a capture directory:
 
 ```sh
-native_diff_capture=$(mktemp -d)
-NATIVE_DIFF_CAPTURE_DIR="$native_diff_capture" cargo test --release --locked -- --test-threads=1
+diffs_capture=$(mktemp -d)
+NATIVE_DIFF_CAPTURE_DIR="$diffs_capture" cargo test --release --locked -- --test-threads=1
 ```
 
 These SVG/ANSI previews come from actual PTY output. They are not Ghostty screenshots or proof of display timing.
@@ -400,9 +407,9 @@ The corpus bodies and independent source references must already exist at their 
 The commands use the existing local Python environment with [measurement requirements](tools/measurement-requirements.txt).
 
 ```sh
-cargo build --release --locked --bin native-diff --example sequential_style_reference
+cargo build --release --locked --bin diffs --example sequential_style_reference
 corpus_run=$(mktemp -d)
-.measurement-venv/bin/python tools/corpus_acceptance.py target/release/native-diff target/release/examples/sequential_style_reference "$corpus_run/rehearsal" --fixture pierre-0800fb
+.measurement-venv/bin/python tools/corpus_acceptance.py target/release/diffs target/release/examples/sequential_style_reference "$corpus_run/rehearsal" --fixture pierre-0800fb
 .measurement-venv/bin/python tools/corpus_measure.py "$corpus_run/rehearsal/trace.json.gz" "$corpus_run/freeze" --prepare-only
 .measurement-venv/bin/python tools/corpus_measure.py "$corpus_run/rehearsal/trace.json.gz" "$corpus_run/results" --freeze "$corpus_run/freeze/freeze.json"
 ```

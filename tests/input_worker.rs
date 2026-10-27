@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use native_diff::input::{LocalInput, Message, PatchInput, SourceState, Worker};
+use diffs_rs::input::{LocalInput, Message, PatchInput, SourceState, Worker};
 
 #[path = "support/readiness.rs"]
 mod readiness;

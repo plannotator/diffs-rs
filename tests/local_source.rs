@@ -1,4 +1,4 @@
-use native_diff::{
+use diffs_rs::{
     input::{Cancellation, LocalInput, Review, SourceState},
     source::{SourceStore, check_pair},
     storage::{self, StoreWriter},
@@ -25,7 +25,7 @@ fn git(repo: &Path, args: &[&str]) -> Vec<u8> {
     output.stdout
 }
 
-fn read(source: &native_diff::source::Snapshot) -> Vec<u8> {
+fn read(source: &diffs_rs::source::Snapshot) -> Vec<u8> {
     let mut bytes = Vec::new();
     source.reader().unwrap().read_to_end(&mut bytes).unwrap();
     bytes

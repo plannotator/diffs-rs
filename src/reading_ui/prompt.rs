@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyCode, KeyModifiers};
-use native_diff::{
+use diffs_rs::{
     reading::SourceRead,
     text::{glyphs, safe_label},
 };

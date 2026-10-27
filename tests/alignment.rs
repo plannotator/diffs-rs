@@ -1,7 +1,7 @@
 use std::{fs, process::Command};
 
-pub use native_diff::{ingest, text};
-use native_diff::{model, storage};
+pub use diffs_rs::{ingest, text};
+use diffs_rs::{model, storage};
 
 #[path = "../examples/projection_reference/model.rs"]
 #[allow(dead_code)]
@@ -88,7 +88,7 @@ fn alignment_keeps_exact_offsets_source_bytes_and_reference_rows() {
     }
     let directory = tempfile::tempdir().unwrap();
     let binary = std::env::var_os("NATIVE_DIFF_CONTRACT_BINARY")
-        .unwrap_or_else(|| env!("CARGO_BIN_EXE_native-diff").into());
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_diffs").into());
     for case in cases {
         for reversed in [false, true] {
             let (left, right) = if reversed {

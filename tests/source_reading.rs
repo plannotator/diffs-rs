@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use native_diff::{
+use diffs_rs::{
     engine::{Engine, Input, Options, Side, SidebarPreference},
     input::{Cancellation, Cancelled, LocalInput},
     reading::{SourceRange, SourceRead},

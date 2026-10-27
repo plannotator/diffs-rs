@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use native_diff::{
+use diffs_rs::{
     highlight::{self, FileSource, Request, Token},
     input::{Cancellation, LocalInput, Review, SourceState},
     source::CheckedPair,
@@ -127,7 +127,7 @@ fn check(
 #[test]
 fn sparse_pressure_keeps_exact_side_states_across_revisits_and_themes() {
     #[cfg(feature = "delivery-trace")]
-    let trace = native_diff::delivery_trace::init().unwrap();
+    let trace = diffs_rs::delivery_trace::init().unwrap();
     let (old, new, pair) = sources();
     let syntaxes = two_face::syntax::extra_newlines();
     let (wake, notified) = mpsc::sync_channel(1);

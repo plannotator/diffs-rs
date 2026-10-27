@@ -67,9 +67,9 @@ Existing measurements do not describe this proposed feature or a future executab
 These local commands are implemented:
 
 ```text
-native-diff patch change.patch
-native-diff files OLD NEW
-native-diff git --repo PATH --base REV --head REV
+diffs patch change.patch
+diffs files OLD NEW
+diffs git --repo PATH --base REV --head REV
 ```
 
 The GitHub milestone adds a supported PR-URL entry point. Its final command spelling remains part of adapter design.

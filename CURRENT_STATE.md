@@ -22,6 +22,8 @@ These correctness fixes landed after the 2026-10-03 checkpoint below:
 - The footer source status describes the cursor's file instead of any file visible on screen.
 - Host calls into the syntax worker recover a poisoned mailbox lock instead of panicking; a dead worker surfaces through the existing `Engine::poll` error.
 - The vendored, patched `libgit2-sys` is gone; the build uses the published crate with its bundled libgit2. Stock libgit2 cuts unquoted `rename`/`copy` names at whitespace, so the parser now receives those names in Git's quoted form and line offsets map back to the supplied bytes. `LIBGIT2_NO_VENDOR` is still rejected at build time.
+- The crate is renamed `diffs-rs` (library `diffs_rs`, executable `diffs`). The viewer title bar and the `NATIVE_DIFF_*` environment variables keep the old name for now, so preserved-executable comparisons and measurement tools still match.
+- The patched Syntect and Fancy Regex move from `vendor/` to `crates/` as the workspace members `diffs-syntect` and `diffs-fancy-regex`, with `diffs-two-face` (a two-face fork built against `diffs-syntect`, with only its acknowledgement URL changed). `diffs-rs` depends on them through `package =` renames, so the `[patch.crates-io]` section is gone and the crates can be published to crates.io. See [RELEASE_READINESS.md](RELEASE_READINESS.md#cratesio-publishing).
 - Unnamed temporary files (patch spool, Git helper output, clipboard input) are created owner-only. On Linux they previously took the umask-derived mode, usually 0644. Linux CI found this.
 
 Canonical source output is byte-identical to the 2026-10-03 build for the five DiffsHub corpus patches and the repository fixtures.

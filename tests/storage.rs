@@ -1,6 +1,6 @@
 use std::{fs::File, path::Path, rc::Rc};
 
-use native_diff::{geometry, model::RowKind, storage, text};
+use diffs_rs::{geometry, model::RowKind, storage, text};
 
 #[test]
 fn source_references_keep_patch_destinations_and_separate_geometry_between_documents() {

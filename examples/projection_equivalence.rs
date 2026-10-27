@@ -6,10 +6,10 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use native_diff::{model::RowKind, storage};
+use diffs_rs::{model::RowKind, storage};
 use serde::Serialize;
 
-pub use native_diff::{ingest, text};
+pub use diffs_rs::{ingest, text};
 
 #[path = "projection_reference/model.rs"]
 #[allow(dead_code)]

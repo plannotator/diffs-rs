@@ -1,11 +1,11 @@
 # Acceptance checklist
 
 Status: 31 real-process checks pass as of 2026-09-11. The five-patch interior/latency/memory batch is complete; no full milestone is complete.
-The [rendering contracts](tests/process/README.md) define the new independent terminal checks and their limits.
-The [large-diff progress report](docs/history/LARGE_DIFF_PROGRESS.md) records the current source checks and remaining acceptance work.
-The [implementation report](docs/history/IMPLEMENTATION_STATUS.md) records the tested subset, limitations, and open visual acceptance.
+The [rendering contracts](../../tests/process/README.md) define the new independent terminal checks and their limits.
+The [large-diff progress report](../history/LARGE_DIFF_PROGRESS.md) records the current source checks and remaining acceptance work.
+The [implementation report](../history/IMPLEMENTATION_STATUS.md) records the tested subset, limitations, and open visual acceptance.
 The [large-diff specification](LARGE_DIFFS.md) replaces provisional scale-fixture selection with the five exact cached DiffsHub inputs and defines the next batch.
-The [five-patch results](docs/history/FIVE_PATCH_RESULTS.md) records its independent interior checks and current-build measurements.
+The [five-patch results](../history/FIVE_PATCH_RESULTS.md) records its independent interior checks and current-build measurements.
 The [spec](SPEC.md) owns behavior and defaults. This file owns evidence and milestone completion.
 
 ## The evidence rules
@@ -110,6 +110,6 @@ The original implementation passed ten development checks. Later work brought th
 All five large patches pass the complete supplied-source digest comparison. The new rendering contracts cover explicit small-screen expectations.
 The full milestone cells remain open because their requirements include additional evidence.
 The existing Pierre browser reference and user-supplied Ghostty screenshot do not establish complete visual acceptance.
-Geometry-cache eviction and sparse Unicode boundaries now pass independent process checks. The [responsiveness batch](docs/history/RESPONSIVENESS.md) records the scope.
-Deep old/new syntax, continued fallback, and hunk/theme isolation pass independent process checks. The [syntax replay batch](docs/history/SYNTAX_REPLAY.md) records the limits.
-The five-patch batch now covers 205 independent interior PTY states per patch, five latency repetitions per patch, and three memory tours per patch. All interior oracles and corruption controls pass. Pierre has one styled distant-seek maximum above the strict 200 ms guard. Ghostty alone meets the current memory envelope; Pierre, Node, Bun, and Linux exceed their applicable RSS limits. Actual Ghostty pixel behavior, display timing, and full milestone acceptance remain open. See [FIVE_PATCH_RESULTS.md](docs/history/FIVE_PATCH_RESULTS.md).
+Geometry-cache eviction and sparse Unicode boundaries now pass independent process checks. The [responsiveness batch](../history/RESPONSIVENESS.md) records the scope.
+Deep old/new syntax, continued fallback, and hunk/theme isolation pass independent process checks. The [syntax replay batch](../history/SYNTAX_REPLAY.md) records the limits.
+The five-patch batch now covers 205 independent interior PTY states per patch, five latency repetitions per patch, and three memory tours per patch. All interior oracles and corruption controls pass. Pierre has one styled distant-seek maximum above the strict 200 ms guard. Ghostty alone meets the current memory envelope; Pierre, Node, Bun, and Linux exceed their applicable RSS limits. Actual Ghostty pixel behavior, display timing, and full milestone acceptance remain open. See [FIVE_PATCH_RESULTS.md](../history/FIVE_PATCH_RESULTS.md).

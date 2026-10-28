@@ -152,7 +152,7 @@ Another 29 emphasized source lines lack a visible peer in the inspected captures
 These counts identify the remaining review work. Multiple valid alignments do not establish a viewer defect.
 No large-patch expectations were silently regenerated or accepted from current output alone.
 
-The [release-readiness checkpoint](../../RELEASE_READINESS.md) records the minimum-compiler and dependency checks.
+The [release-readiness checkpoint](RELEASE_READINESS.md) records the minimum-compiler and dependency checks.
 All 2,065 active build inputs and the normal executable remain unchanged.
 The battery-powered captures retain raw diagnostic fields, but none counts as accepted performance evidence.
 
@@ -168,4 +168,4 @@ The follow-up evidence is in:
 `native-diff-battery-readiness/` (external record, not in this repository)
 
 It contains the reviewed focused packet, raw captures, matched builds, minimum-compiler checks, and offline large-patch inventories.
-The [current project state](../../CURRENT_STATE.md) owns the overall status.
+The [current project state](CURRENT_STATE.md) owns the overall status.

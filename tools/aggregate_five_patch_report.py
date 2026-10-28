@@ -131,7 +131,7 @@ def main():
              "No engineering-check evidence was supplied to this generator."),
         item("ghostty-pixels", "Actual Ghostty pixel and gesture acceptance", "skipped",
              "Not measured here. PTY cell captures do not establish Ghostty paint timing, pixel parity, or trackpad feel; no GUI automation was used.",
-             "/Users/ramos/oss/native-diff/CURRENT_STATE.md", "mixed"),
+             "docs/history/CURRENT_STATE.md", "mixed"),
     ])
     report["items"] = items
     (run / "aggregate.json").write_text(json.dumps({"schema_version": 1, "run_dir": str(run), "patches": patches}, indent=2) + "\n")

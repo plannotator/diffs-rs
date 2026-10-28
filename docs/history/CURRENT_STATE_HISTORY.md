@@ -348,7 +348,7 @@ The syntax-delivery wake-up change and per-grammar compiled-pattern sharing are 
 
 The representative allocation profile shows 11.8% fewer bytes in named regex-engine allocations. This is a general ownership change, not a grammar reduction or a patch-specific path. Current third-tour settled RSS maxima range from 111.4 MiB to 1,086.5 MiB. Four inputs still exceed the shared memory goals. One distant seek exceeds the final-coloring maximum, and the largest input exceeds the complete-index target. Small-workload paired responsiveness is roughly flat, with slower individual maxima retained.
 
-Correctness remains scoped to the supplied source and checked views. Complete Pierre visual parity, actual Ghostty frame pacing, and a total-memory bound remain unproved. [The engineering plan](ENGINEERING_PLAN.md) owns the current next actions. No full milestone in [ACCEPTANCE.md](../../ACCEPTANCE.md) is complete.
+Correctness remains scoped to the supplied source and checked views. Complete Pierre visual parity, actual Ghostty frame pacing, and a total-memory bound remain unproved. [The engineering plan](ENGINEERING_PLAN.md) owns the current next actions. No full milestone in [ACCEPTANCE.md](../design/ACCEPTANCE.md) is complete.
 
 ## Historical detail: 2026-09-11 storage checkpoint
 
@@ -356,7 +356,7 @@ The sections below retain the earlier checkpoint and its measurements. They do n
 
 We have a working Rust terminal diff viewer with substantial correctness evidence and measured responsiveness improvements.
 We do not yet have a fully accepted release or complete Pierre visual parity. The storage refactor is implemented and passes full source/projection comparisons. Its five-patch measurements are complete: Linux memory is lower, but four memory limits still fail and a first-color regression remains open. Navigation limits pass on four patches; only Ghostty meets its memory envelope.
-No full milestone in [ACCEPTANCE.md](../../ACCEPTANCE.md) is complete.
+No full milestone in [ACCEPTANCE.md](../design/ACCEPTANCE.md) is complete.
 
 ## What we are building
 
@@ -567,7 +567,7 @@ Cold/backward syntax remains relevant to the styled-seek investigation. Further 
 
 When user-provided captures are available, actual Ghostty/Pierre comparison can proceed alongside the code-level checks.
 Search, watch mode, a file picker, editing, and additional controls stay outside the immediate priority list.
-The [large-diff specification](../../LARGE_DIFFS.md) owns the existing acceptance targets. This overview does not weaken or replace them.
+The [large-diff specification](../design/LARGE_DIFFS.md) owns the existing acceptance targets. This overview does not weaken or replace them.
 
 ## Storage-checkpoint evidence and documentation
 
@@ -575,8 +575,8 @@ The storage checkpoint executable has SHA-256 `7a842a00acfb52d64ea9b7db1dccf980b
 The source directory is not a Git checkout. Current identity uses executable hashes and retained source archives rather than commit IDs.
 
 - [README.md](../../README.md): supported commands and current controls.
-- [SPEC.md](../../SPEC.md): broader intended product behavior, including unimplemented features.
-- [ACCEPTANCE.md](../../ACCEPTANCE.md): milestone requirements, not a list of completed features.
+- [SPEC.md](../design/SPEC.md): broader intended product behavior, including unimplemented features.
+- [ACCEPTANCE.md](../design/ACCEPTANCE.md): milestone requirements, not a list of completed features.
 - [LARGE_DIFF_PROGRESS.md](LARGE_DIFF_PROGRESS.md): chronological implementation and evidence history.
 - [RESPONSIVENESS.md](RESPONSIVENESS.md): geometry measurements on the preceding build.
 - [SYNTAX_REPLAY.md](SYNTAX_REPLAY.md): latest syntax measurements and limits.

@@ -149,7 +149,7 @@ cargo test --release --locked --test process storage_contract -- --ignored --noc
 ```
 
 Preserved-build agreement supplements the independent source and cell expectations. It does not prove physical terminal presentation or performance.
-The [storage report](../../SOURCE_STORAGE_REPORT.md) records the accepted reference and current executable.
+The [storage report](../../docs/history/SOURCE_STORAGE_REPORT.md) records the accepted reference and current executable.
 
 `horizontal_contract.rs` adds two real-process checks for horizontal bounds.
 The expected widths count ASCII, tabs, CJK, and combining accents independently.

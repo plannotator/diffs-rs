@@ -157,7 +157,7 @@ drivers must not restart after a reconnect.
 
 ## Next work
 
-1. Follow the [small actual-terminal procedure](../../TERMINAL_PRESENTATION_CHECK.md)
+1. Follow the [small actual-terminal procedure](../measurements/TERMINAL_PRESENTATION_CHECK.md)
    using one user-opened Ghostty window and the retained same-content Pierre
    reference. No actual Ghostty capture occurred in this experiment.
 2. Follow the [metadata plan](DOCUMENT_METADATA_PLAN.md): count retained lengths,

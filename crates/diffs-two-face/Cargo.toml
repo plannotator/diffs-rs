@@ -28,7 +28,6 @@ include = [
     "/LICENSE-APACHE",
     "/LICENSE-MIT",
 ]
-# Not published yet. RELEASE_READINESS.md in diffs-rs gives the publish order.
 
 [package.metadata.diffs-rs.upstream]
 crate = "two-face"

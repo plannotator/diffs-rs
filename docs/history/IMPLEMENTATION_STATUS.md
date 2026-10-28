@@ -109,5 +109,5 @@ Its full independent before/after visual reference set still needs preparation f
 2. Correct visual and source-anchor differences before adding controls. Add focused process regressions for observed failures.
 3. Add full large-source reconstruction, then profile distant navigation and memory before choosing the smallest loading/checkpoint changes.
 
-The full [acceptance checklist](../../ACCEPTANCE.md) remains the release gate. This report does not weaken it.
+The full [acceptance checklist](../design/ACCEPTANCE.md) remains the release gate. This report does not weaken it.
 DiffGrid, its candidates, and its benchmark artifacts remain outside this implementation.

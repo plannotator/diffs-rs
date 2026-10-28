@@ -2,7 +2,7 @@
 
 Date: 2026-09-22.
 
-The sidebar is implemented against [the agreed specification](SIDEBAR_SPEC.md).
+The sidebar is implemented against [the agreed specification](../design/SIDEBAR_SPEC.md).
 It belongs to the existing application. It does not introduce an integration layer or another terminal owner.
 
 ## Delivered behavior
@@ -125,7 +125,7 @@ In an existing terminal window, run:
 
 Press `f` to focus Files. Use arrows to navigate. Press Enter to open a file.
 Press Escape to return to the diff. With Files focused, press `f` to hide it.
-The [README](README.md#changed-files) lists all controls and width requirements.
+The [README](../../README.md#changed-files) lists all controls and width requirements.
 
 ## Remaining qualification
 

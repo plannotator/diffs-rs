@@ -2,7 +2,7 @@
 
 Run date: 2026-09-11
 
-This report records the completed batch defined in [FIVE_PATCH_ACCEPTANCE.md](../../FIVE_PATCH_ACCEPTANCE.md).
+This report records the completed batch defined in [FIVE_PATCH_ACCEPTANCE.md](../measurements/FIVE_PATCH_ACCEPTANCE.md).
 It used the current release executable through a real PTY on the local M5 Max Mac. Files were warm and fixed. The baseline was 160×50, split, dark, truecolor, with line numbers and wrapping off.
 
 ## Independent interior presentation

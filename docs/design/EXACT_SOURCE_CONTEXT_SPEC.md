@@ -1,9 +1,9 @@
 # Exact-source coloring and expandable context
 
 Date: 2026-09-22.
-Status: feature specification, with [storage/reference groundwork](SOURCE_STORAGE_REPORT.md) and [local source inputs](LOCAL_SOURCE_INPUT_REPORT.md) implemented.
-The [complete-context coloring checkpoint](FULL_SOURCE_COLOR_REPORT.md) implements the coloring stage.
-The [context expansion checkpoint](CONTEXT_EXPANSION_REPORT.md) implements incremental local expansion. Integrated resource and physical-terminal qualification remain open.
+Status: feature specification, with [storage/reference groundwork](../history/SOURCE_STORAGE_REPORT.md) and [local source inputs](../history/LOCAL_SOURCE_INPUT_REPORT.md) implemented.
+The [complete-context coloring checkpoint](../history/FULL_SOURCE_COLOR_REPORT.md) implements the coloring stage.
+The [context expansion checkpoint](../history/CONTEXT_EXPANSION_REPORT.md) implements incremental local expansion. Integrated resource and physical-terminal qualification remain open.
 
 This specification refines the input, syntax, and context proposals in [SPEC.md](SPEC.md).
 The [input scenario analysis](INPUT_SCENARIO_ANALYSIS.md) defines the broader source modes, GitHub requirements, and delivery priorities.
@@ -59,7 +59,7 @@ The patch parser, line pairing, inline emphasis, and canonical patch export rema
 New context must not become fake additions, deletions, or extra original patch records.
 The implementation must not increase every stored patch record to hold optional full-file metadata.
 
-The existing [sidebar report](SIDEBAR_REPORT.md) owns current correctness evidence.
+The existing [sidebar report](../history/SIDEBAR_REPORT.md) owns current correctness evidence.
 Existing measurements do not describe this proposed feature or a future executable.
 
 ## 3. Inputs and exact version identity
@@ -504,7 +504,7 @@ Public evidence cannot qualify private authentication or enterprise hosts. Recor
 
 Each stage preserves its ordinary executable and source identity before the next stage changes runtime behavior.
 Historical evidence and prepared measurement binaries stay unchanged.
-The compatibility-only store/reference refactor is complete, as recorded in the [storage checkpoint](SOURCE_STORAGE_REPORT.md).
+The compatibility-only store/reference refactor is complete, as recorded in the [storage checkpoint](../history/SOURCE_STORAGE_REPORT.md).
 The local-source checkpoint adds snapshots, disk indexes, local identities, exact correspondence, and both local commands.
 The expansion checkpoint preserves the typed identity mapping before it adds range expansion and terminal controls.
 Its concrete review type represents complete local comparisons only. Partial/unknown remote coverage states remain part of the remote adapter checkpoint.

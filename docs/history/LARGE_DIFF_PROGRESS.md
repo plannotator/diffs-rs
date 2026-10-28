@@ -240,7 +240,7 @@ Cold and backward syntax requests still replay from the start of the requested h
 A geometry miss scans a complete line once for that width.
 
 Next engine work addresses resumable syntax state and the complete responsiveness/memory trace, without changes to source semantics.
-The [large-diff specification](../../LARGE_DIFFS.md) still owns the targets. Actual Ghostty inspection remains separate.
+The [large-diff specification](../design/LARGE_DIFFS.md) still owns the targets. Actual Ghostty inspection remains separate.
 
 ## Reproduce the source check
 

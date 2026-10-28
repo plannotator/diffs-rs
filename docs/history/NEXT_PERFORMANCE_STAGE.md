@@ -1,6 +1,6 @@
 # Next stage: memory ownership, coloring, and terminal presentation
 
-Historical stage specification and execution notes. Use the [current project state](../../CURRENT_STATE.md)
+Historical stage specification and execution notes. Use the [current project state](CURRENT_STATE.md)
 for the active next steps and the [latest checkpoint](INNER_ENGINE_CHECKPOINT_REPORT.md)
 for current results. The original scope and acceptance gates below remain preserved.
 
@@ -100,7 +100,7 @@ Storage totals come from `evidence/index-v1/candidate-final/index.json`. Sum the
 
 Opening allocation snapshots are not third-tour heap snapshots. Allocator call-site labels can combine inlined owners. RSS, live heap, physical footprint, and compressed memory are different, partly overlapping quantities. Do not subtract observations from different phases or add these quantities together as though they were disjoint.
 
-The shared targets in [MEASUREMENT_POLICY.md](../../MEASUREMENT_POLICY.md) remain unchanged. Missing them must not alter supported input, source content, styling thresholds, or the reported result.
+The shared targets in [MEASUREMENT_POLICY.md](../measurements/MEASUREMENT_POLICY.md) remain unchanged. Missing them must not alter supported input, source content, styling thresholds, or the reported result.
 
 ## Invariants and scope limits
 
@@ -216,7 +216,7 @@ Initial experiment policy: consider a checkpoint every 256 supplied records; ret
 
 Preflight the clone cost, evict before admission, and verify actual owned bytes after cloning. Account for the transient clone separately from retained-cache limits. Check cancellation before and after snapshot/restore work. If safe size accounting or acceptable clone responsiveness requires a broad parser rewrite, defer checkpoints.
 
-The proposed 16 MiB fits the unallocated portion of the 64 MiB disposable display/highlight plan in [SPEC.md](../../SPEC.md): current geometry and style payload budgets are 16 and 32 MiB. The separate source-page payload budget is 32 MiB. This is not free process memory or a total-memory guarantee; allocator overhead, active state, temporary clones, and grammar storage remain additional costs. Do not lower existing cache budgets to conceal the addition.
+The proposed 16 MiB fits the unallocated portion of the 64 MiB disposable display/highlight plan in [SPEC.md](../design/SPEC.md): current geometry and style payload budgets are 16 and 32 MiB. The separate source-page payload budget is 32 MiB. This is not free process memory or a total-memory guarantee; allocator overhead, active state, temporary clones, and grammar storage remain additional costs. Do not lower existing cache budgets to conceal the addition.
 
 ### Required proof
 
@@ -238,7 +238,7 @@ The handoff is one short manual checklist and exact launch commands, not another
 
 The user supplies screenshots and, for motion, a recording through their existing tools. No accessibility/computer-use control, new permission loop, new tabs, or global configuration changes are assumed. Keep diagnostic logs outside the visible diff. Stills prove appearance only; a clip without synchronized input timestamps and known capture behavior is qualitative motion evidence, not a millisecond latency result.
 
-**Done:** a compact case/result table linked to actual paired images and the interaction clip, with defects and unverified cases explicit. Missing captures leave visual acceptance open even if process tests pass. Use [ACCEPTANCE.md](../../ACCEPTANCE.md) rather than inventing a parallel visual acceptance system.
+**Done:** a compact case/result table linked to actual paired images and the interaction clip, with defects and unverified cases explicit. Missing captures leave visual acceptance open even if process tests pass. Use [ACCEPTANCE.md](../design/ACCEPTANCE.md) rather than inventing a parallel visual acceptance system.
 
 ## Verification and stopping rules
 

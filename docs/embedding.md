@@ -1,31 +1,28 @@
-# Embed the local diff engine
+# Embedding the diff engine
 
 `diffs_rs::engine::Engine` owns one review, its view state, source storage, and background workers.
-The standalone viewer and `examples/embedded_viewer.rs` use this same implementation.
-This API is a local integration candidate, not a stable published crate API.
-[CURRENT_STATE.md](CURRENT_STATE.md) separates the completed local-engine milestone from the current candidate.
-The final four resource cohorts passed evidence inspection, with resource-target misses retained. Both isolated installations passed.
-Native clipboard, physical-terminal acceptance, and the final package remain pending. The final notice inventory is complete, with its upstream licensing caveat retained.
+The `diffs` binary and [`examples/embedded_viewer.rs`](../examples/embedded_viewer.rs) use this same implementation.
+The API is pre-1.0 and can change between minor versions.
 
 ## Dependency setup
 
-Use a path dependency on the source package. The host must use Ratatui 0.30.
+The host must use Ratatui 0.30.
 
 ```toml
 [dependencies]
-diffs-rs = { path = "../diffs-rs" }
+diffs-rs = { version = "0.1", default-features = false }
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
 ```
 
-Adjust the path for the host's workspace.
-The patched syntax engine comes from the forked crates `diffs-syntect`, `diffs-fancy-regex` and `diffs-two-face` in `crates/`. They are ordinary dependencies of `diffs-rs`, so the host needs no `[patch]` section.
-Their library names stay `syntect`, `fancy_regex` and `two_face`. A host that also depends on upstream Syntect gets a second, separate copy whose types do not interoperate with the fork's.
-The Git patch parser is the stock `libgit2-sys` crate. The build fails if `LIBGIT2_NO_VENDOR` asks it to link a system libgit2.
-Do not substitute upstream Syntect, Fancy Regex or two-face, or a system libgit2, to make dependency resolution succeed.
-Keep the host's generated lockfile and use `--locked` for subsequent builds.
-Diagnostic crate features are not required for embedding.
 The default `dev-tty` feature makes Crossterm read keyboard input from `/dev/tty`, which the standalone viewer needs when a patch arrives on stdin.
-Crossterm features are shared by the whole build, so a host that reads its own input should add `default-features = false` and enable `clipboard` only if it wants the native clipboard.
+Crossterm features are shared by the whole build, so a host that reads its own input should use `default-features = false`.
+Enable the `clipboard` feature only if the host wants the native macOS clipboard.
+Diagnostic crate features are not required for embedding.
+
+The patched syntax engine comes from the forked crates `diffs-syntect`, `diffs-fancy-regex` and `diffs-two-face`. They are ordinary dependencies of `diffs-rs`, so the host needs no `[patch]` section.
+Their library names stay `syntect`, `fancy_regex` and `two_face`. A host that also depends on upstream Syntect gets a second, separate copy whose types do not interoperate with the fork's.
+Do not substitute upstream Syntect, Fancy Regex or two-face to make dependency resolution succeed.
+The Git patch parser is the stock `libgit2-sys` crate with its bundled libgit2. The build fails if `LIBGIT2_NO_VENDOR` asks it to link a system libgit2.
 
 ## Ownership
 
@@ -43,7 +40,7 @@ Caller-held duplicates must not read, seek, or change those flags concurrently.
 The patch reader temporarily enables nonblocking input and restores the original nonblocking bit when it finishes or closes.
 It supports cancellation while waiting for a FIFO writer, an idle stream, or an incomplete line.
 The safe descriptor-set implementation rejects descriptors at or above `FD_SETSIZE` before changing flags.
-This is a Unix implementation. The currently tested system is macOS arm64; other platforms remain unqualified.
+This is a Unix implementation. macOS arm64 is the most tested system; Linux runs in CI.
 
 ## Host loop
 
@@ -120,9 +117,6 @@ The standalone owns its save prompt, private output, no-clobber publication, and
 The standalone also owns clipboard preparation, its helper process, and delivery acceptance.
 Its optional `clipboard` feature enables macOS plain-text publication. Engine-only consumers can disable default features to omit that dependency.
 The engine does not launch clipboard helpers or handle the standalone `y` key.
-These APIs have functional evidence and finite final-build resource checks.
-The resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) retains response results, complete-scan costs, memory misses, and cancellation limits.
-Native clipboard and physical-terminal acceptance remain separate pending requirements.
 
 ## Failure and shutdown
 
@@ -148,21 +142,13 @@ Cancellation cannot interrupt one in-progress syntax-parser call or an operating
 No universal shutdown-latency bound is promised.
 The engine does not detach unfinished workers or leave old reviews running after a successful close.
 
-Closing a review does not promise that process RSS returns to its opening value. In the prior three-cycle patch-host schedule, closed live heap was identical across cycles, but macOS allocator-held empty regions retained substantial resident memory. Closed RSS reached about 590 MiB. See the prior resource results (external record `native-diff-local-engine-milestone/RESOURCE_RESULTS.md`, not in this repository).
-
-A preceding three-cycle host qualification covered a 12,000-line file pair, a pinned 12-file Git review, and small-patch replacement.
-Each ordinary and diagnostic process passed 96 stages. Closed live malloc heap was 1,116,528 bytes at all three diagnostic checkpoints, without retained regular file descriptors.
-Ordinary first-close RSS medians rose from 33.516 to 34.188 MiB.
-The historical full-source results (external record `native-diff-production-hardening/FULL_SOURCE_RESOURCES.md`, not in this repository) identify those earlier builds and diagnostic limits.
-
-The final ordinary host passed the same 96-stage schedule across three cycles. Maximum held RSS was 33.98 MiB, with a 42.00 MiB sampled process-group peak.
-Closed RSS medians rose 0.41 MiB. Closed states retained no numeric regular-file descriptor, named private source, or owned child.
-The final resource record (external record `native-diff-production-hardening/RESOURCE_RESULTS.md`, not in this repository) identifies the exact host and workload.
-These finite observations do not establish indefinite stability, live-heap size, a largest-input capacity bound, or a total-memory guarantee.
+Closing a review does not promise that process RSS returns to its opening value: the macOS allocator can keep freed regions resident.
+After a large patch, closed RSS reached about 590 MiB even though live heap had returned to its earlier size.
+On a three-cycle schedule of file-pair, Git, and small-patch reviews, the example host stayed under 34 MiB held RSS, and closed RSS rose 0.41 MiB across the cycles.
 
 ## Try the host example
 
-From the package root:
+From a clone of this repository:
 
 ```sh
 cargo run --release --locked --example embedded_viewer -- fixtures/review.patch fixtures/position/review.patch

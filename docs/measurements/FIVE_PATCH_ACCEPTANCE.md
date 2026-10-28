@@ -80,7 +80,7 @@ Short-lived temporary allocations, source indexes, and opaque parser state remai
 
 ## Targets and limits
 
-The targets in [LARGE_DIFFS.md](LARGE_DIFFS.md) remain authoritative.
+The targets in [LARGE_DIFFS.md](../design/LARGE_DIFFS.md) remain authoritative.
 Navigation targets are p95 at most 50 ms and no response above 200 ms.
 First content targets 500 ms. Initial styling targets one second. Cold styling targets two seconds.
 Retained styling revisits target 100 ms. Quit and cancellation target 250 ms.
@@ -96,4 +96,4 @@ Detailed run outputs use a temporary evidence directory. The final report separa
 
 The independent interior rehearsal passed for all five patches: 205 unchanged screens per patch, including source, layout, wrapping, resize, navigation, and sequential syntax checks. The deliberately corrupted captures were rejected. Five fresh-process latency repetitions completed for every patch. Pierre has one 251.8 ms styled distant-seek maximum above the 200 ms guard; the other latency guards pass. Three-tour memory runs completed for every patch. Ghostty meets its smaller-patch RSS envelope; Pierre, Node, Bun, and Linux do not.
 
-The authoritative per-patch values and raw evidence paths are in [FIVE_PATCH_RESULTS.md](docs/history/FIVE_PATCH_RESULTS.md). The batch is therefore complete as measurement work, but it is not a full release acceptance: the recorded memory failures, the Pierre outlier, and actual Ghostty pixel/paint evidence remain open.
+The authoritative per-patch values and raw evidence paths are in [FIVE_PATCH_RESULTS.md](../history/FIVE_PATCH_RESULTS.md). The batch is therefore complete as measurement work, but it is not a full release acceptance: the recorded memory failures, the Pierre outlier, and actual Ghostty pixel/paint evidence remain open.

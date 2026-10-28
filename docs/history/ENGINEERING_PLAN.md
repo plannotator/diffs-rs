@@ -1,6 +1,6 @@
 # General-purpose performance: audit and next actions
 
-Historical plan and dated execution notes. Use the [current project state](../../CURRENT_STATE.md)
+Historical plan and dated execution notes. Use the [current project state](CURRENT_STATE.md)
 for the active next steps and the [latest checkpoint](INNER_ENGINE_CHECKPOINT_REPORT.md)
 for current results. The original requirements and evidence below remain preserved.
 
@@ -54,7 +54,7 @@ This review examined the current Rust input, storage, projection, geometry, rend
 ### Corrections completed in this review
 
 - `tools/corpus_measure.py` now uses one shared target object, includes it in new freezes and summaries, and rejects historical or altered policies before replay. Fixture names do not select limits.
-- [The new measurement policy](../../MEASUREMENT_POLICY.md) applies the existing stricter development targets uniformly. It introduces no size crossover fitted to these patches. Targets are not supported-input limits and cannot justify degrading the display. A general scaling policy, if needed, must be justified separately before another candidate is evaluated.
+- [The new measurement policy](../measurements/MEASUREMENT_POLICY.md) applies the existing stricter development targets uniformly. It introduces no size crossover fitted to these patches. Targets are not supported-input limits and cannot justify degrading the display. A general scaling policy, if needed, must be justified separately before another candidate is evaluated.
 - `tools/aggregate_five_patch_report.py` marks source and engineering checks unverified by that generator. It reports actual completion status, tolerates missing opening evidence, and does not describe failed corruption controls as rejected. It labels supplied historical observations accurately.
 - `tools/check_reporting.py` exercises the actual report CLI with copies of retained process evidence. Controls rename fixtures, retain a real seek failure, remove observations, omit an opening, and invalidate an oracle control. Original input hashes must remain unchanged. These are reporting tests, not fabricated performance runs.
 

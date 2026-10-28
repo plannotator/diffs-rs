@@ -63,7 +63,7 @@ The smallest recorded navigation interval was 50.0035 ms. Only one measured comm
 The largest navigation validation duration was 10.83 ms. No overhead was subtracted from observations.
 The background RSS sampler remained bounded and reported no errors.
 
-The [frozen contract](../../MEASUREMENT.md) describes the boundaries and reducers.
+The [frozen contract](../measurements/MEASUREMENT.md) describes the boundaries and reducers.
 The read-only method review found five harness defects before retained trials. All five were corrected before the final freeze.
 The earlier, unrun freeze remains in `evidence/measurement-preflight/unrun-freeze-v1` for inspection. It is not the measurement freeze.
 

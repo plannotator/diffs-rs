@@ -149,7 +149,7 @@ def main():
     fixture = ROOT / trace["fixture"]["local_path"]
     assert digest(fixture) == trace["fixture"]["sha256"]
     hashes = bindings(args.binary, args.reference)
-    for path in [args.trace, fixture, Path(__file__), ROOT / "REGEX_CENSUS_PLAN.md"]:
+    for path in [args.trace, fixture, Path(__file__), ROOT / "docs/measurements/REGEX_CENSUS_PLAN.md"]:
         hashes[str(path.resolve())] = digest(path)
     if args.check_control:
         hashes[str(args.check_control.resolve())] = digest(args.check_control)

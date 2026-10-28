@@ -1,7 +1,7 @@
 # Changed-file sidebar: implementation specification
 
 Date: 2026-09-22.
-Status: implemented. The [implementation report](SIDEBAR_REPORT.md) records checks and limits.
+Status: implemented. The [implementation report](../history/SIDEBAR_REPORT.md) records checks and limits.
 
 The user approved the feature boundary and the exact directory hierarchy.
 The controls and dimensions below define the first implementation.

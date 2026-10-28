@@ -42,11 +42,7 @@ mod terminal_input;
 use terminal_input::TerminalInput;
 
 #[derive(Parser)]
-#[command(
-    name = "diffs",
-    version,
-    about = "Read-only native terminal diff viewer · visual prototype"
-)]
+#[command(name = "diffs", version, about = "Fast terminal diff viewer")]
 struct Cli {
     #[arg(long, value_enum, default_value = "auto", global = true)]
     layout: Layout,

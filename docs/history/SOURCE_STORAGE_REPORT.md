@@ -8,7 +8,7 @@ The current viewer still accepts patches only. No new input command, context exp
 ## Scope and starting point
 
 This checkpoint covers the three requested steps: establish the baseline, refactor shared storage, and check compatibility.
-It does not complete the entire first stage of [the exact-source feature](EXACT_SOURCE_CONTEXT_SPEC.md).
+It does not complete the entire first stage of [the exact-source feature](../design/EXACT_SOURCE_CONTEXT_SPEC.md).
 Complete-source snapshots, disk line indexes, comparison identity, and patch-to-source correspondence remain separate work.
 
 The starting source passed 81 enabled checks, including 52 process checks.

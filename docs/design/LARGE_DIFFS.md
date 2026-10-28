@@ -1,6 +1,6 @@
 # Large-diff foundation: implementation specification
 
-Date: 2026-09-10. Status: implementation started, not performance-accepted. See the [progress report](docs/history/LARGE_DIFF_PROGRESS.md).
+Date: 2026-09-10. Status: implementation started, not performance-accepted. See the [progress report](../history/LARGE_DIFF_PROGRESS.md).
 
 ## 1. Decision and scope
 
@@ -16,7 +16,7 @@ DiffGrid remains untouched. No maintainer contact, publishing, global installati
 ## 2. Exact workload
 
 The pinned [DiffsHub route source](https://github.com/pierrecomputer/pierre/blob/0a7a733078f093577cd21ca65d2508806a22238a/apps/diffshub/app/api/diff/route.ts) contains five cached patch mappings.
-All five downloaded bodies now have SHA-256 identities in [corpus.json](fixtures/diffshub/corpus.json).
+All five downloaded bodies now have SHA-256 identities in [corpus.json](../../fixtures/diffshub/corpus.json).
 The CDN bytes define the workload. A current PR response or a newly generated Git diff cannot silently replace them.
 
 | Required input | Bytes | Physical lines | File records | Hunks |
@@ -95,7 +95,7 @@ Steady RSS is the maximum during the settled portion of a third fixed memory tou
 Disk spool size, source/index allocations, cache payloads, and OS memory measurements remain separate fields.
 Kernel filesystem cache outside process RSS is not described as free memory or included in an allocator-only claim.
 After warm-up, retained state must plateau within its explicit budgets. A tour cannot retain another document-sized structure.
-Each tour visits the fixed file quantiles and structural extremes defined in [scenario.json](fixtures/diffshub/scenario.json).
+Each tour visits the fixed file quantiles and structural extremes defined in [scenario.json](../../fixtures/diffshub/scenario.json).
 It is not an exhaustive display of all 20 million lines. The separate full-content check covers every supplied source segment.
 
 Failure leaves a target unmet. It does not justify silently changing the corpus, excluding expensive files, or weakening visual settings.
@@ -267,7 +267,7 @@ No dashboard or multi-candidate benchmark framework is required. Missing GUI acc
 | E | Release evidence and visual corrections | All five required cases meet targets, with actual Ghostty appearance/movement signoff recorded separately. |
 
 Step A includes pinned source digests, structural anchors, and an original parse/index diagnostic.
-The [content-grid protocol](MEASUREMENT.md) adds a resolved input trace and a runner for the preserved interactive baseline.
+The [content-grid protocol](../measurements/MEASUREMENT.md) adds a resolved input trace and a runner for the preserved interactive baseline.
 Its scope excludes style completion, normalized full-metadata coverage, long-line tours, and steady-memory acceptance. Those requirements remain pending.
 Step B now includes the private spool, progressive file publication, compact source records, and compressed display ranges.
 Full source checks and selected corpus terminal checks pass. A shared block index still needs implementation or an evidence-based design review.

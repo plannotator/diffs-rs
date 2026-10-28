@@ -2,7 +2,7 @@
 
 Date: 2026-09-23. Status: prototype complete, not adopted. The known baseline is restored.
 
-This page preserves the original prototype checkpoint. The later [retention decision](../../LOCAL_SOURCE_RETENTION_DECISION.md) records adoption and current qualification.
+This page preserves the original prototype checkpoint. The later [retention decision](LOCAL_SOURCE_RETENTION_DECISION.md) records adoption and current qualification.
 
 ## Decision
 

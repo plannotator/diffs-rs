@@ -4,8 +4,8 @@ These files are dated plans, reports, censuses, and reviews from the experiments
 the current viewer. They record what was measured or decided at the time and are kept for
 provenance. They are not current status, instructions, or open tasks.
 
-For the current state, start with the [README](../../README.md) and
-[CURRENT_STATE.md](../../CURRENT_STATE.md).
+For an overview, start with the [README](../../README.md).
+[CURRENT_STATE.md](CURRENT_STATE.md) is the development log up to the first release.
 
 Some records cite evidence outside this repository:
 

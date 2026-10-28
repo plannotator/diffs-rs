@@ -41,7 +41,7 @@ The footer reports source failure, and normal quit returns a nonzero status afte
 Completed source preparation does not move the reader.
 
 Both new modes still use patch-context coloring. Their footer states this limitation even after source checks pass.
-This staged policy is recorded in [the implementation plan](docs/history/LOCAL_SOURCE_INPUT_PLAN.md).
+This staged policy is recorded in [the implementation plan](LOCAL_SOURCE_INPUT_PLAN.md).
 Full-prefix syntax, new syntax cache identities, and expandable context remain the next feature stages.
 
 ## Ownership and resources

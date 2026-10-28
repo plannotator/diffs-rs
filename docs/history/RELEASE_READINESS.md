@@ -37,7 +37,7 @@ Each step verifies the package against the crates already published by the previ
 ## Current local candidate
 
 The local candidate qualifies macOS arm64, not other platforms or a stable published library API.
-The standalone viewer and host example share one engine. Hosts retain terminal ownership, as described in [EMBEDDING.md](EMBEDDING.md).
+The standalone viewer and host example share one engine. Hosts retain terminal ownership, as described in [EMBEDDING.md](../embedding.md).
 
 - Both isolated installations, with Rust 1.96.0 and minimum Rust 1.88.0, passed 74 viewer checks and six host checks.
   Each viewer suite excluded ten opt-in cases. The separate host command selected six of those cases.
@@ -106,8 +106,8 @@ The inventory records each changed and added file separately.
 
 | Vendored crate | Existing maintenance record | Remaining work |
 | --- | --- | --- |
-| Syntect 5.3.0 | [Patch note](crates/diffs-syntect/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte rejection, retained-heap APIs, and affected files. Keep the documented checks during updates. |
-| Fancy Regex 0.16.2 | [Patch note](crates/diffs-fancy-regex/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte metadata, public error behavior, and affected files. Keep the documented checks during updates. |
+| Syntect 5.3.0 | [Patch note](../../crates/diffs-syntect/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte rejection, retained-heap APIs, and affected files. Keep the documented checks during updates. |
+| Fancy Regex 0.16.2 | [Patch note](../../crates/diffs-fancy-regex/PATCHES.md), source provenance, standalone checks | Summary updated 2026-09-22 for required-byte metadata, public error behavior, and affected files. Keep the documented checks during updates. |
 | libgit2-sys 0.18.8+1.9.7 | Parser correction, unchanged notices | Removed 2026-10-27. The stock crate is used; `src/model/rename_names.rs` quotes rename and copy names before parsing. Retain the parser regression checks during updates. |
 
 The bundled grammar package supplies notices in addition to its crate license.
@@ -115,7 +115,7 @@ The local export contains 66 syntax notice entries from the pinned package's pub
 The export does not select the package's unused theme notices.
 Distribution preparation still needs the runtime dependency notices, bundled-component notices, and existing theme attribution.
 No dependency, vendored source, or notice changed during this inventory.
-The later [local-source hardening pass](docs/history/LOCAL_SOURCE_HARDENING_REPORT.md) updated the two patch notes without changing runtime source or notices.
+The later [local-source hardening pass](LOCAL_SOURCE_HARDENING_REPORT.md) updated the two patch notes without changing runtime source or notices.
 
 ## Historical release gates
 

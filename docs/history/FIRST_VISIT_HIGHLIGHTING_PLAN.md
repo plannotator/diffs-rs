@@ -20,7 +20,7 @@ An optimization must preserve source bytes, numbering, pairing, emphasis, readin
 
 This stage measures PTY receipt of correct text and colors separately.
 Those observations do not establish physical screen paint or smooth scrolling in Ghostty.
-The [actual-terminal check](../../TERMINAL_PRESENTATION_CHECK.md) remains separate.
+The [actual-terminal check](../measurements/TERMINAL_PRESENTATION_CHECK.md) remains separate.
 
 ## What we already know
 
@@ -202,7 +202,7 @@ Faster colors cannot erase that result or justify unexplained new retained stora
 Any new owner needs a clear lifetime, accounting, release behavior, and measured tradeoff.
 No memory reduction or coloring speedup is claimed by this plan.
 
-The [measurement policy](../../MEASUREMENT_POLICY.md) remains unchanged.
+The [measurement policy](../measurements/MEASUREMENT_POLICY.md) remains unchanged.
 Wrong source, wrong colors, lost position, stale theme output, or failed cleanup blocks acceptance.
 Unexplained responsiveness or memory regressions require investigation before a keep decision.
 

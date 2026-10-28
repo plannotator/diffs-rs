@@ -119,7 +119,8 @@ def main():
     corpus = json.loads((ROOT / "fixtures/diffshub/corpus.json").read_text())
     hashes = {p: digest(ROOT / p) for p in TOOLS + [BASELINE, "fixtures/diffshub/corpus.json",
                                                    "fixtures/diffshub/scenario.json", "fixtures/diffshub/reference.json",
-                                                   "MEASUREMENT.md", "SPEC.md", "LARGE_DIFFS.md"]}
+                                                   "docs/measurements/MEASUREMENT.md", "docs/design/SPEC.md",
+                                                   "docs/design/LARGE_DIFFS.md"]}
     hashes.update({str(p.relative_to(ROOT)): digest(p) for p in sorted((ROOT / "src").glob("*.rs"))})
     fixtures = []
     for fixture in corpus["fixtures"]:

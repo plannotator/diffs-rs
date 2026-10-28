@@ -13,7 +13,7 @@ The normal executable, Rust source, dependencies, cache limits, and diff algorit
 The executable SHA-256 remains `1ab24c0c70c45a5b480b83e111fa909d33ed56f4f4af9510b30dad72558f2e4e`.
 This checkpoint establishes correctness for the declared views. It establishes no speedup or memory reduction.
 
-Scope: [the frozen plan](../../SIDEBAR_CORPUS_PLAN.md).
+Scope: [the frozen plan](../measurements/SIDEBAR_CORPUS_PLAN.md).
 Evidence index: [the machine-readable manifest](../../evidence/sidebar-corpus-v1/manifest.json).
 
 ## Checker changes

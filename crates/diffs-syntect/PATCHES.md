@@ -38,7 +38,8 @@ The optional `regex-census` feature additionally exposes a borrowed snapshot in
 `src/parsing/regex_census.rs`. It inspects initialized static cells only, records
 owner identities, and does not load grammars, compile regexes, or clone owners.
 It is disabled in ordinary application builds. The application-level scope and
-real-grammar controls are in `REGEX_CENSUS_PLAN.md` and `tests/regex_census.rs`.
+real-grammar controls are in `docs/measurements/REGEX_CENSUS_PLAN.md` and `tests/regex_census.rs`
+in the diffs-rs repository.
 
 The optional `owner-census` feature adds `src/parsing/owner_census.rs` for the
 Fancy Regex backend. It deduplicates initialized outer cells before visiting

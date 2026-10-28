@@ -4,7 +4,7 @@ Date: 2026-09-11. Status: storage stages implemented and checkpoint measurements
 
 Reduce memory while preserving the exact source, settled terminal cells, and reading destinations of the current viewer. Correctness is a requirement for accepting each change. Performance goals apply after that requirement passes.
 
-This plan defines the next work in the existing Rust package. [LARGE_DIFFS.md](../../LARGE_DIFFS.md) owns performance targets; [FIVE_PATCH_ACCEPTANCE.md](../../FIVE_PATCH_ACCEPTANCE.md) owns the current measured workload. This plan adds representation invariants and migration checks. It does not implement the unbuilt features proposed in [SPEC.md](../../SPEC.md).
+This plan defines the next work in the existing Rust package. [LARGE_DIFFS.md](../design/LARGE_DIFFS.md) owns performance targets; [FIVE_PATCH_ACCEPTANCE.md](../measurements/FIVE_PATCH_ACCEPTANCE.md) owns the current measured workload. This plan adds representation invariants and migration checks. It does not implement the unbuilt features proposed in [SPEC.md](../design/SPEC.md).
 
 ## 1. Starting evidence and decisions
 

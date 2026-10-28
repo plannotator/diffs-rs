@@ -6,7 +6,7 @@ Findings: [the retention investigation](LOCAL_SOURCE_RETENTION_REPORT.md).
 Implementation and measurements: [the prototype report](LOCAL_SOURCE_RETENTION_PROTOTYPE.md).
 Opening attribution: [the diagnostic report](LOCAL_SOURCE_OPENING_REPORT.md).
 Git completion: [the independent notification report](LOCAL_SOURCE_GIT_WAKE_REPORT.md).
-Decision: [the retention adoption report](../../LOCAL_SOURCE_RETENTION_DECISION.md).
+Decision: [the retention adoption report](LOCAL_SOURCE_RETENTION_DECISION.md).
 
 ## Completed decision
 

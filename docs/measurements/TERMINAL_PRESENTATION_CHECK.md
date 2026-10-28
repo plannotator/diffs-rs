@@ -25,7 +25,7 @@ screenshot and was not copied into the preserved reference directory.
 The kept normal executable hashes to
 `1b58a20778dc5ca0eedcaec0b3d7710cc19c8cc9151d58b3180e309fe6d73000`.
 It contains the kept line-local search-buffer change and shared replacement boundary, not the deferred shared-prefix candidate.
-The [baseline report](evidence/clean-baseline-v1/REPORT.md) records its checks and rollback copy.
+The [baseline report](../../evidence/clean-baseline-v1/REPORT.md) records its checks and rollback copy.
 The root working source now matches the accepted implementation. A normal build no longer includes the deferred experiment.
 Use the installed executable and record its hash at capture time.
 

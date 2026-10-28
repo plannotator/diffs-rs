@@ -38,8 +38,9 @@ REQUIRED_CONTROLS = {"source-glyph", "source-number", "source-sign", "blank-body
 
 def bindings(binary, reference):
     paths = [binary, reference, Path(sys.executable), Path(PROTOCOL["command"]), ROOT / "Cargo.toml", ROOT / "Cargo.lock"]
-    paths += [ROOT / name for name in ["FIVE_PATCH_ACCEPTANCE.md", "LARGE_DIFFS.md", "MEASUREMENT_POLICY.md",
-                                      "SIDEBAR_SPEC.md", "SIDEBAR_CORPUS_PLAN.md",
+    paths += [ROOT / name for name in ["docs/measurements/FIVE_PATCH_ACCEPTANCE.md", "docs/design/LARGE_DIFFS.md",
+                                      "docs/measurements/MEASUREMENT_POLICY.md", "docs/design/SIDEBAR_SPEC.md",
+                                      "docs/measurements/SIDEBAR_CORPUS_PLAN.md",
                                       "fixtures/diffshub/scenario.json", "fixtures/diffshub/corpus.json"]]
     paths += sorted((ROOT / "src").rglob("*.rs"))
     paths += sorted((ROOT / "assets").rglob("*.json"))

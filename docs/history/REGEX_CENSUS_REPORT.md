@@ -105,7 +105,7 @@ memory goals, and physical terminal-paint verification remain open.
 
 ## Evidence
 
-- [Declared scope](../../REGEX_CENSUS_PLAN.md)
+- [Declared scope](../measurements/REGEX_CENSUS_PLAN.md)
 - [Raw census](../../evidence/regex-census-v1/three-tour/census.json)
 - [Process and reduced results](../../evidence/regex-census-v1/three-tour/report.json)
 - [Run bindings](../../evidence/regex-census-v1/three-tour/declaration.json)

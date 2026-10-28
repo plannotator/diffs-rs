@@ -1,7 +1,7 @@
 # Whole style-cache accounting
 
 Current status: qualified and integrated on 2026-09-27.
-The [current state](../../CURRENT_STATE.md#current-checkpoint) identifies the normal executable and its completed integration checks.
+The [current state](CURRENT_STATE.md#current-checkpoint) identifies the normal executable and its completed integration checks.
 The preserved candidate completed its ordinary comparison and Rust 1.88 checks before integration.
 Those measurements do not describe a new comparison of the integrated executable.
 

@@ -314,6 +314,17 @@ impl View {
         }
     }
 
+    /// The revealed context line at an original line on one side, if any.
+    pub(crate) fn context_line(&self, file: usize, old: bool, line: u32) -> Option<LineId> {
+        self.files.get(&file)?.gaps.iter().find_map(|gap| {
+            let base = if old { gap.source.old } else { gap.source.new };
+            let offset = line.checked_sub(base)?.checked_sub(1)?;
+            gap.exposed()
+                .contains(&offset)
+                .then(|| gap.line(file, offset))
+        })
+    }
+
     pub(crate) fn file_row(&self, doc: &Document, file: usize, split: bool) -> usize {
         doc.files[file].row_base(split)
             + file

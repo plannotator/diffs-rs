@@ -54,6 +54,8 @@ pub struct App {
     pub horizontal: usize,
     pub wrap: bool,
     pub numbers: bool,
+    /// Draws the label row, footer and help overlay. Hosts that own those rows turn it off.
+    pub chrome: bool,
     pub help: bool,
     pub cache: Cache,
     pub geometry: crate::geometry::Cache,
@@ -65,6 +67,7 @@ pub struct App {
     pub worker: Worker,
     pub(crate) search_match: Option<crate::reading::SearchMatch>,
     pub(crate) selection: Option<crate::reading::LineSelection>,
+    pub(crate) markers: crate::engine::markers::Markers,
     reading_anchor: Option<ReadingAnchor>,
 }
 
@@ -92,12 +95,14 @@ impl App {
             worker,
             search_match: None,
             selection: None,
+            markers: Default::default(),
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
             horizontal: 0,
             wrap: false,
             numbers: true,
+            chrome: true,
             help: false,
             cache: Cache::default(),
             geometry: crate::geometry::Cache::default(),

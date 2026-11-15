@@ -42,6 +42,19 @@ impl App {
         Ok(Some((id, old)))
     }
 
+    /// The displayed record of an original line on one side: a patch record, or revealed
+    /// checked context. Lines in unrevealed gaps, or outside the file, have none.
+    pub(crate) fn displayed_source(&self, file: usize, old: bool, line: u32) -> Option<LineId> {
+        let index = self.doc.files.get(file)?;
+        let id = index
+            .source_for_line(old, line)
+            .map(LineId::Patch)
+            .or_else(|| self.view.context_line(file, old, line))?;
+        self.view
+            .source_row(&self.doc, id, self.split())
+            .map(|_| id)
+    }
+
     pub(crate) fn line_file(&self, id: LineId) -> &Arc<FileIndex> {
         match id {
             LineId::Patch(id) => self.doc.file_for_source(id),

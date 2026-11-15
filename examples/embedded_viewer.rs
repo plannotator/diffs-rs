@@ -16,12 +16,14 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use diffs_rs::engine::{Engine, Input, Layout, Options, SidebarPreference};
+use diffs_rs::engine::{Engine, Input, Layout, Marker, Options, Side, SidebarPreference};
 use diffs_rs::input::LocalInput;
+use diffs_rs::reading::SourceRange;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     layout::Rect,
+    style::{Color, Style},
     widgets::{Block, Borders, Paragraph},
 };
 
@@ -45,7 +47,12 @@ impl ReviewInput {
     }
 }
 
-fn review_inputs() -> Result<Vec<ReviewInput>> {
+struct Arguments {
+    inputs: Vec<ReviewInput>,
+    chrome: bool,
+}
+
+fn review_inputs() -> Result<Arguments> {
     let matches = clap::Command::new("embedded_viewer")
         .about("Open local reviews in one terminal host, in argument order")
         .arg_required_else_help(true)
@@ -72,6 +79,12 @@ fn review_inputs() -> Result<Vec<ReviewInput>> {
                 .action(ArgAction::Append)
                 .value_parser(OsStringValueParser::new())
                 .help("Compare Git commits; use full commit IDs to pin repeated opens"),
+        )
+        .arg(
+            Arg::new("no-chrome")
+                .long("no-chrome")
+                .action(ArgAction::SetTrue)
+                .help("Hide the viewer's label row, footer and help; the host draws a status row"),
         )
         .get_matches();
     let mut inputs = Vec::new();
@@ -114,7 +127,10 @@ fn review_inputs() -> Result<Vec<ReviewInput>> {
         }
     }
     inputs.sort_unstable_by_key(|(index, _)| *index);
-    Ok(inputs.into_iter().map(|(_, input)| input).collect())
+    Ok(Arguments {
+        inputs: inputs.into_iter().map(|(_, input)| input).collect(),
+        chrome: !matches.get_flag("no-chrome"),
+    })
 }
 
 struct HostTerminal {
@@ -174,14 +190,65 @@ fn host_text(engine: &Engine, review: usize, focus: bool) -> Result<String> {
     let focus = if focus { "viewer" } else { "host" };
     Ok(format!(
         "Host pane\nFocus: {focus}\nReview: {}\nState: {state}\n\n{location}\n\n\
-         Tab  switch focus\nr    next review\no    reopen review\nc    close review\nq    exit host\n\n\
+         Tab  switch focus\nr    next review\no    reopen review\nc    close review\n\
+         m    mark selection\n'    select last mark\nq    exit host\n\n\
          Viewer keys stay local.",
         review + 1
     ))
 }
 
+/// The host's own status row, used when the viewer draws no footer.
+fn status_text(engine: &Engine, marks: usize) -> String {
+    let status = engine.status();
+    let state = if status.closed {
+        "Review closed"
+    } else if let Some(error) = status.error {
+        error
+    } else if status.loading {
+        "Loading patch…"
+    } else if status.coloring || status.preparing_source {
+        "Coloring visible code…"
+    } else if status.source_failed {
+        "Source unavailable · patch view retained"
+    } else {
+        "Ready"
+    };
+    format!(" {state} · {} files · {marks} marks", status.files)
+}
+
+/// Marks the selection, or the cursor line when nothing is selected.
+fn mark(engine: &mut Engine, marks: &mut Vec<Marker>) -> Result<()> {
+    let range = match engine.selection() {
+        Some(range) => range,
+        None => {
+            let Some(source) = engine.selected_source()? else {
+                return Ok(());
+            };
+            let line = match source.side {
+                Side::Old => source.old_line,
+                Side::New => source.new_line,
+            };
+            let Some(line) = line else {
+                return Ok(());
+            };
+            SourceRange {
+                review: source.review,
+                file: source.file,
+                side: source.side,
+                first: line,
+                last: line,
+            }
+        }
+    };
+    marks.push(Marker {
+        range,
+        style: Style::new().fg(Color::Yellow),
+    });
+    engine.set_markers(marks)
+}
+
 fn run() -> Result<()> {
-    let inputs = review_inputs()?;
+    let Arguments { inputs, chrome } = review_inputs()?;
     let (wake, ready) = mpsc::sync_channel(1);
     let events = TerminalInput::start(wake.clone())?;
     terminal::enable_raw_mode()?;
@@ -198,10 +265,12 @@ fn run() -> Result<()> {
             Options {
                 layout: Layout::Split,
                 sidebar: SidebarPreference::Hide,
+                chrome,
                 ..Options::default()
             },
             wake,
         )?;
+        let mut marks = Vec::new();
         let mut focus = true;
         let mut dirty = true;
         let mut resized = false;
@@ -225,6 +294,15 @@ fn run() -> Result<()> {
                         let width = area.width.min(28);
                         let beside = Rect::new(area.x, area.y, width, area.height);
                         viewer = Rect::new(area.x + width, area.y, area.width - width, area.height);
+                        if !chrome {
+                            // Without viewer chrome, the host owns a status row below the diff.
+                            viewer.height = viewer.height.saturating_sub(1);
+                            frame.render_widget(
+                                Paragraph::new(status_text(&engine, marks.len())),
+                                Rect::new(viewer.x, viewer.bottom(), viewer.width, 1)
+                                    .intersection(area),
+                            );
+                        }
                         rendered = engine.draw(frame, viewer).and_then(|()| {
                             let text = host_text(&engine, review, focus)?;
                             frame.render_widget(
@@ -264,6 +342,7 @@ fn run() -> Result<()> {
                         }
                         KeyCode::Char('c') => {
                             engine.close()?;
+                            marks.clear();
                             dirty = true;
                             continue;
                         }
@@ -272,6 +351,24 @@ fn run() -> Result<()> {
                                 review = (review + 1) % inputs.len();
                             }
                             engine.replace(inputs[review].open())?;
+                            marks.clear();
+                            dirty = true;
+                            continue;
+                        }
+                        KeyCode::Char('m') if !engine.status().closed => {
+                            mark(&mut engine, &mut marks)?;
+                            dirty = true;
+                            continue;
+                        }
+                        KeyCode::Char('\'') => {
+                            // A mark on revealed context leaves the diff if its source is
+                            // withdrawn; the error is recoverable, so drop that mark.
+                            if let Some(last) = marks.last()
+                                && engine.select_range(last.range).is_err()
+                            {
+                                marks.pop();
+                                engine.set_markers(&marks)?;
+                            }
                             dirty = true;
                             continue;
                         }

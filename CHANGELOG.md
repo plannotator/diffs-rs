@@ -16,6 +16,9 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   renamed or copied) and show `+N` in the addition color and `−N` in the deletion color, as
   Hunk does. Folder totals use the same count colors. `theme::Colors` gains `modified` and
   `renamed`, which breaks code that builds `Colors` by hand.
+- Search scans the patch bytes directly instead of reading each source line on its own. On
+  the 711 MB Linux v6.0…v7.0 patch the first match and a wrapping F3 take about 60 ms
+  instead of 3–9 s. Results do not change.
 
 ## 0.1.0 - 2026-10-27
 

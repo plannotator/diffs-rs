@@ -206,15 +206,27 @@ pub(crate) struct SpanReader<'a> {
 
 impl SpanReader<'_> {
     pub(crate) fn get(&mut self, n: usize) -> Result<(u64, usize)> {
+        self.source.get_with(&mut self.input, n)
+    }
+}
+
+impl SourceSpans {
+    /// The store that holds this index. Files from one input share it.
+    pub(crate) fn index(&self) -> &Arc<ByteStore> {
+        &self.index
+    }
+
+    /// Reads one span through caller-owned scratch over [`Self::index`].
+    pub(crate) fn get_with(&self, input: &mut ReadWindow, n: usize) -> Result<(u64, usize)> {
         let mut read = || {
-            ensure!(n < self.source.count, "Source line is outside the index");
-            let width = self.source.encoding.width();
-            let start = self.source.start + n as u64 * width as u64;
+            ensure!(n < self.count, "Source line is outside the index");
+            let width = self.encoding.width();
+            let start = self.start + n as u64 * width as u64;
             let mut bytes = [0; 12];
-            self.input
+            input
                 .range(start..start + width as u64)?
                 .read_exact(&mut bytes[..width])?;
-            self.source.decode(&bytes)
+            self.decode(&bytes)
         };
         read().context(ReadFailure)
     }

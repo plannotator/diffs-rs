@@ -19,6 +19,7 @@ use crate::{
 
 pub(crate) mod domain;
 pub(crate) mod literal;
+mod scan;
 pub(crate) mod search;
 mod search_read;
 pub use literal::Direction as SearchDirection;

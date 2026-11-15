@@ -19,7 +19,7 @@ mod bytes;
 pub(crate) use bytes::private_tempfile;
 pub use bytes::{ByteStore, SourceRef, StoreReader, StoreWriter};
 mod reader;
-pub(crate) use reader::ReadWindow;
+pub(crate) use reader::{PatchScan, ReadWindow, SpanWindow};
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -73,6 +73,10 @@ impl Deref for FileIndex {
 impl FileIndex {
     pub(crate) fn hunk_row(&self, index: usize, split: bool) -> usize {
         self.projection.hunk_row(index, split)
+    }
+    /// Whether unified rows list this file's source records in record, and so spool, order.
+    pub(crate) fn unified_follows_source(&self) -> bool {
+        self.projection.unified_follows_source()
     }
     pub fn source_end(&self) -> usize {
         self.source_base + self.source.len()

@@ -90,7 +90,7 @@ fn unicode_queries_cross_chunk_boundaries_without_sanitizing_source_offsets() {
                     expected(&text, &query, starts.clone(), direction),
                     "{starts:?} {direction:?}"
                 );
-                assert!(literal.buffer.capacity() < CHUNK + QUERY_BYTES);
+                assert!(literal.buffer.len() < CHUNK + QUERY_BYTES);
             }
         }
     }
@@ -147,7 +147,7 @@ fn no_match_scan_remains_cancellable_and_the_buffer_is_reused() {
         .unwrap_err();
     assert!(error.is::<crate::input::Cancelled>());
     assert!(file.stream_position().unwrap() <= CHUNK as u64);
-    let capacity = literal.buffer.capacity();
+    let capacity = literal.buffer.len();
     file.rewind().unwrap();
     assert_eq!(
         literal
@@ -155,5 +155,5 @@ fn no_match_scan_remains_cancellable_and_the_buffer_is_reused() {
             .unwrap(),
         None
     );
-    assert_eq!(literal.buffer.capacity(), capacity);
+    assert_eq!(literal.buffer.len(), capacity);
 }

@@ -6,6 +6,12 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 ## 0.1.1 - unreleased
 
 - docs: new README, docs moved under docs/.
+- `Options.chrome`: set it to `false` and the engine draws no label row, footer or help
+  overlay, so the host owns those rows. Adding this field breaks hosts that build `Options`
+  without `..Options::default()`.
+- `Engine::set_markers` draws host markers in the gutter for ranges of source lines.
+- `Engine::reveal` moves the cursor to a source line, and `Engine::select_range` selects a
+  range of source lines as the user would.
 
 ## 0.1.0 - 2026-10-27
 

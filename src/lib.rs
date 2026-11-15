@@ -49,7 +49,7 @@
 //! ```
 //!
 //! The [embedding guide](https://github.com/plannotator/diffs-rs/blob/main/docs/embedding.md)
-//! covers the host loop, focus, source coordinates, reading tools, and shutdown.
+//! covers the host loop, focus, source coordinates, chrome, markers, reading tools, and shutdown.
 
 pub mod app;
 mod cleanup;

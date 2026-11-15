@@ -63,6 +63,20 @@ The draw rectangle is intersected with the frame. Engine drawing does not change
 The supplied rectangle controls reflow. Terminal resize events request a redraw but do not replace the pane dimensions with the full terminal dimensions.
 Supply the current rectangle on every draw, including when a pane moves without changing size.
 
+### Without chrome
+
+By default the engine draws a label row at the top of its rectangle, a footer with status and key hints at the bottom, and a help overlay on `?`.
+Set `Options { chrome: false, .. }` when the host owns those rows:
+
+- The diff, its file headers and the Files sidebar fill the whole rectangle. The rectangle needs at least 40 columns × 8 rows instead of 40 × 10.
+- `Command::Help` and the `?` key are ignored, so the help overlay never opens.
+- `draw_with_controls` ignores its `ReadingControls`; the host shows its own hints and notices.
+- The loading, failure and too-small placeholders name no keys.
+
+Read the state the footer would have shown from `status()`: `loading`, `coloring`, `preparing_source`, `source_failed` and `error`, and `files` for the count.
+The review label, layout and theme are the host's own inputs and `options()`.
+`chrome` is fixed for the engine's lifetime, and `replace()` keeps it.
+
 ## Commands and selection
 
 `handle_event(event, focused)` applies the viewer's default bindings.
@@ -91,6 +105,42 @@ Withdrawal of an affected checked source also clears it.
 The default mouse route supports Shift-click within the same file and side. The host still controls event routing and keyboard bindings.
 The standalone maps `V` and Escape to these commands. `handle_event` alone does not add those keyboard bindings.
 Headers and padding never become endpoints. Ranges can span unavailable patch-only gaps; `source_read` rejects those gaps during streaming.
+
+### Host-driven position and selection
+
+`reveal(file, side, line)` scrolls an original source line into view and puts the cursor on it, on that side.
+`select_range(range)` makes a fixed selection over `range.first..=range.last`, as if the user had selected it and finished.
+The cursor ends on `range.last`; `selection()`, `selected_source()` and `source_read()` then report it as they would a user selection, and `selection_extending()` is false.
+Both give the diff keyboard focus and close the help overlay.
+
+Both return an error, and change nothing, when the line is not displayed: the file is not in the review, the line is outside the file or on the other side only, or it sits in a gap that the patch does not supply and nobody has revealed.
+Checked context counts once it is revealed. For `select_range` only the two endpoints must be displayed. As with a user selection, the lines between them can cross a gap, and `source_read` then rejects the range.
+`select_range` also rejects a range from another review or with `first` of 0 or greater than `last`.
+Moving the cursor to another file or side clears the selection, as it does for a user selection.
+
+### Gutter markers
+
+`set_markers(&[Marker])` replaces every marker with a new set; an empty slice clears them.
+A `Marker` is a `SourceRange` plus a Ratatui `Style`:
+
+```rust
+use diffs_rs::{engine::{Marker, Side}, reading::SourceRange};
+use ratatui::style::{Color, Style};
+
+engine.set_markers(&[Marker {
+    range: SourceRange { review: engine.review_id(), file: 0, side: Side::New, first: 12, last: 14 },
+    style: Style::new().fg(Color::Yellow),
+}])?;
+```
+
+Each visible row whose source line on `range.side` falls in the range shows `▌` in the first gutter cell, patched with `style`. Continuation rows of a wrapped line show it too.
+In the split layout a marker shows on its own side's half. A unified row shows both line numbers, so a marker on either side applies.
+The cursor `▎` and selection `┃` indicators take precedence in that cell. Where markers overlap, the later one in the slice wins.
+The set is indexed per file and side when it is replaced, so each drawn row costs one lookup however many markers exist.
+
+Markers for lines that are not displayed, or for files that have not arrived yet, draw nothing until they are. Markers can be set before the first file arrives.
+`set_markers` rejects the whole set, keeping the previous one, if any range belongs to another review or has `first` of 0 or greater than `last`. It also fails after `close()`.
+`replace()` and `close()` drop the markers. Set them again for the new review with its `review_id()`.
 
 ### Source reading and search
 
@@ -165,6 +215,8 @@ cargo run --release --locked --example embedded_viewer -- fixtures/review.patch 
 Use full commit IDs to keep Git inputs fixed across repeated opens. A symbolic revision resolves again on each open. File pairs capture fresh bytes on each open; editing the live files does not change an already captured review. Arguments are validated before acquiring the terminal.
 
 The left pane belongs to the host. Tab switches outer focus; `r` opens the next review, `c` closes the review without exiting, `o` reopens it, and `q` exits the host.
+`m` marks the selection (Shift-click to make one) or the cursor line with a gutter marker, and `'` selects the last mark again with `select_range`.
+`--no-chrome` turns off the viewer's label row, footer and help; the host then draws its own status row from `status()` below the viewer.
 These are example-host controls, not additional viewer bindings.
 The example uses the current terminal and does not open windows or change preferences.
 `State: source unavailable` distinguishes degraded full-source preparation from a ready review. Published patch content remains readable, and the host can replace the review. Unexpected worker/storage errors and failed cleanup terminate the example with an error; they are not treated as recoverable input errors.

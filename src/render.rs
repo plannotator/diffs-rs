@@ -190,10 +190,15 @@ pub(crate) fn draw_with_controls(
         area,
     );
     app.visible.clear();
-    if area.width < 40 || area.height < 10 {
+    if area.width < 40 || app.layout_height(area.height) < 10 {
         app.protect_visible_styles();
+        let text = if app.chrome {
+            "Enlarge terminal to at least 40 columns × 10 rows\nq quit"
+        } else {
+            "Enlarge pane to at least 40 columns × 8 rows"
+        };
         frame.render_widget(
-            Paragraph::new("Enlarge terminal to at least 40 columns × 10 rows\nq quit")
+            Paragraph::new(text)
                 .wrap(Wrap { trim: true })
                 .style(Style::new().fg(colors.fg)),
             area,
@@ -203,6 +208,25 @@ pub(crate) fn draw_with_controls(
     if !app.wrap && app.horizontal != 0 {
         app.horizontal = app.horizontal.min(horizontal_limit(app)?);
     }
+    if app.chrome {
+        title(frame.buffer_mut(), app, area);
+    }
+    let buf = frame.buffer_mut();
+    sidebar::draw(buf, app);
+    draw_diff(buf, app, app.sidebar.diff)?;
+    app.protect_visible_styles();
+    if let Some(index) = app.visible.iter().position(|(p, _)| *p == app.cursor) {
+        app.cursor_screen_row = index;
+    }
+    if app.chrome {
+        footer(frame, app, area, input_error, controls);
+    }
+    Ok(())
+}
+
+/// The label row: the review label on the left, file count, layout and theme on the right.
+fn title(buf: &mut Buffer, app: &App, area: Rect) {
+    let colors = &app.colors;
     let layout = if app.split() { "SPLIT" } else { "UNIFIED" };
     let title = format!(" diffs  /  {}", app.label);
     let right = format!(
@@ -213,7 +237,6 @@ pub(crate) fn draw_with_controls(
     let right_width = right.width().min(area.width as usize) as u16;
     // Keep a visible gap so a long label never runs into the file count.
     let title_width = area.width.saturating_sub(right_width + 2);
-    let buf = frame.buffer_mut();
     fill(buf, Rect::new(area.x, area.y, area.width, 1), colors.chrome);
     label(
         buf,
@@ -235,12 +258,18 @@ pub(crate) fn draw_with_controls(
         colors.chrome,
         false,
     );
-    sidebar::draw(buf, app);
-    draw_diff(buf, app, app.sidebar.diff)?;
-    app.protect_visible_styles();
-    if let Some(index) = app.visible.iter().position(|(p, _)| *p == app.cursor) {
-        app.cursor_screen_row = index;
-    }
+}
+
+/// The footer status and key hints, and the help overlay when it is open.
+fn footer(
+    frame: &mut Frame<'_>,
+    app: &App,
+    area: Rect,
+    input_error: Option<&str>,
+    controls: Option<&crate::engine::ReadingControls<'_>>,
+) {
+    let colors = &app.colors;
+    let buf = frame.buffer_mut();
     let mut pending = false;
     let mut fallback = false;
     for (p, _) in &app.visible {
@@ -397,7 +426,6 @@ pub(crate) fn draw_with_controls(
             rect,
         );
     }
-    Ok(())
 }
 
 /// Shortens the footer hint until the status fits beside it.
@@ -699,6 +727,36 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
             && number.is_some_and(|line| range.first <= line && line <= range.last)
     });
     let other_info = other.map(|id| app.line_info(id)).transpose()?;
+    // A unified row shows both of its numbers, so either side's marker applies to it.
+    let marker = if app.split() {
+        let side = if old {
+            crate::engine::Side::Old
+        } else {
+            crate::engine::Side::New
+        };
+        app.markers
+            .style(file, side, if old { source.old } else { source.new })
+    } else {
+        app.markers
+            .style(file, crate::engine::Side::New, source.new)
+            .or_else(|| {
+                app.markers.style(
+                    file,
+                    crate::engine::Side::Old,
+                    other_info.and_then(|i| i.old).or(source.old),
+                )
+            })
+    };
+    // The cursor and selection indicators take precedence over a marker in the first cell.
+    let indicator = if active {
+        "▎"
+    } else if selected {
+        "┃"
+    } else if marker.is_some() {
+        crate::engine::markers::SYMBOL
+    } else {
+        " "
+    };
     let (bg, accent, word, sign) = match source.kind {
         Kind::Context => (c.context, c.dim, c.context, " "),
         Kind::Addition => (c.add_bg, c.added, c.add_word, "+"),
@@ -720,14 +778,7 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
     };
     let gutter = if app.split() {
         format!(
-            "{}{}{} ",
-            if active {
-                "▎"
-            } else if selected {
-                "┃"
-            } else {
-                " "
-            },
+            "{indicator}{}{} ",
             number(if part == 0 {
                 if old { source.old } else { source.new }
             } else {
@@ -737,14 +788,7 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
         )
     } else {
         format!(
-            "{}{}{}{}{} ",
-            if active {
-                "▎"
-            } else if selected {
-                "┃"
-            } else {
-                " "
-            },
+            "{indicator}{}{}{}{} ",
             number(if part == 0 {
                 other_info.and_then(|i| i.old).or(source.old)
             } else {
@@ -770,6 +814,8 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
         buf[(x, y)]
             .set_fg(c.accent)
             .set_style(Style::new().add_modifier(Modifier::BOLD));
+    } else if let Some(style) = marker.filter(|_| !active) {
+        buf[(x, y)].set_style(style);
     }
     let available = code_width(app, file, width);
     let line = app.line_geometry(id, app.wrap.then_some(available))?;

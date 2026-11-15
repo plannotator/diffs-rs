@@ -117,6 +117,16 @@ impl App {
         self.sidebar.preference = preference;
     }
 
+    /// The pane height that view movement reasons about. It always counts the label and
+    /// footer rows, so without chrome the diff rows fill the whole supplied rectangle.
+    pub(crate) fn layout_height(&self, screen: u16) -> u16 {
+        if self.chrome {
+            screen
+        } else {
+            screen.saturating_add(2)
+        }
+    }
+
     pub(crate) fn prepare_view(&mut self, screen: Rect) -> anyhow::Result<()> {
         for file in &self.doc.files[self.sidebar.tree.len()..] {
             self.sidebar.tree.append(file)?;
@@ -140,24 +150,21 @@ impl App {
             SidebarPreference::Show => true,
             SidebarPreference::Hide => false,
         };
-        let shown = wants_tree && screen.width >= MIN_WIDTH && screen.height >= 10;
+        let height = self.layout_height(screen.height);
+        let top = screen.y + u16::from(self.chrome);
+        let shown = wants_tree && screen.width >= MIN_WIDTH && height >= 10;
         if shown {
             self.sidebar.notice = None;
         }
         self.sidebar.screen = screen;
         self.sidebar.area = if shown {
-            Rect::new(screen.x, screen.y + 1, TREE_WIDTH, screen.height - 2)
+            Rect::new(screen.x, top, TREE_WIDTH, height - 2)
         } else {
             Rect::default()
         };
         let inset = if shown { TREE_WIDTH + 1 } else { 0 };
-        self.sidebar.diff = if screen.width >= 40 && screen.height >= 10 {
-            Rect::new(
-                screen.x + inset,
-                screen.y + 1,
-                screen.width - inset,
-                screen.height - 2,
-            )
+        self.sidebar.diff = if screen.width >= 40 && height >= 10 {
+            Rect::new(screen.x + inset, top, screen.width - inset, height - 2)
         } else {
             Rect::default()
         };
@@ -169,11 +176,17 @@ impl App {
             self.visible.clear();
             return Ok(());
         }
-        let changed = self.width != self.sidebar.diff.width || self.height != screen.height;
+        let changed = self.width != self.sidebar.diff.width || self.height != height;
         if changed {
-            self.reflow(self.layout, self.sidebar.diff.width, screen.height)?;
+            self.reflow(self.layout, self.sidebar.diff.width, height)?;
         }
         Ok(())
+    }
+
+    /// Gives the diff keyboard focus and closes help, as a host-requested move expects.
+    pub(crate) fn focus_diff(&mut self) {
+        self.sidebar.focus = Focus::Diff;
+        self.help = false;
     }
 
     pub(crate) fn files_command(&mut self) -> anyhow::Result<()> {
@@ -182,7 +195,9 @@ impl App {
             self.sidebar.focus = Focus::Diff;
         } else {
             self.sidebar.preference = SidebarPreference::Show;
-            if self.sidebar.screen.width < MIN_WIDTH || self.sidebar.screen.height < 10 {
+            if self.sidebar.screen.width < MIN_WIDTH
+                || self.layout_height(self.sidebar.screen.height) < 10
+            {
                 self.sidebar.notice = Some("Files need at least 97 columns × 10 rows");
             } else {
                 self.sidebar.focus = Focus::Files;

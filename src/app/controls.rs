@@ -138,6 +138,7 @@ impl App {
         self.sidebar.notice = None;
         let mut highlight = true;
         match command {
+            Command::Help if !self.chrome => return Ok(InputEffect::Ignored),
             Command::Help => {
                 self.help = !self.help;
                 highlight = false;

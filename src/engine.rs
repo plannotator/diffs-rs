@@ -1,5 +1,6 @@
 //! A review owns its workers and view state, but never the host terminal.
 
+pub(crate) mod markers;
 mod reading;
 mod selection;
 
@@ -28,6 +29,7 @@ use crate::{
     text::{safe_label, safe_text},
     theme::Appearance,
 };
+pub use markers::Marker;
 
 pub enum Input {
     Patch(PathBuf),
@@ -46,6 +48,9 @@ pub struct Options {
     pub sidebar: SidebarPreference,
     pub wrap: bool,
     pub line_numbers: bool,
+    /// Draw the label row, the footer and the help overlay. With `false` the diff fills the
+    /// whole draw rectangle, `Command::Help` is ignored, and the host shows `status()` itself.
+    pub chrome: bool,
 }
 
 impl Default for Options {
@@ -56,6 +61,7 @@ impl Default for Options {
             sidebar: SidebarPreference::Auto,
             wrap: false,
             line_numbers: true,
+            chrome: true,
         }
     }
 }
@@ -115,6 +121,8 @@ pub struct Engine {
     last_draw: Instant,
     draw_pending: bool,
     area: Rect,
+    /// Markers set before the first file arrived; the viewer state takes them when created.
+    markers: markers::Markers,
 }
 
 impl Engine {
@@ -157,6 +165,7 @@ impl Engine {
             last_draw: Instant::now(),
             draw_pending: false,
             area: Rect::default(),
+            markers: markers::Markers::default(),
         })
     }
 
@@ -171,6 +180,7 @@ impl Engine {
             sidebar: app.sidebar.preference,
             wrap: app.wrap,
             line_numbers: app.numbers,
+            chrome: app.chrome,
         })
     }
 
@@ -305,6 +315,8 @@ impl Engine {
             app.set_sidebar_preference(self.options.sidebar);
             app.wrap = self.options.wrap;
             app.numbers = self.options.line_numbers;
+            app.chrome = self.options.chrome;
+            app.markers = std::mem::take(&mut self.markers);
             if self.full_sources {
                 app.sources = Some(Vec::new());
             }
@@ -425,13 +437,24 @@ impl Engine {
             render::draw_with_controls(frame, app, area, self.error.as_deref(), controls)?;
             self.request |= previous_size != (app.width, app.height);
         } else {
+            // Without chrome the host owns the keys, so these placeholders name none.
+            let keys = self.options.chrome;
             let text = self
                 .error
                 .as_ref()
-                .map(|error| format!("Cannot open patch\n\n{error}\n\nq quit"))
+                .map(|error| {
+                    format!(
+                        "Cannot open patch\n\n{error}{}",
+                        if keys { "\n\nq quit" } else { "" }
+                    )
+                })
                 .unwrap_or_else(|| {
                     if self.input.is_some() {
-                        "Loading patch…\n\nq quit · Ctrl-C cancel".into()
+                        if keys {
+                            "Loading patch…\n\nq quit · Ctrl-C cancel".into()
+                        } else {
+                            "Loading patch…".into()
+                        }
                     } else {
                         "Review closed".into()
                     }
@@ -588,6 +611,7 @@ impl Engine {
             .transpose();
         let colors = self.app.as_mut().map(|app| app.worker.close()).transpose();
         self.app = None;
+        self.markers = markers::Markers::default();
         self.loading = false;
         self.error = None;
         self.source_failed = false;

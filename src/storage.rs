@@ -139,6 +139,15 @@ impl FileIndex {
                 self.spool.source_ref(offset, len)
             }))
     }
+    /// The patch record that holds an original line on one side, if the patch supplies it.
+    pub(crate) fn source_for_line(&self, old: bool, line: u32) -> Option<usize> {
+        self.projection
+            .source_intervals(old)
+            .find_map(|(ids, first)| {
+                let offset = line.checked_sub(first?)? as usize;
+                (offset < ids.len()).then(|| self.source_base + ids.start + offset)
+            })
+    }
     pub fn partner(&self, id: usize) -> Option<usize> {
         let row = self
             .rows(true)

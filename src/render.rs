@@ -13,6 +13,7 @@ mod sidebar;
 use crate::{
     app::{App, Position},
     model::{Kind, RowKind},
+    theme::Colors,
     view::LineId,
 };
 
@@ -537,6 +538,7 @@ fn file_header(buf: &mut Buffer, app: &App, file: usize, x: u16, y: u16) {
     };
     let summary = format!(" {}   +{} −{} ", f.status, f.additions, f.deletions);
     let summary_width = summary.width().min(app.width as usize) as u16;
+    let summary_x = x + app.width.saturating_sub(summary_width);
     label(
         buf,
         x,
@@ -549,13 +551,28 @@ fn file_header(buf: &mut Buffer, app: &App, file: usize, x: u16, y: u16) {
     );
     label(
         buf,
-        x + app.width.saturating_sub(summary_width),
+        summary_x,
         y,
         summary_width,
         &summary,
         c.dim,
         c.chrome,
         false,
+    );
+    color_summary(
+        buf,
+        summary_x,
+        y,
+        summary_width,
+        Summary {
+            at: 1,
+            lead: f.status.width() as u16,
+            lead_fg: status_color(c, &f.status),
+            gap: 3,
+            additions: f.additions,
+            deletions: f.deletions,
+        },
+        c,
     );
 }
 
@@ -907,6 +924,58 @@ fn label(
         Modifier::empty()
     });
     buf.set_stringn(x, y, text, width as usize, style);
+}
+
+/// The color of a file status in the Files tree and file headers.
+fn status_color(c: &Colors, status: &str) -> Color {
+    match status {
+        "Added" => c.added,
+        "Deleted" => c.deleted,
+        "Renamed" | "Copied" => c.renamed,
+        "Binary change" => c.dim,
+        _ => c.modified,
+    }
+}
+
+/// The parts of a `STATUS +A −D` change summary that `color_summary` colors.
+struct Summary {
+    /// The first cell of the status or file count.
+    at: u16,
+    /// The width of the status or file count.
+    lead: u16,
+    lead_fg: Color,
+    /// The cells between the status and `+A`.
+    gap: u16,
+    additions: usize,
+    deletions: usize,
+}
+
+/// Colors a change summary already drawn as muted text from `x`: the status in its color,
+/// `+A` in the addition color and `−D` in the deletion color. A zero count stays muted, as do
+/// cells from `visible` on.
+fn color_summary(buf: &mut Buffer, x: u16, y: u16, visible: u16, s: Summary, c: &Colors) {
+    let count = |n: usize, color: Color| if n == 0 { c.dim } else { color };
+    let plus = s.at + s.lead + s.gap;
+    let minus = plus + 1 + digits(s.additions) + 1;
+    let spans = [
+        (s.at, s.at + s.lead, s.lead_fg),
+        (plus, minus - 1, count(s.additions, c.added)),
+        (
+            minus,
+            minus + 1 + digits(s.deletions),
+            count(s.deletions, c.deleted),
+        ),
+    ];
+    for (start, end, fg) in spans {
+        for cell in start..end.min(visible) {
+            buf[(x + cell, y)].set_fg(fg);
+        }
+    }
+}
+
+/// The number of decimal digits in `n`.
+fn digits(n: usize) -> u16 {
+    n.checked_ilog10().map_or(1, |log| log as u16 + 1)
 }
 
 #[cfg(test)]

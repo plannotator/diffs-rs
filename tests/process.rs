@@ -375,7 +375,12 @@ impl Session {
         }
     }
 
-    fn spawn(mut cmd: CommandBuilder) -> Self {
+    fn spawn(cmd: CommandBuilder) -> Self {
+        Self::spawn_colored(cmd, true)
+    }
+
+    /// Spawns the viewer with truecolor, or with `NO_COLOR` set when `color` is false.
+    fn spawn_colored(mut cmd: CommandBuilder, color: bool) -> Self {
         let pair = NativePtySystem::default()
             .openpty(PtySize {
                 rows: 50,
@@ -387,7 +392,11 @@ impl Session {
         let initial_modes = format!("{:?}", pair.master.get_termios().unwrap());
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        cmd.env_remove("NO_COLOR");
+        if color {
+            cmd.env_remove("NO_COLOR");
+        } else {
+            cmd.env("NO_COLOR", "1");
+        }
         let child = pair.slave.spawn_command(cmd).unwrap();
         drop(pair.slave);
         let mut reader = pair.master.try_clone_reader().unwrap();

@@ -43,7 +43,8 @@ the viewer for all key bindings.
 - Syntax colors for the bundled grammars, with changed-word emphasis.
 - For `files` and `git`, colors are computed from the complete old and new sources, and unchanged
   gaps can be expanded 20 lines at a time.
-- A changed-file sidebar with the patch's directory tree and per-file and per-folder counts.
+- A changed-file sidebar with the patch's directory tree, per-file status, and per-file and
+  per-folder counts, colored by kind of change.
 - Large patches open progressively; the first screen appears while the rest is still indexing.
 - Literal search across the whole diff (`/`, F3).
 - Source-line selection (`V`), saving the original bytes (Ctrl-S), and plain-text copy (`y`, macOS).

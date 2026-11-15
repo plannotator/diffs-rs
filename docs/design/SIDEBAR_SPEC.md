@@ -71,6 +71,10 @@ Folder totals include every descendant file, regardless of expansion or scrollin
 Totals use checked arithmetic and never wrap silently.
 Binary entries show their binary status instead of a misleading textual `+0 -0` claim.
 Metadata-only entries remain selectable with their status and zero textual counts.
+The status letter takes the theme color of its kind: the addition color for added files, the deletion color for deleted files, `terminal.ansiBlue` for modified and type-changed files, and `terminal.ansiMagenta` for renamed and copied files.
+A nonzero `+N` takes the addition color and a nonzero `−N` the deletion color; zero counts, folder file counts, and binary entries stay muted.
+The file header in the diff colors its status and counts the same way. Colors change only the text, never the row background, width, or layout.
+With `NO_COLOR` set, the terminal backend drops every color and the text stays the same.
 Renames use the destination hierarchy. The diff header retains the existing old-to-new path display.
 
 ## 4. Layout and visibility

@@ -1,7 +1,7 @@
 use ratatui::buffer::Buffer;
 use unicode_width::UnicodeWidthStr;
 
-use super::{ellipsize, fill, label};
+use super::{Summary, color_summary, digits, ellipsize, fill, label, status_color};
 use crate::{app::App, tree::Kind};
 
 pub(super) const HELP: &str = "  ↑/↓, j/k     Move cursor; PgUp/PgDn page; Home/End bounds\n  ←/→          Collapse / expand folders; parent / child\n  Enter        Open file or toggle folder; Space toggles\n  Esc, Tab     Return to diff; f hides Files\n  Wheel        Scroll the pane under the pointer\n  *            Current diff file; > keyboard cursor\n  Esc, ?       Close help\n  q, Ctrl-C    Quit / cancel";
@@ -56,7 +56,7 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             ratatui::layout::Rect::new(area.x, y, area.width, 1),
             bg,
         );
-        let (name, summary, suffix) = match &node.kind {
+        let (name, summary, colors, suffix) = match &node.kind {
             Kind::Folder { expanded, .. } => (
                 format!("{} {}/", if *expanded { "▾" } else { "▸" }, node.label),
                 format!(
@@ -66,6 +66,14 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
                     node.totals.deletions,
                     if node.totals.binary > 0 { " B" } else { "" }
                 ),
+                Some(Summary {
+                    at: 0,
+                    lead: digits(node.totals.files),
+                    lead_fg: c.dim,
+                    gap: 1,
+                    additions: node.totals.additions,
+                    deletions: node.totals.deletions,
+                }),
                 String::new(),
             ),
             Kind::File { id, occurrence } => {
@@ -75,17 +83,27 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
                 } else {
                     format!(" [{}]", occurrence)
                 };
-                let summary = if file.status.as_ref() == "Binary change" {
-                    "B binary".into()
+                let (summary, colors) = if file.status.as_ref() == "Binary change" {
+                    ("B binary".into(), None)
                 } else {
-                    format!(
-                        "{} +{} −{}",
-                        file.status.chars().next().unwrap_or('M'),
-                        file.additions,
-                        file.deletions
+                    (
+                        format!(
+                            "{} +{} −{}",
+                            file.status.chars().next().unwrap_or('M'),
+                            file.additions,
+                            file.deletions
+                        ),
+                        Some(Summary {
+                            at: 0,
+                            lead: 1,
+                            lead_fg: status_color(c, &file.status),
+                            gap: 1,
+                            additions: file.additions,
+                            deletions: file.deletions,
+                        }),
                     )
                 };
-                (node.label.clone(), summary, suffix)
+                (node.label.clone(), summary, colors, suffix)
             }
         };
         let summary_width = summary.width().min(16) as u16;
@@ -117,9 +135,10 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             bg,
             focused || current,
         );
+        let summary_x = area.right() - summary_width - 1;
         label(
             buf,
-            area.right() - summary_width - 1,
+            summary_x,
             y,
             summary_width,
             &ellipsize(&summary, summary_width as usize),
@@ -127,5 +146,14 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             bg,
             false,
         );
+        if let Some(colors) = colors {
+            // A truncated summary ends in a muted ellipsis.
+            let visible = if summary.width() > usize::from(summary_width) {
+                summary_width.saturating_sub(1)
+            } else {
+                summary_width
+            };
+            color_summary(buf, summary_x, y, visible, colors, c);
+        }
     }
 }

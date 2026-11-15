@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 
-use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, layout::Rect};
+use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, layout::Rect, style::Color};
 
 use crate::{
     app::{App, Layout},
@@ -23,10 +23,14 @@ fn standalone(width: u16) -> ReadingControls<'static> {
 }
 
 fn review(patch: &str, label: &str) -> App {
+    review_in(patch, label, Appearance::Dark)
+}
+
+fn review_in(patch: &str, label: &str, appearance: Appearance) -> App {
     let mut doc = storage::Document::default();
     storage::read(patch.as_bytes(), |file| doc.append(file)).unwrap();
     let (wake, _) = mpsc::sync_channel(1);
-    let mut app = App::new(doc, label.into(), Layout::Split, Appearance::Dark, wake).unwrap();
+    let mut app = App::new(doc, label.into(), Layout::Split, appearance, wake).unwrap();
     app.loading = false;
     app
 }
@@ -48,13 +52,22 @@ fn draw(
     height: u16,
     controls: Option<&ReadingControls<'_>>,
 ) -> Vec<String> {
+    rows(&draw_buffer(app, width, height, controls))
+}
+
+fn draw_buffer(
+    app: &mut App,
+    width: u16,
+    height: u16,
+    controls: Option<&ReadingControls<'_>>,
+) -> Buffer {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal
         .draw(|frame| {
             super::draw_with_controls(frame, app, frame.area(), None, controls).unwrap();
         })
         .unwrap();
-    rows(terminal.backend().buffer())
+    terminal.backend().buffer().clone()
 }
 
 fn rows(buffer: &Buffer) -> Vec<String> {
@@ -194,4 +207,220 @@ fn small_terminal_notice_wraps_instead_of_clipping() {
             "{width}x{height}: {screen:#?}"
         );
     }
+}
+
+/// An added, a copied, a deleted, a modified, and a renamed file under `src/`.
+const KINDS: &str = "diff --git a/src/added.rs b/src/added.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/added.rs
+@@ -0,0 +1,2 @@
++fn added() {}
++fn more() {}
+diff --git a/src/modified.rs b/src/modified.rs
+index 2222222..3333333 100644
+--- a/src/modified.rs
++++ b/src/modified.rs
+@@ -1 +1 @@
+-fn old() {}
++fn new() {}
+diff --git a/src/deleted.rs b/src/deleted.rs
+deleted file mode 100644
+index 4444444..0000000
+--- a/src/deleted.rs
++++ /dev/null
+@@ -1,2 +0,0 @@
+-fn gone() {}
+-fn also() {}
+diff --git a/old.rs b/src/renamed.rs
+similarity index 100%
+rename from old.rs
+rename to src/renamed.rs
+diff --git a/src/modified.rs b/src/copied.rs
+similarity index 100%
+copy from src/modified.rs
+copy to src/copied.rs
+";
+
+/// The foreground and background of each cell of `text` on the first row of `area` that
+/// contains `row` and then `text`.
+fn styled(buffer: &Buffer, area: Rect, row: &str, text: &str) -> Vec<(Color, Color)> {
+    for y in area.top()..area.bottom() {
+        let line = (area.left()..area.right())
+            .map(|x| buffer[(x, y)].symbol())
+            .collect::<String>();
+        let Some(start) = line.find(row) else {
+            continue;
+        };
+        let Some(found) = line[start..].find(text) else {
+            continue;
+        };
+        let column = line[..start + found].chars().count() as u16;
+        return (0..text.chars().count() as u16)
+            .map(|n| {
+                let cell = &buffer[(area.x + column + n, y)];
+                (cell.fg, cell.bg)
+            })
+            .collect();
+    }
+    panic!("no {row:?} row with {text:?}:\n{}", rows(buffer).join("\n"));
+}
+
+/// The foreground of each cell of `text`, in the row containing `row`.
+fn fg(buffer: &Buffer, area: Rect, row: &str, text: &str) -> Vec<Color> {
+    styled(buffer, area, row, text)
+        .into_iter()
+        .map(|(fg, _)| fg)
+        .collect()
+}
+
+#[test]
+fn sidebar_colors_status_letters_and_counts_by_kind() {
+    for (appearance, modified, renamed) in [
+        (
+            Appearance::Dark,
+            Color::Rgb(0x00, 0x9f, 0xff),
+            Color::Rgb(0xe1, 0x30, 0xac),
+        ),
+        (
+            Appearance::Light,
+            Color::Rgb(0x1a, 0x85, 0xd4),
+            Color::Rgb(0xbd, 0x2e, 0x90),
+        ),
+    ] {
+        let mut app = review_in(KINDS, "kinds.patch", appearance);
+        let buffer = draw_buffer(&mut app, 160, 24, None);
+        let tree = app.sidebar.area;
+        let c = app.colors.clone();
+        assert_eq!(
+            (c.modified, c.renamed),
+            (modified, renamed),
+            "{appearance:?}"
+        );
+        let (add, del, dim) = (c.added, c.deleted, c.dim);
+        for (row, summary, expected) in [
+            ("added.rs", "A +2 −0", [add, dim, add, add, dim, dim, dim]),
+            (
+                "modified.rs",
+                "M +1 −1",
+                [modified, dim, add, add, dim, del, del],
+            ),
+            ("deleted.rs", "D +0 −2", [del, dim, dim, dim, dim, del, del]),
+            (
+                "renamed.rs",
+                "R +0 −0",
+                [renamed, dim, dim, dim, dim, dim, dim],
+            ),
+            (
+                "copied.rs",
+                "C +0 −0",
+                [renamed, dim, dim, dim, dim, dim, dim],
+            ),
+            // A folder's file count stays muted; its aggregate counts are colored.
+            ("src/", "5 +3 −3", [dim, dim, add, add, dim, del, del]),
+        ] {
+            let cells = styled(&buffer, tree, row, summary);
+            assert_eq!(
+                cells.iter().map(|(fg, _)| *fg).collect::<Vec<_>>(),
+                expected,
+                "{appearance:?} {row}"
+            );
+            // Colors change only the text: the row keeps the sidebar background.
+            assert!(cells.iter().all(|(_, bg)| *bg == c.chrome), "{row}");
+        }
+        // The text and layout are unchanged.
+        let text = rows(&buffer);
+        let folder = text[2].chars().take(33).collect::<String>();
+        assert_eq!(folder, "  ▾ src/                5 +3 −3 │");
+        let file = text[3].chars().take(33).collect::<String>();
+        assert_eq!(file, " *  added.rs            A +2 −0 │");
+        // The sticky file header colors its status and counts the same way.
+        let diff = app.sidebar.diff;
+        assert_eq!(fg(&buffer, diff, "src/added.rs", "Added"), [add; 5]);
+        assert_eq!(
+            fg(&buffer, diff, "src/added.rs", "+2 −0"),
+            [add, add, dim, dim, dim]
+        );
+    }
+}
+
+#[test]
+fn sidebar_cursor_row_keeps_kind_colors_on_its_highlight() {
+    let mut app = review(KINDS, "kinds.patch");
+    draw_buffer(&mut app, 160, 24, None);
+    // Focusing Files puts the keyboard cursor on the current file, `added.rs`.
+    app.files_command().unwrap();
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    let c = app.colors.clone();
+    let cells = styled(&buffer, app.sidebar.area, ">*", "A +2 −0");
+    assert_eq!(
+        cells,
+        [c.added, c.dim, c.added, c.added, c.dim, c.dim, c.dim]
+            .map(|fg| (fg, c.context))
+            .to_vec()
+    );
+    let name = styled(&buffer, app.sidebar.area, ">*", "added.rs");
+    assert!(name.iter().all(|(fg, bg)| (*fg, *bg) == (c.fg, c.context)));
+    // Other rows keep the sidebar background.
+    let other = styled(&buffer, app.sidebar.area, "modified.rs", "M +1 −1");
+    assert!(other.iter().all(|(_, bg)| *bg == c.chrome));
+}
+
+#[test]
+fn file_headers_color_each_status_kind() {
+    let mut app = review(KINDS, "kinds.patch");
+    // Every file header fits on one screen.
+    let buffer = draw_buffer(&mut app, 160, 40, None);
+    let c = app.colors.clone();
+    let diff = app.sidebar.diff;
+    for (path, status, color) in [
+        ("src/added.rs", "Added", c.added),
+        ("src/modified.rs", "Modified", c.modified),
+        ("src/deleted.rs", "Deleted", c.deleted),
+        ("old.rs → src/renamed.rs", "Renamed", c.renamed),
+        ("src/modified.rs → src/copied.rs", "Copied", c.renamed),
+    ] {
+        assert_eq!(
+            fg(&buffer, diff, path, status),
+            vec![color; status.len()],
+            "{path}"
+        );
+    }
+    assert_eq!(
+        fg(&buffer, diff, "src/modified.rs   ", "+1 −1"),
+        [c.added, c.added, c.dim, c.deleted, c.deleted]
+    );
+}
+
+#[test]
+fn truncated_summaries_keep_a_muted_ellipsis() {
+    let (wake, _) = mpsc::sync_channel(1);
+    let app = App::new(
+        storage::Document::default(),
+        "empty".into(),
+        Layout::Split,
+        Appearance::Dark,
+        wake,
+    )
+    .unwrap();
+    let c = &app.colors;
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 16, 1));
+    let text = super::ellipsize("2188 +1009257 −4024", 16);
+    assert_eq!(text, "2188 +1009257 −…");
+    super::label(&mut buffer, 0, 0, 16, &text, c.dim, c.chrome, false);
+    let summary = super::Summary {
+        at: 0,
+        lead: 4,
+        lead_fg: c.dim,
+        gap: 1,
+        additions: 1_009_257,
+        deletions: 4024,
+    };
+    super::color_summary(&mut buffer, 0, 0, 15, summary, c);
+    let colors = (0..16).map(|x| buffer[(x, 0)].fg).collect::<Vec<_>>();
+    let mut expected = vec![c.dim; 5];
+    expected.extend([c.added; 8]);
+    expected.extend([c.dim, c.deleted, c.dim]);
+    assert_eq!(colors, expected);
 }

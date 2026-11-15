@@ -42,6 +42,10 @@ pub struct Colors {
     pub added: Color,
     pub deleted: Color,
     pub accent: Color,
+    /// The status color of a modified file in the Files tree and file headers.
+    pub modified: Color,
+    /// The status color of a renamed or copied file in the Files tree and file headers.
+    pub renamed: Color,
     pub add_bg: Color,
     pub del_bg: Color,
     pub add_word: Color,
@@ -96,6 +100,10 @@ pub fn load(appearance: Appearance) -> Result<(Colors, Theme)> {
         dim: get("editorLineNumber.foreground")?,
         chrome: get("sideBar.background")?,
         accent: get("gitDecoration.modifiedResourceForeground")?,
+        // The terminal blue matches the modified accent in dark and is darker in light, where
+        // the accent is too faint for a single status letter on the sidebar background.
+        modified: get("terminal.ansiBlue")?,
+        renamed: get("terminal.ansiMagenta")?,
         separator: lab_mix(bg, fg, if dark { 0.15 } else { 0.04 }),
         empty: lab_mix(bg, fg, if dark { 0.18 } else { 0.10 }),
         context: lab_mix(bg, fg, if dark { 0.075 } else { 0.015 }),

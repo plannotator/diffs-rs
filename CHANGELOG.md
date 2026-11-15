@@ -12,6 +12,10 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 - `Engine::set_markers` draws host markers in the gutter for ranges of source lines.
 - `Engine::reveal` moves the cursor to a source line, and `Engine::select_range` selects a
   range of source lines as the user would.
+- The Files sidebar and the file headers color each status by kind (added, modified, deleted,
+  renamed or copied) and show `+N` in the addition color and `−N` in the deletion color, as
+  Hunk does. Folder totals use the same count colors. `theme::Colors` gains `modified` and
+  `renamed`, which breaks code that builds `Colors` by hand.
 
 ## 0.1.0 - 2026-10-27
 

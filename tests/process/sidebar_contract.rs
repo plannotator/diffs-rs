@@ -176,6 +176,96 @@ fn sidebar_real_git_hierarchy_counts_status_activation_and_focus() {
     terminal.finish(b"q", 0);
 }
 
+/// The foreground of each cell of `summary` in the tree row that shows `name`.
+fn summary_colors(screen: &vt100::Screen, name: &str, summary: &str) -> Vec<vt100::Color> {
+    let (y, row) = (1..screen.size().0 - 1)
+        .map(|y| (y, cells(screen, y, 0, 32)))
+        .find(|(_, row)| row.contains(name))
+        .unwrap_or_else(|| panic!("no {name} row:\n{}", tree_text(screen)));
+    let x = row[..row.find(summary).unwrap_or_else(|| panic!("{row:?}"))]
+        .chars()
+        .count() as u16;
+    (x..x + summary.chars().count() as u16)
+        .map(|x| screen.cell(y, x).unwrap().fgcolor())
+        .collect()
+}
+
+#[test]
+fn sidebar_status_letters_and_counts_reach_the_terminal_in_color() {
+    use vt100::Color::Rgb;
+    let (_dir, path) = repository_patch();
+    let mut terminal = open(&path, &[]);
+    terminal.settled_grid();
+    let dim = Rgb(115, 115, 115);
+    // Dark, then light: added, deleted, modified, renamed.
+    for (keys, a, d, m, r) in [
+        (
+            &b""[..],
+            Rgb(7, 196, 128),
+            Rgb(255, 46, 63),
+            Rgb(0, 159, 255),
+            Rgb(225, 48, 172),
+        ),
+        (
+            b"t",
+            Rgb(24, 164, 108),
+            Rgb(213, 44, 54),
+            Rgb(26, 133, 212),
+            Rgb(189, 46, 144),
+        ),
+    ] {
+        input(&mut terminal, keys);
+        let screen = terminal.parser.screen();
+        for (name, summary, expected) in [
+            ("README.md", "A +1 −0", [a, dim, a, a, dim, dim, dim]),
+            ("removed.rs", "D +0 −1", [d, dim, dim, dim, dim, d, d]),
+            ("value.rs", "M +3 −1", [m, dim, a, a, dim, d, d]),
+            ("renamed.rs", "R +0 −0", [r, dim, dim, dim, dim, dim, dim]),
+            ("script.sh", "M +0 −0", [m, dim, dim, dim, dim, dim, dim]),
+            ("src/", "1 +3 −1", [dim, dim, a, a, dim, d, d]),
+        ] {
+            assert_eq!(
+                summary_colors(screen, name, summary),
+                expected,
+                "{name} after {keys:?}"
+            );
+        }
+        assert_eq!(
+            summary_colors(screen, "icon.bin", "B binary"),
+            [dim; 8],
+            "binary after {keys:?}"
+        );
+    }
+    terminal.finish(b"q", 0);
+}
+
+#[test]
+fn sidebar_no_color_keeps_the_same_text_without_colors() {
+    let (_dir, path) = repository_patch();
+    let mut colored = open(&path, &[]);
+    colored.settled_grid();
+    let mut command = CommandBuilder::new(viewer_binary());
+    command.arg("patch");
+    command.arg(&path);
+    let mut plain = Session::spawn_colored(command, false);
+    plain.settled_grid();
+    let screen = plain.parser.screen();
+    assert_eq!(tree_text(screen), tree_text(colored.parser.screen()));
+    assert!(tree_text(screen).contains("M +3 −1"));
+    for y in 1..screen.size().0 - 1 {
+        for x in 0..32 {
+            let cell = screen.cell(y, x).unwrap();
+            assert_eq!(
+                (cell.fgcolor(), cell.bgcolor()),
+                (vt100::Color::Default, vt100::Color::Default),
+                "cell {x},{y}"
+            );
+        }
+    }
+    colored.finish(b"q", 0);
+    plain.finish(b"q", 0);
+}
+
 #[test]
 fn sidebar_mouse_translation_wrap_and_resize_preserve_exact_text_anchor() {
     let line = format!(

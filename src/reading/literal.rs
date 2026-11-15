@@ -16,9 +16,10 @@ pub enum Direction {
 }
 
 pub(crate) struct Literal<'a> {
-    forward: Finder<'a>,
-    backward: FinderRev<'a>,
-    buffer: Vec<u8>,
+    pub(super) forward: Finder<'a>,
+    pub(super) backward: FinderRev<'a>,
+    /// Read scratch, zeroed once: per-record searches must not clear it again.
+    buffer: Box<[u8]>,
 }
 
 pub(crate) fn validate(query: &str) -> Result<()> {
@@ -40,8 +41,12 @@ impl<'a> Literal<'a> {
         Ok(Self {
             forward: Finder::new(query.as_bytes()),
             backward: FinderRev::new(query.as_bytes()),
-            buffer: Vec::with_capacity(CHUNK + query.len() - 1),
+            buffer: vec![0; CHUNK + query.len() - 1].into_boxed_slice(),
         })
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.forward.needle().len()
     }
 
     /// The reader begins at `starts.start` within one original source record.
@@ -56,31 +61,29 @@ impl<'a> Literal<'a> {
     ) -> Result<Option<Range<u64>>> {
         ensure!(starts.start <= starts.end, "Invalid search byte range");
         check()?;
-        self.buffer.clear();
         if starts.is_empty() {
             return Ok(None);
         }
         let needle = self.forward.needle().len();
         let mut base = starts.start;
+        let mut retained = 0;
         let mut found = None;
         loop {
             check()?;
-            let retained = self.buffer.len();
-            self.buffer.resize(retained + CHUNK, 0);
             let count = loop {
-                match input.read(&mut self.buffer[retained..]) {
+                match input.read(&mut self.buffer[retained..retained + CHUNK]) {
                     Err(error) if error.kind() == io::ErrorKind::Interrupted => check()?,
                     result => break result?,
                 }
             };
-            self.buffer.truncate(retained + count);
+            let filled = retained + count;
             check()?;
             if count == 0 {
                 return Ok(found);
             }
-            if self.buffer.len() >= needle {
+            if filled >= needle {
                 let complete = base
-                    .checked_add((self.buffer.len() - needle + 1) as u64)
+                    .checked_add((filled - needle + 1) as u64)
                     .context("Search byte offset overflow")?;
                 let eligible = complete.min(starts.end);
                 if eligible > base {
@@ -105,10 +108,10 @@ impl<'a> Literal<'a> {
                     return Ok(found);
                 }
             }
-            let keep = self.buffer.len().min(needle - 1);
-            let consumed = self.buffer.len() - keep;
-            self.buffer.copy_within(consumed.., 0);
-            self.buffer.truncate(keep);
+            let keep = filled.min(needle - 1);
+            let consumed = filled - keep;
+            self.buffer.copy_within(consumed..filled, 0);
+            retained = keep;
             base = base
                 .checked_add(consumed as u64)
                 .context("Search byte offset overflow")?;

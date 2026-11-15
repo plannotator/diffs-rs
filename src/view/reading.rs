@@ -112,6 +112,11 @@ impl SourceOrder {
         self.len
     }
 
+    /// Whether these rows are the file's own unified projection, without revealed context.
+    pub(crate) fn is_projection(&self) -> bool {
+        self.segments.is_none() && !self.split
+    }
+
     pub(crate) fn has_context(&self) -> bool {
         self.segments.as_ref().is_some_and(|segments| {
             segments

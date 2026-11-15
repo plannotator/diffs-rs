@@ -215,6 +215,24 @@ impl Projection {
         self.display_row(self.logical_source_row(id, split), split)
     }
 
+    /// Whether unified rows list source records in record order. A patch that interleaves
+    /// removed and added lines inside one change block lists them out of order.
+    pub(crate) fn unified_follows_source(&self) -> bool {
+        (0..self.tables.block_count()).all(|n| {
+            let BlockKind::Replacement(r) = self.tables.block(n).kind else {
+                return true;
+            };
+            let r = self.tables.replacement(r);
+            if r.old_start == r.new_start || r.new_start == r.end {
+                return true;
+            }
+            // Runs are disjoint and each side lists its runs in record order.
+            let last_old = self.tables.run(self.tables.side_run(r.new_start - 1));
+            let first_new = self.tables.run(self.tables.side_run(r.new_start));
+            last_old.start < first_new.start
+        })
+    }
+
     pub(crate) fn hunk_row(&self, index: usize, split: bool) -> usize {
         self.hunks[index][usize::from(split)]
     }

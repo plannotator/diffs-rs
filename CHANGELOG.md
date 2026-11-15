@@ -3,9 +3,8 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## 0.1.1 - unreleased
+## 0.2.0 - 2026-11-15
 
-- docs: new README, docs moved under docs/.
 - `Options.chrome`: set it to `false` and the engine draws no label row, footer or help
   overlay, so the host owns those rows. Adding this field breaks hosts that build `Options`
   without `..Options::default()`.
@@ -19,6 +18,10 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 - Search scans the patch bytes directly instead of reading each source line on its own. On
   the 711 MB Linux v6.0…v7.0 patch the first match and a wrapping F3 take about 60 ms
   instead of 3–9 s. Results do not change.
+
+## 0.1.1 - 2026-10-27
+
+- docs: new README, docs moved under docs/.
 
 ## 0.1.0 - 2026-10-27
 

@@ -11,6 +11,12 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   has its own column at the right of every row, so rows stay aligned, and a folder shows a
   badge when every file under it has the same one. Hosts that never call it, and the `diffs`
   viewer, look as before.
+- `Engine::set_terminal_background(true)` draws the diff on the terminal's own background
+  and text color: empty rows, plain context lines, gaps, file headers and the Files sidebar
+  get no background, and plain text uses the terminal's default foreground. Added and
+  deleted lines, changed words and hunk headers keep explicit tints from the palette of
+  `Options::appearance`, adjusted to read on lighter or bluer dark terminals. Off by
+  default; the `diffs` viewer does not change.
 
 ## 0.2.0 - 2026-11-15
 

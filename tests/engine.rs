@@ -782,3 +782,45 @@ fn file_marks_badge_and_dim_sidebar_rows_without_moving_the_diff() {
     host.engine.close().unwrap();
     assert!(host.engine.set_file_marks(&[]).is_err());
 }
+
+#[test]
+fn terminal_background_draws_plain_text_and_context_in_the_terminal_colors() {
+    let mut host = Host::new();
+    let theme_text = Color::Rgb(0xfa, 0xfa, 0xfa);
+    let buffer = host.settle();
+    let area = host.area;
+    let cells = |buffer: &Buffer, y: u16| -> Vec<(Color, Color)> {
+        (area.x..area.right())
+            .map(|x| (buffer[(x, y)].fg, buffer[(x, y)].bg))
+            .collect()
+    };
+    let row = find(&buffer, area, "fn start() {}");
+    assert!(cells(&buffer, row).iter().any(|(fg, _)| *fg == theme_text));
+    host.engine.set_terminal_background(true).unwrap();
+    assert!(host.engine.needs_draw());
+    for replaced in [false, true] {
+        let buffer = host.settle();
+        // A colored context row: no background anywhere, and the theme's text color is gone.
+        let row = find(&buffer, area, "fn start() {}");
+        let row = cells(&buffer, row);
+        assert!(row.iter().all(|(_, bg)| *bg == Color::Reset), "{replaced}");
+        assert!(row.iter().all(|(fg, _)| *fg != theme_text), "{replaced}");
+        assert!(row.iter().any(|(fg, _)| *fg == Color::Reset), "{replaced}");
+        // Syntax colors stay: some cell carries an explicit foreground.
+        assert!(
+            row.iter().any(|(fg, _)| matches!(fg, Color::Rgb(..))),
+            "{replaced}"
+        );
+        // An added line keeps its tint.
+        let added = find(&buffer, area, "let extra = true;");
+        assert!(
+            cells(&buffer, added)
+                .iter()
+                .any(|(_, bg)| matches!(bg, Color::Rgb(..))),
+            "{replaced}"
+        );
+        // The setting survives replacement.
+        let path = host.directory.path().join("review.patch");
+        host.engine.replace(Input::Patch(path)).unwrap();
+    }
+}

@@ -52,7 +52,14 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
         let node = state.tree.node(row.node);
         let focused = state.focused() && state.cursor == Some(row.node);
         let current = node.file().is_some_and(|id| Some(id) == state.current);
-        let bg = if focused { c.context } else { c.chrome };
+        // On the terminal's background the context color is the terminal's own, so the
+        // keyboard cursor row takes the hunk header band instead.
+        let highlight = if app.terminal_background {
+            c.separator
+        } else {
+            c.context
+        };
+        let bg = if focused { highlight } else { c.chrome };
         let y = area.y + 1 + offset as u16;
         fill(
             buf,

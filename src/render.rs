@@ -867,6 +867,8 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
                     .filter(|t| t.range.contains(&glyph.byte))
             })
             .map(|t| t.color)
+            // Plain text carries the theme's text color; on the terminal's colors it is `c.fg`.
+            .filter(|color| !(app.terminal_background && *color == app.plain))
             .unwrap_or(c.fg);
         let emphasized = style.is_some_and(|s| {
             s.changed

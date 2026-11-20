@@ -581,3 +581,126 @@ fn file_marks_truncate_long_names_but_never_the_badge() {
         ]
     );
 }
+
+/// A modified file with context, a replacement, a pure addition and a pure deletion.
+const CONTEXT: &str = "diff --git a/src/lib.rs b/src/lib.rs
+index 1111111..2222222 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1,5 +1,5 @@
+ fn first() {}
+-fn old() {}
++fn new() {}
+ fn middle() {}
+-fn gone() {}
+ fn last() {}
++fn added() {}
+diff --git a/README.md b/README.md
+index 3333333..4444444 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1 @@
+-old
++new
+";
+
+/// The rows of `buffer` whose text contains `text`.
+fn rows_with(buffer: &Buffer, text: &str) -> Vec<u16> {
+    let Rect { width, height, .. } = buffer.area;
+    (0..height)
+        .filter(|&y| {
+            (0..width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>()
+                .contains(text)
+        })
+        .collect()
+}
+
+#[test]
+fn terminal_background_leaves_base_surfaces_to_the_terminal_and_keeps_tints() {
+    for appearance in [Appearance::Dark, Appearance::Light] {
+        for split in [true, false] {
+            let mut app = review_in(CONTEXT, "context.patch", appearance);
+            if !split {
+                app.layout = Layout::Unified;
+            }
+            // Off by default: the theme paints every cell.
+            let theme = draw_buffer(&mut app, 160, 24, None);
+            assert!(
+                theme.content().iter().all(|cell| cell.bg != Color::Reset),
+                "{appearance:?}"
+            );
+            app.set_terminal_background(true).unwrap();
+            let buffer = draw_buffer(&mut app, 160, 24, None);
+            let c = app.colors.clone();
+            let width = buffer.area.width;
+            let cells = |y: u16| (0..width).map(move |x| (x, y));
+            // Plain context rows, empty rows below the diff, the sidebar, the file headers,
+            // the label row and the footer carry no background, and plain text no foreground.
+            let mut plain: Vec<u16> = rows_with(&buffer, "fn middle() {}");
+            plain.extend(rows_with(&buffer, "fn first() {}"));
+            plain.extend([0, 17, 18, 22, 23]);
+            for y in plain {
+                for cell in cells(y) {
+                    assert_eq!(
+                        buffer[cell].bg,
+                        Color::Reset,
+                        "{appearance:?} {split} {cell:?}"
+                    );
+                }
+            }
+            let row = rows_with(&buffer, "fn middle() {}")[0];
+            let text = cells(row)
+                .find(|&cell| buffer[cell].symbol() == "m")
+                .unwrap();
+            assert_eq!(buffer[text].fg, Color::Reset);
+            // Changed lines and hunk headers keep their explicit tints.
+            for (text, bg) in [
+                ("fn added() {}", c.add_bg),
+                ("fn gone() {}", c.del_bg),
+                ("@@ -1,5 +1,5 @@", c.separator),
+            ] {
+                let row = rows_with(&buffer, text)[0];
+                assert!(
+                    cells(row).any(|cell| buffer[cell].bg == bg) && bg != Color::Reset,
+                    "{appearance:?} {split} {text}"
+                );
+            }
+            // The empty half of a split addition keeps its shading.
+            if split {
+                let row = rows_with(&buffer, "fn added() {}")[0];
+                assert!(cells(row).any(|cell| buffer[cell].bg == c.empty));
+            }
+            // Turning it off restores the theme.
+            app.set_terminal_background(false).unwrap();
+            let again = draw_buffer(&mut app, 160, 24, None);
+            assert_eq!(again, theme, "{appearance:?} {split}");
+        }
+    }
+}
+
+#[test]
+fn terminal_background_highlights_the_files_cursor_and_survives_a_theme_toggle() {
+    let mut app = review(KINDS, "kinds.patch");
+    app.set_terminal_background(true).unwrap();
+    draw_buffer(&mut app, 160, 24, None);
+    app.files_command().unwrap();
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    let c = app.colors.clone();
+    let cursor = styled(&buffer, app.sidebar.area, ">*", "added.rs");
+    assert!(
+        cursor
+            .iter()
+            .all(|(_, bg)| *bg == c.separator && *bg != Color::Reset)
+    );
+    let other = styled(&buffer, app.sidebar.area, "modified.rs", "modified.rs");
+    assert!(
+        other
+            .iter()
+            .all(|(fg, bg)| (*fg, *bg) == (Color::Reset, Color::Reset))
+    );
+    app.toggle_theme().unwrap();
+    assert_eq!(app.colors.bg, Color::Reset);
+    assert_ne!(app.colors.add_bg, c.add_bg);
+}

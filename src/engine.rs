@@ -1,5 +1,6 @@
 //! A review owns its workers and view state, but never the host terminal.
 
+pub(crate) mod file_marks;
 pub(crate) mod markers;
 mod reading;
 mod selection;
@@ -29,6 +30,7 @@ use crate::{
     text::{safe_label, safe_text},
     theme::Appearance,
 };
+pub use file_marks::{Badge, BadgeColor, FileMark};
 pub use markers::Marker;
 
 pub enum Input {
@@ -123,6 +125,8 @@ pub struct Engine {
     area: Rect,
     /// Markers set before the first file arrived; the viewer state takes them when created.
     markers: markers::Markers,
+    /// File marks set before the first file arrived, taken like `markers`.
+    file_marks: file_marks::FileMarks,
 }
 
 impl Engine {
@@ -166,6 +170,7 @@ impl Engine {
             draw_pending: false,
             area: Rect::default(),
             markers: markers::Markers::default(),
+            file_marks: file_marks::FileMarks::default(),
         })
     }
 
@@ -317,6 +322,7 @@ impl Engine {
             app.numbers = self.options.line_numbers;
             app.chrome = self.options.chrome;
             app.markers = std::mem::take(&mut self.markers);
+            app.set_file_marks(std::mem::take(&mut self.file_marks));
             if self.full_sources {
                 app.sources = Some(Vec::new());
             }
@@ -612,6 +618,7 @@ impl Engine {
         let colors = self.app.as_mut().map(|app| app.worker.close()).transpose();
         self.app = None;
         self.markers = markers::Markers::default();
+        self.file_marks = file_marks::FileMarks::default();
         self.loading = false;
         self.error = None;
         self.source_failed = false;

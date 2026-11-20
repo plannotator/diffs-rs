@@ -16,7 +16,9 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use diffs_rs::engine::{Engine, Input, Layout, Marker, Options, Side, SidebarPreference};
+use diffs_rs::engine::{
+    Badge, BadgeColor, Engine, FileMark, Input, Layout, Marker, Options, Side, SidebarPreference,
+};
 use diffs_rs::input::LocalInput;
 use diffs_rs::reading::SourceRange;
 use ratatui::{
@@ -191,7 +193,7 @@ fn host_text(engine: &Engine, review: usize, focus: bool) -> Result<String> {
     Ok(format!(
         "Host pane\nFocus: {focus}\nReview: {}\nState: {state}\n\n{location}\n\n\
          Tab  switch focus\nr    next review\no    reopen review\nc    close review\n\
-         m    mark selection\n'    select last mark\nq    exit host\n\n\
+         m    mark selection\n'    select last mark\nv    mark file viewed\nq    exit host\n\n\
          Viewer keys stay local.",
         review + 1
     ))
@@ -247,6 +249,35 @@ fn mark(engine: &mut Engine, marks: &mut Vec<Marker>) -> Result<()> {
     engine.set_markers(marks)
 }
 
+/// Marks the cursor's file viewed, or unmarks it: a tick in the Files sidebar and a dimmed row.
+fn toggle_viewed(engine: &mut Engine, viewed: &mut Vec<String>) -> Result<()> {
+    let Some(source) = engine.selected_source()? else {
+        return Ok(());
+    };
+    let Some(file) = engine.file(source.file) else {
+        return Ok(());
+    };
+    let path = file.path.to_string();
+    match viewed.iter().position(|p| *p == path) {
+        Some(index) => {
+            viewed.remove(index);
+        }
+        None => viewed.push(path),
+    }
+    let marks: Vec<FileMark<'_>> = viewed
+        .iter()
+        .map(|path| FileMark {
+            path,
+            badge: Some(Badge {
+                text: "✓",
+                color: BadgeColor::Added,
+            }),
+            dimmed: true,
+        })
+        .collect();
+    engine.set_file_marks(&marks)
+}
+
 fn run() -> Result<()> {
     let Arguments { inputs, chrome } = review_inputs()?;
     let (wake, ready) = mpsc::sync_channel(1);
@@ -271,6 +302,7 @@ fn run() -> Result<()> {
             wake,
         )?;
         let mut marks = Vec::new();
+        let mut viewed = Vec::new();
         let mut focus = true;
         let mut dirty = true;
         let mut resized = false;
@@ -343,6 +375,7 @@ fn run() -> Result<()> {
                         KeyCode::Char('c') => {
                             engine.close()?;
                             marks.clear();
+                            viewed.clear();
                             dirty = true;
                             continue;
                         }
@@ -352,11 +385,17 @@ fn run() -> Result<()> {
                             }
                             engine.replace(inputs[review].open())?;
                             marks.clear();
+                            viewed.clear();
                             dirty = true;
                             continue;
                         }
                         KeyCode::Char('m') if !engine.status().closed => {
                             mark(&mut engine, &mut marks)?;
+                            dirty = true;
+                            continue;
+                        }
+                        KeyCode::Char('v') if !engine.status().closed => {
+                            toggle_viewed(&mut engine, &mut viewed)?;
                             dirty = true;
                             continue;
                         }

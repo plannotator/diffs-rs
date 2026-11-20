@@ -31,7 +31,7 @@ fn identity_order_totals_and_incremental_collapses_use_real_patch_metadata() {
     );
     let mut tree = Tree::default();
     for file in &files[..4] {
-        tree.append(file).unwrap();
+        tree.append(file, Mark::default()).unwrap();
     }
     tree.refresh();
     let first = tree.file_node(FileId(1)).unwrap();
@@ -58,7 +58,7 @@ fn identity_order_totals_and_incremental_collapses_use_real_patch_metadata() {
     );
     tree.set_expanded(lib, false);
     for file in &files[4..] {
-        tree.append(file).unwrap();
+        tree.append(file, Mark::default()).unwrap();
     }
     tree.refresh();
     assert_eq!(tree.file_node(FileId(1)), Some(first));
@@ -108,7 +108,7 @@ fn raw_git_path_bytes_and_literal_escape_names_stay_distinct() {
     let files = parse(&input);
     let mut tree = Tree::default();
     for file in &files {
-        tree.append(file).unwrap();
+        tree.append(file, Mark::default()).unwrap();
     }
     let labels: Vec<_> = (0..5)
         .map(|n| tree.node(tree.file_node(FileId(n)).unwrap()).label.as_str())
@@ -132,7 +132,7 @@ fn deep_paths_use_iterative_hierarchy_and_visibility() {
     let path = format!("{}leaf.rs", "directory/".repeat(2000));
     let files = parse(&patch(&path));
     let mut tree = Tree::default();
-    tree.append(&files[0]).unwrap();
+    tree.append(&files[0], Mark::default()).unwrap();
     tree.refresh();
     assert_eq!(tree.rows().len(), 2001);
     assert_eq!(tree.rows().last().unwrap().depth, 2000);
@@ -143,4 +143,81 @@ fn deep_paths_use_iterative_hierarchy_and_visibility() {
     tree.reveal(tree.file_node(FileId(0)).unwrap());
     tree.refresh();
     assert_eq!(tree.rows().len(), 2001);
+}
+
+#[test]
+fn folders_share_a_mark_only_when_every_file_under_them_has_it() {
+    let files = parse(
+        &[
+            patch("src/a.rs"),
+            patch("src/lib/b.rs"),
+            patch("src/lib/c.rs"),
+            patch("top.rs"),
+        ]
+        .concat(),
+    );
+    let tick = Mark {
+        badge: Some(0),
+        dimmed: true,
+    };
+    let other = Mark {
+        badge: Some(1),
+        dimmed: true,
+    };
+    let mut tree = Tree::default();
+    // Files arrive one by one with their marks; folders follow incrementally.
+    for (file, mark) in files.iter().zip([tick, tick, other, Mark::default()]) {
+        tree.append(file, mark).unwrap();
+    }
+    fn mark(tree: &Tree, file: usize, up: usize) -> Mark {
+        let mut node = tree.file_node(FileId(file)).unwrap();
+        for _ in 0..up {
+            node = tree.parent(node).unwrap();
+        }
+        tree.node(node).mark
+    }
+    let (lib, src) = (mark(&tree, 1, 1), mark(&tree, 1, 2));
+    // `lib` mixes two badges but every file is dimmed; `src` too.
+    assert_eq!(
+        (lib, src),
+        (
+            Mark {
+                badge: None,
+                dimmed: true
+            },
+            Mark {
+                badge: None,
+                dimmed: true
+            }
+        )
+    );
+    assert_eq!(mark(&tree, 3, 0), Mark::default());
+
+    // Replacing every mark recomputes the folders from scratch.
+    tree.mark_files(|id| if id.0 < 3 { tick } else { Mark::default() });
+    assert_eq!(
+        (mark(&tree, 1, 1), mark(&tree, 1, 2), mark(&tree, 0, 0)),
+        (tick, tick, tick)
+    );
+    assert_eq!(mark(&tree, 3, 0), Mark::default());
+    tree.mark_files(|id| {
+        if id.0 == 2 {
+            Mark {
+                badge: Some(0),
+                dimmed: false,
+            }
+        } else {
+            tick
+        }
+    });
+    let shared = Mark {
+        badge: Some(0),
+        dimmed: false,
+    };
+    assert_eq!((mark(&tree, 1, 1), mark(&tree, 1, 2)), (shared, shared));
+    tree.mark_files(|_| Mark::default());
+    assert_eq!(
+        (mark(&tree, 1, 1), mark(&tree, 1, 2)),
+        (Mark::default(), Mark::default())
+    );
 }

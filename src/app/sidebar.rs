@@ -1,7 +1,10 @@
 use ratatui::layout::Rect;
 
 use super::{App, Position};
-use crate::tree::{FileId, Kind, NodeId, Tree};
+use crate::{
+    engine::file_marks::FileMarks,
+    tree::{FileId, Kind, NodeId, Tree},
+};
 
 const TREE_WIDTH: u16 = 32;
 const MIN_WIDTH: u16 = TREE_WIDTH + 1 + 64;
@@ -33,6 +36,8 @@ pub(crate) struct Sidebar {
     pub area: Rect,
     pub diff: Rect,
     pub notice: Option<&'static str>,
+    /// The host's badges and dimming for file rows.
+    pub marks: FileMarks,
 }
 
 impl Sidebar {
@@ -117,6 +122,16 @@ impl App {
         self.sidebar.preference = preference;
     }
 
+    /// Replaces the host's file marks on the files already in the tree; later files take
+    /// theirs as they are added.
+    pub(crate) fn set_file_marks(&mut self, marks: FileMarks) {
+        let files = &self.doc.files;
+        self.sidebar
+            .tree
+            .mark_files(|id| marks.get(&files[id.0].path));
+        self.sidebar.marks = marks;
+    }
+
     /// The pane height that view movement reasons about. It always counts the label and
     /// footer rows, so without chrome the diff rows fill the whole supplied rectangle.
     pub(crate) fn layout_height(&self, screen: u16) -> u16 {
@@ -129,7 +144,9 @@ impl App {
 
     pub(crate) fn prepare_view(&mut self, screen: Rect) -> anyhow::Result<()> {
         for file in &self.doc.files[self.sidebar.tree.len()..] {
-            self.sidebar.tree.append(file)?;
+            self.sidebar
+                .tree
+                .append(file, self.sidebar.marks.get(&file.path))?;
         }
         let current = self.row(self.cursor.row).map(|row| FileId(row.file));
         if current != self.sidebar.current {

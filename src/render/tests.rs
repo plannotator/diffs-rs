@@ -424,3 +424,160 @@ fn truncated_summaries_keep_a_muted_ellipsis() {
     expected.extend([c.dim, c.deleted, c.dim]);
     assert_eq!(colors, expected);
 }
+
+fn tick(path: &str, dimmed: bool) -> crate::engine::FileMark<'_> {
+    crate::engine::FileMark {
+        path,
+        badge: Some(crate::engine::Badge {
+            text: "✓",
+            color: crate::engine::BadgeColor::Added,
+        }),
+        dimmed,
+    }
+}
+
+fn set_marks(app: &mut App, marks: &[crate::engine::FileMark<'_>]) {
+    app.set_file_marks(crate::engine::file_marks::FileMarks::new(marks));
+}
+
+/// The first 33 cells of the sidebar rows: the tree and its divider.
+fn tree_rows(buffer: &Buffer, rows: std::ops::Range<usize>) -> Vec<String> {
+    let text = super::tests::rows(buffer);
+    text[rows]
+        .iter()
+        .map(|row| row.chars().take(33).collect())
+        .collect()
+}
+
+#[test]
+fn file_marks_take_a_fixed_badge_column_and_dim_their_rows() {
+    let mut app = review(KINDS, "kinds.patch");
+    let plain = draw_buffer(&mut app, 160, 24, None);
+    let diff = app.sidebar.diff;
+    set_marks(
+        &mut app,
+        &[
+            tick("src/added.rs", true),
+            tick("src/modified.rs", true),
+            crate::engine::FileMark {
+                path: "src/deleted.rs",
+                badge: Some(crate::engine::Badge {
+                    text: "!!",
+                    color: crate::engine::BadgeColor::Deleted,
+                }),
+                dimmed: false,
+            },
+        ],
+    );
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    // Every row gives the badge column the same cells, so summaries stay aligned.
+    assert_eq!(
+        tree_rows(&buffer, 2..8),
+        [
+            "  ▾ src/             5 +3 −3    │",
+            " *  added.rs         A +2 −0 ✓  │",
+            "    copied.rs        C +0 −0    │",
+            "    deleted.rs       D +0 −2 !! │",
+            "    modified.rs      M +1 −1 ✓  │",
+            "    renamed.rs       R +0 −0    │",
+        ]
+    );
+    let c = app.colors.clone();
+    let tree = app.sidebar.area;
+    // A dimmed row mutes its name, status and counts; its badge keeps its color.
+    assert!(
+        fg(&buffer, tree, "added.rs", "added.rs")
+            .iter()
+            .all(|fg| *fg == c.dim)
+    );
+    assert_eq!(fg(&buffer, tree, "added.rs", "A +2 −0"), [c.dim; 7]);
+    assert_eq!(fg(&buffer, tree, "added.rs", "✓"), [c.added]);
+    // An undimmed row keeps its colors.
+    assert!(
+        fg(&buffer, tree, "deleted.rs", "deleted.rs")
+            .iter()
+            .all(|fg| *fg == c.fg)
+    );
+    assert_eq!(
+        fg(&buffer, tree, "deleted.rs", "D +0 −2"),
+        [c.deleted, c.dim, c.dim, c.dim, c.dim, c.deleted, c.deleted]
+    );
+    assert_eq!(fg(&buffer, tree, "deleted.rs", "!!"), [c.deleted; 2]);
+    // The badges stay in the sidebar: the diff is drawn exactly as before.
+    for y in diff.top()..diff.bottom() {
+        for x in diff.left()..diff.right() {
+            assert_eq!(buffer[(x, y)], plain[(x, y)], "diff cell {x},{y}");
+        }
+    }
+
+    // When every file under a folder has the same badge, the folder shows it, and it is
+    // dimmed when they all are. That holds when the folder is collapsed.
+    let all = ["added", "copied", "deleted", "modified", "renamed"].map(|n| format!("src/{n}.rs"));
+    let marks: Vec<_> = all.iter().map(|path| tick(path, true)).collect();
+    set_marks(&mut app, &marks);
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    assert_eq!(
+        tree_rows(&buffer, 2..4),
+        [
+            "  ▾ src/             5 +3 −3 ✓  │",
+            " *  added.rs         A +2 −0 ✓  │",
+        ]
+    );
+    assert!(
+        fg(&buffer, tree, "src/", "src/")
+            .iter()
+            .all(|fg| *fg == c.dim)
+    );
+    assert_eq!(fg(&buffer, tree, "src/", "5 +3 −3"), [c.dim; 7]);
+    app.files_command().unwrap();
+    app.sidebar.left();
+    app.sidebar.left();
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    assert_eq!(
+        tree_rows(&buffer, 2..4),
+        [
+            "> ▸ src/             5 +3 −3 ✓  │",
+            "                                │",
+        ]
+    );
+    // One file without the badge, or with another badge, and the folder shows none.
+    set_marks(&mut app, &marks[1..]);
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    assert_eq!(
+        tree_rows(&buffer, 2..3),
+        ["> ▸ src/             5 +3 −3    │"]
+    );
+
+    // An empty set clears the marks but keeps the column, so rows do not shift.
+    set_marks(&mut app, &[]);
+    let buffer = draw_buffer(&mut app, 160, 24, None);
+    assert_eq!(
+        tree_rows(&buffer, 2..3),
+        ["> ▸ src/             5 +3 −3    │"]
+    );
+}
+
+#[test]
+fn file_marks_truncate_long_names_but_never_the_badge() {
+    let added: String = (0..12345).map(|n| format!("+line {n}\n")).collect();
+    let deep = "deeply/nested/directory/structure/a_very_long_file_name_for_the_sidebar.rs";
+    let patch = format!(
+        "diff --git a/{deep} b/{deep}\nnew file mode 100644\n--- /dev/null\n+++ b/{deep}\n@@ -0,0 +1,12345 @@\n{added}{KINDS}"
+    );
+    let mut app = review(&patch, "deep.patch");
+    draw_buffer(&mut app, 160, 30, None);
+    set_marks(&mut app, &[tick(deep, false)]);
+    let buffer = draw_buffer(&mut app, 160, 30, None);
+    let rows = tree_rows(&buffer, 2..8);
+    assert_eq!(
+        rows,
+        [
+            "  ▾ deeply/      1 +12345 −0 ✓  │",
+            "    ▾ nested/    1 +12345 −0 ✓  │",
+            "      ▾ direct…  1 +12345 −0 ✓  │",
+            "        ▾ stru…  1 +12345 −0 ✓  │",
+            " *      …a_ver…  A +12345 −0 ✓  │",
+            "  ▾ src/             5 +3 −3    │",
+        ]
+    );
+}

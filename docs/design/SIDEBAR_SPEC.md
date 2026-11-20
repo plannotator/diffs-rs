@@ -102,6 +102,9 @@ Each tree row occupies one terminal row.
 Long labels truncate visibly at grapheme boundaries without overwriting status or counts.
 Indentation preserves directory depth. Excessive indentation is clipped with a visible overflow cue.
 The focused row and current diff file have distinct indicators, not color alone.
+An embedding host can mark files with `Engine::set_file_marks`: a badge of one or two cells in a three-cell column between the counts and the divider, and a dimmed row.
+The column exists only once the host sets marks, so the standalone viewer's rows are unchanged. Labels truncate before the badge does.
+A folder shows a badge when every file under it has the same one, and is dimmed when every file under it is dimmed.
 The footer changes its control hints with keyboard focus.
 Errors and incomplete-input status take precedence over ordinary hints.
 

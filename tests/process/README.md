@@ -6,7 +6,7 @@ Git generates patches from retained before/after strings with fixed diff setting
 
 ## Coverage
 
-`engine_host_contract.rs` runs the generic embedding example in an actual PTY. Six opt-in checks cover ordered patch/file-pair/pinned-Git reviews, close/reopen, replacement during input or coloring, checked-context expansion, source coordinates across resizing, idle progress without viewer focus, missing lazy sources, FIFO cancellation and Git-child reaping. The shared harness checks terminal restoration. These checks do not qualify persistent-host memory or physical screen behavior.
+`engine_host_contract.rs` runs the generic embedding example in an actual PTY. Seven opt-in checks cover ordered patch/file-pair/pinned-Git reviews, close/reopen, replacement during input or coloring, checked-context expansion, source coordinates across resizing, idle progress without viewer focus, missing lazy sources, FIFO cancellation, Git-child reaping, and file marks in the Files sidebar. The shared harness checks terminal restoration. These checks do not qualify persistent-host memory or physical screen behavior.
 
 Build and select the exact example explicitly:
 

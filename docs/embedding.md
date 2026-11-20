@@ -142,6 +142,33 @@ Markers for lines that are not displayed, or for files that have not arrived yet
 `set_markers` rejects the whole set, keeping the previous one, if any range belongs to another review or has `first` of 0 or greater than `last`. It also fails after `close()`.
 `replace()` and `close()` drop the markers. Set them again for the new review with its `review_id()`.
 
+### File marks
+
+`set_file_marks(&[FileMark])` replaces every file mark with a new set. A `FileMark` decorates the Files sidebar row of a file:
+
+```rust
+use diffs_rs::engine::{Badge, BadgeColor, FileMark};
+
+engine.set_file_marks(&[FileMark {
+    path: "src/lib.rs",
+    badge: Some(Badge { text: "✓", color: BadgeColor::Added }),
+    dimmed: true,
+}])?;
+```
+
+- `path` is the file's `file(index).path`: the new path, or the old path of a deleted file. Every file with that path gets the mark, so a path that appears twice in a `git log -p` patch is marked twice.
+- `badge` is one or two terminal cells of printable text. `BadgeColor` names a theme color (`Text`, `Muted`, `Accent`, `Added`, `Deleted`, `Modified`, `Renamed`), so the badge follows the dark and light themes.
+- `dimmed` draws the row's name, status and counts in the muted color. The badge keeps its color.
+
+From the first call, every row keeps a badge column of three cells (a gap and two badge cells) between its counts and the divider, so rows with and without a badge stay aligned. Long names are shortened to make room; the badge is never cut.
+The column stays, even for an empty set, until `replace()` or `close()`. Call `set_file_marks(&[])` when the review opens if the first badge should not shift the rows.
+A folder row shows a badge when every file under it has the same badge, text and color, and is dimmed when every file under it is dimmed. The engine computes this, collapsed folders included, because the host does not see the tree's folders. While a patch is loading, folders count the files that have arrived.
+
+Marks for paths that are not in the review draw nothing, and marks can be set before the first file arrives. Later marks for the same path win.
+`set_file_marks` redraws the sidebar only; the diff does not reflow. It costs one hash of each path in the set plus one pass over the files already in the tree, so it can run on every toggle.
+It rejects the whole set, keeping the previous one, if a badge is empty, wider than two cells or contains control characters. It also fails after `close()`.
+`replace()` and `close()` drop the marks and the badge column. The standalone viewer never sets marks.
+
 ### Source reading and search
 
 `source_read(SourceRange)` prepares an original-side range with inclusive source-line coordinates.
@@ -216,6 +243,7 @@ Use full commit IDs to keep Git inputs fixed across repeated opens. A symbolic r
 
 The left pane belongs to the host. Tab switches outer focus; `r` opens the next review, `c` closes the review without exiting, `o` reopens it, and `q` exits the host.
 `m` marks the selection (Shift-click to make one) or the cursor line with a gutter marker, and `'` selects the last mark again with `select_range`.
+`v` marks the cursor's file viewed, or unmarks it, with `set_file_marks`: a `✓` and a dimmed row in the Files sidebar, which `f` shows.
 `--no-chrome` turns off the viewer's label row, footer and help; the host then draws its own status row from `status()` below the viewer.
 These are example-host controls, not additional viewer bindings.
 The example uses the current terminal and does not open windows or change preferences.

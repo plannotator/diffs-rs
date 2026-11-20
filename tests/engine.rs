@@ -9,7 +9,8 @@ use crossterm::event::{
 };
 use diffs_rs::{
     engine::{
-        Command, Engine, Input, InputEffect, Layout, Marker, Options, Side, SidebarPreference,
+        Badge, BadgeColor, Command, Engine, FileMark, Input, InputEffect, Layout, Marker, Options,
+        Side, SidebarPreference,
     },
     reading::SourceRange,
 };
@@ -705,4 +706,79 @@ fn reveal_reaches_checked_context_only_once_it_is_revealed() {
         .collect();
     assert_eq!(String::from_utf8(bytes).unwrap(), expected);
     host.engine.close().unwrap();
+}
+
+/// The sidebar row naming `name`, up to the divider.
+fn tree_row(buffer: &Buffer, area: Rect, name: &str) -> String {
+    (area.y..area.bottom())
+        .map(|y| line(buffer, y, area.x, area.x + 33))
+        .find(|row| row.contains(name))
+        .unwrap_or_else(|| panic!("missing {name:?} in {buffer:?}"))
+}
+
+#[test]
+fn file_marks_badge_and_dim_sidebar_rows_without_moving_the_diff() {
+    let mut host = Host::new();
+    let viewed = |path| FileMark {
+        path,
+        badge: Some(Badge {
+            text: "✓",
+            color: BadgeColor::Added,
+        }),
+        dimmed: true,
+    };
+    // Marks can be set before the first file arrives.
+    host.engine.set_file_marks(&[viewed("script.sh")]).unwrap();
+    host.settle();
+    host.engine.execute(Command::Files).unwrap();
+    host.engine.execute(Command::Back).unwrap();
+    let before = host.settle();
+    let area = host.area;
+    assert_eq!(
+        tree_row(&before, area, "script.sh"),
+        "  script.sh          M +0 −0 ✓  │"
+    );
+    assert_eq!(
+        tree_row(&before, area, "review.rs"),
+        " *  review.rs        M +3 −2    │"
+    );
+
+    // Replacing the set redraws the sidebar only; the diff keeps its layout.
+    host.engine
+        .set_file_marks(&[viewed("src/review.rs"), viewed("script.sh")])
+        .unwrap();
+    assert!(host.engine.needs_draw());
+    let after = host.settle();
+    assert_eq!(
+        tree_row(&after, area, "src/"),
+        "  ▾ src/             1 +3 −2 ✓  │"
+    );
+    for y in area.top()..area.bottom() {
+        assert_eq!(
+            line(&after, y, area.x + 33, area.right()),
+            line(&before, y, area.x + 33, area.right())
+        );
+    }
+
+    // An invalid badge rejects the whole set and keeps the previous one.
+    let wide = FileMark {
+        badge: Some(Badge {
+            text: "abc",
+            color: BadgeColor::Accent,
+        }),
+        ..viewed("script.sh")
+    };
+    assert!(host.engine.set_file_marks(&[wide]).is_err());
+    assert!(tree_row(&host.settle(), area, "script.sh").ends_with("✓  │"));
+
+    // Replacement drops the marks and the badge column; close rejects new ones.
+    let path = host.directory.path().join("review.patch");
+    host.engine.replace(Input::Patch(path)).unwrap();
+    let buffer = host.settle();
+    assert_eq!(
+        tree_row(&buffer, area, "script.sh"),
+        "  script.sh             M +0 −0 │"
+    );
+    host.engine.close().unwrap();
+    assert!(host.engine.set_file_marks(&[]).is_err());
 }

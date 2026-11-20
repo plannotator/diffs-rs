@@ -46,6 +46,29 @@ impl Totals {
     }
 }
 
+/// A host mark on a file, or the part of it every file under a folder shares.
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Mark {
+    /// An index into the host's distinct badges.
+    pub badge: Option<u32>,
+    pub dimmed: bool,
+}
+
+impl Mark {
+    /// What this node and one more file under it have in common: the badge only when both
+    /// carry the same one, and dimming only when both are dimmed.
+    fn shared(self, other: Self) -> Self {
+        Self {
+            badge: if self.badge == other.badge {
+                self.badge
+            } else {
+                None
+            },
+            dimmed: self.dimmed && other.dimmed,
+        }
+    }
+}
+
 pub(crate) enum Kind {
     Folder {
         children: BTreeMap<ChildKey, NodeId>,
@@ -62,6 +85,8 @@ pub(crate) struct Node {
     pub label: String,
     pub kind: Kind,
     pub totals: Totals,
+    /// For a folder, what the marks of every file under it share.
+    pub mark: Mark,
 }
 
 impl Node {
@@ -100,6 +125,7 @@ impl Default for Tree {
                     expanded: true,
                 },
                 totals: Totals::default(),
+                mark: Mark::default(),
             }],
             files: Vec::new(),
             rows: Vec::new(),
@@ -130,7 +156,7 @@ impl Tree {
         (parent != ROOT).then_some(parent)
     }
 
-    pub fn append(&mut self, file: &FileIndex) -> Result<()> {
+    pub fn append(&mut self, file: &FileIndex, mark: Mark) -> Result<()> {
         ensure!(
             file.id == self.files.len(),
             "Tree file IDs must follow document order"
@@ -183,6 +209,7 @@ impl Tree {
                 parent,
                 label: component_label(component),
                 totals: Totals::default(),
+                mark: Mark::default(),
                 kind: if is_file {
                     Kind::File {
                         id: FileId(file.id),
@@ -206,7 +233,13 @@ impl Tree {
             }
         }
         loop {
-            self.nodes[parent.0].totals = self.nodes[parent.0].totals.add(totals)?;
+            let node = &mut self.nodes[parent.0];
+            node.mark = if node.totals.files == 0 {
+                mark
+            } else {
+                node.mark.shared(mark)
+            };
+            node.totals = node.totals.add(totals)?;
             if parent == ROOT {
                 break;
             }
@@ -214,6 +247,27 @@ impl Tree {
         }
         self.dirty = true;
         Ok(())
+    }
+
+    /// Replaces every file's mark and recomputes what each folder's files share.
+    pub fn mark_files(&mut self, mark: impl Fn(FileId) -> Mark) {
+        let mut seen = vec![false; self.nodes.len()];
+        for (index, &node) in self.files.iter().enumerate() {
+            let mark = mark(FileId(index));
+            let mut id = node;
+            loop {
+                let node = &mut self.nodes[id.0];
+                node.mark = if std::mem::replace(&mut seen[id.0], true) {
+                    node.mark.shared(mark)
+                } else {
+                    mark
+                };
+                if id == ROOT {
+                    break;
+                }
+                id = node.parent;
+            }
+        }
     }
 
     pub fn set_expanded(&mut self, id: NodeId, value: bool) {

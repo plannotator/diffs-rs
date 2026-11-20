@@ -3,6 +3,15 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## 0.2.1 - Unreleased
+
+- `Engine::set_file_marks` lets the host mark files in the Files sidebar, for example as
+  viewed. A `FileMark` names a file by path and carries an optional `Badge` of one or two
+  cells in a `BadgeColor` from the theme, and a `dimmed` flag that mutes the row. The badge
+  has its own column at the right of every row, so rows stay aligned, and a folder shows a
+  badge when every file under it has the same one. Hosts that never call it, and the `diffs`
+  viewer, look as before.
+
 ## 0.2.0 - 2026-11-15
 
 - `Options.chrome`: set it to `false` and the engine draws no label row, footer or help

@@ -412,3 +412,89 @@ fn embedded_host_replaces_loading_files_and_reaps_the_git_child() {
     session.finish(b"q", 0);
     assert_eq!(fs::read_dir(&scratch).unwrap().count(), 0);
 }
+
+#[test]
+#[ignore = "requires NATIVE_DIFF_HOST_BINARY pointing to a freshly built embedded_viewer example"]
+fn embedded_host_marks_viewed_files_in_the_sidebar() {
+    let directory = tempfile::tempdir().unwrap();
+    let patch = directory.path().join("five.patch");
+    let files = [
+        "docs/readme.md",
+        "src/a.rs",
+        "src/lib/b.rs",
+        "src/lib/c.rs",
+        "top.txt",
+    ];
+    let text: String = files
+        .iter()
+        .map(|path| {
+            format!(
+                "diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1,3 +1,4 @@\n one\n-two\n+TWO\n three\n+four\n"
+            )
+        })
+        .collect();
+    fs::write(&patch, text).unwrap();
+    let mut launch = command();
+    launch.arg(&patch);
+    let mut session = Session::spawn(launch);
+    ready(&mut session, "src/lib/b.rs");
+    // Each file: `n` reaches its header, `jj` its first line, and `v` marks it viewed. The
+    // first file needs no `n`.
+    for (index, keys) in [&b"jj"[..], b"njj", b"njj", b"njj"].into_iter().enumerate() {
+        session.keys(keys);
+        let file = format!("File: {index}");
+        session.wait(|s| s.contents().contains(&file) && s.contents().contains("Old: Some(1)"));
+        session.keys(b"v");
+    }
+    session.keys(b"f");
+    let tree = |screen: &vt100::Screen| -> Vec<String> {
+        (2..9)
+            .map(|row| {
+                (28..61)
+                    .map(|column| screen.cell(row, column).unwrap().contents())
+                    .collect()
+            })
+            .collect()
+    };
+    session.wait(|s| tree(s)[0].contains('✓') && tree(s)[2].contains('✓'));
+    assert_eq!(
+        tree(session.parser.screen()),
+        [
+            "  ▾ docs/            1 +2 −1 ✓  │",
+            "    readme.md        M +2 −1 ✓  │",
+            "  ▾ src/             3 +6 −3 ✓  │",
+            "    ▾ lib/           2 +4 −2 ✓  │",
+            "      b.rs           M +2 −1 ✓  │",
+            ">*    c.rs           M +2 −1 ✓  │",
+            "    a.rs             M +2 −1 ✓  │",
+        ]
+    );
+    // Dimmed rows mute their names; the tick keeps its own color.
+    let screen = session.parser.screen();
+    let (name, tick) = (screen.cell(3, 32).unwrap(), screen.cell(3, 57).unwrap());
+    assert_eq!((name.contents(), tick.contents()), ("r", "✓"));
+    assert_ne!(name.fgcolor(), tick.fgcolor());
+    session.capture("embedded-viewed-marks");
+
+    // Unmarking one file takes the tick off its folders; the column stays.
+    session.keys(b"\tv");
+    session.wait(|s| !tree(s)[3].contains('✓'));
+    assert_eq!(
+        tree(session.parser.screen())[2..6],
+        [
+            "  ▾ src/             3 +6 −3    │",
+            "    ▾ lib/           2 +4 −2    │",
+            "      b.rs           M +2 −1 ✓  │",
+            ">*    c.rs           M +2 −1    │",
+        ]
+    );
+    // Reopening drops the marks and the column.
+    session.keys(b"o");
+    ready(&mut session, "src/lib/b.rs");
+    session.wait(|s| tree(s)[0].contains("1 +2 −1 │"));
+    assert_eq!(
+        tree(session.parser.screen())[0],
+        "  ▾ docs/               1 +2 −1 │"
+    );
+    session.finish(b"q", 0);
+}

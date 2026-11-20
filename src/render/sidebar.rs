@@ -1,8 +1,11 @@
-use ratatui::buffer::Buffer;
+use ratatui::{buffer::Buffer, style::Color};
 use unicode_width::UnicodeWidthStr;
 
 use super::{Summary, color_summary, digits, ellipsize, fill, label, status_color};
-use crate::{app::App, tree::Kind};
+use crate::{app::App, engine::BadgeColor, theme::Colors, tree::Kind};
+
+/// The cells a host badge column takes at the right of each row: a gap, then two cells.
+const BADGE_COLUMN: u16 = 3;
 
 pub(super) const HELP: &str = "  ↑/↓, j/k     Move cursor; PgUp/PgDn page; Home/End bounds\n  ←/→          Collapse / expand folders; parent / child\n  Enter        Open file or toggle folder; Space toggles\n  Esc, Tab     Return to diff; f hides Files\n  Wheel        Scroll the pane under the pointer\n  *            Current diff file; > keyboard cursor\n  Esc, ?       Close help\n  q, Ctrl-C    Quit / cancel";
 
@@ -106,8 +109,11 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
                 (node.label.clone(), summary, colors, suffix)
             }
         };
+        // With host marks, a fixed badge column sits between the summary and the divider.
+        let badge_column = if state.marks.column { BADGE_COLUMN } else { 0 };
+        let mark = node.mark;
         let summary_width = summary.width().min(16) as u16;
-        let name_width = area.width - summary_width - 3;
+        let name_width = area.width - summary_width - 3 - badge_column;
         let depth = row.depth.saturating_mul(2);
         let indent = depth.min(6);
         let prefix = format!(
@@ -131,11 +137,11 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             y,
             name_width,
             &text,
-            c.fg,
+            if mark.dimmed { c.dim } else { c.fg },
             bg,
             focused || current,
         );
-        let summary_x = area.right() - summary_width - 1;
+        let summary_x = area.right() - summary_width - 1 - badge_column;
         label(
             buf,
             summary_x,
@@ -146,7 +152,11 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             bg,
             false,
         );
-        if let Some(colors) = colors {
+        if let Some((text, color)) = mark.badge.and_then(|id| state.marks.badge(id)) {
+            let x = area.right() - BADGE_COLUMN;
+            label(buf, x, y, 2, text, badge_color(c, color), bg, false);
+        }
+        if let Some(colors) = colors.filter(|_| !mark.dimmed) {
             // A truncated summary ends in a muted ellipsis.
             let visible = if summary.width() > usize::from(summary_width) {
                 summary_width.saturating_sub(1)
@@ -155,5 +165,17 @@ pub(super) fn draw(buf: &mut Buffer, app: &App) {
             };
             color_summary(buf, summary_x, y, visible, colors, c);
         }
+    }
+}
+
+fn badge_color(c: &Colors, color: BadgeColor) -> Color {
+    match color {
+        BadgeColor::Text => c.fg,
+        BadgeColor::Muted => c.dim,
+        BadgeColor::Accent => c.accent,
+        BadgeColor::Added => c.added,
+        BadgeColor::Deleted => c.deleted,
+        BadgeColor::Modified => c.modified,
+        BadgeColor::Renamed => c.renamed,
     }
 }

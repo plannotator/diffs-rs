@@ -138,6 +138,42 @@ pub fn load(appearance: Appearance) -> Result<(Colors, Theme)> {
     Ok((colors, syntax))
 }
 
+/// The theme's colors for drawing on the terminal's own background and foreground.
+///
+/// The base surfaces (diff, plain context, sidebar, label row, footer) and plain text become
+/// `Color::Reset`. The tints keep explicit colors from the `appearance` palette, which should
+/// match the terminal: a dark palette on a dark terminal, a light one on a light terminal.
+/// The terminal's background is not known and is often lighter or bluer than the theme's,
+/// so hunk headers are mixed more strongly, and the
+/// dark tints start from a slightly lighter base than #0a0a0a.
+pub(crate) fn on_terminal(appearance: Appearance) -> Result<Colors> {
+    let colors = load(appearance)?.0;
+    let dark = appearance == Appearance::Dark;
+    let fg = colors.fg;
+    // Dark terminals are rarely as dark as the theme's #0a0a0a, so the dark tints start from
+    // a slightly lighter base and sit on #1e1e1e or #1e2230 as they do on black.
+    let base = if dark {
+        lab_mix(colors.bg, fg, 0.06)
+    } else {
+        colors.bg
+    };
+    let add_bg = lab_mix(base, colors.added, if dark { 0.22 } else { 0.12 });
+    let del_bg = lab_mix(base, colors.deleted, if dark { 0.22 } else { 0.12 });
+    Ok(Colors {
+        bg: Color::Reset,
+        fg: Color::Reset,
+        chrome: Color::Reset,
+        context: Color::Reset,
+        separator: lab_mix(base, fg, if dark { 0.16 } else { 0.09 }),
+        empty: lab_mix(base, fg, if dark { 0.12 } else { 0.10 }),
+        add_bg,
+        del_bg,
+        add_word: alpha_mix(add_bg, colors.added, if dark { 0.20 } else { 0.15 }),
+        del_word: alpha_mix(del_bg, colors.deleted, if dark { 0.20 } else { 0.15 }),
+        ..colors
+    })
+}
+
 fn components(color: Color) -> (u8, u8, u8) {
     let Color::Rgb(r, g, b) = color else {
         unreachable!("theme colors are RGB")

@@ -68,6 +68,11 @@ pub struct App {
     pub(crate) search_match: Option<crate::reading::SearchMatch>,
     pub(crate) selection: Option<crate::reading::LineSelection>,
     pub(crate) markers: crate::engine::markers::Markers,
+    /// Draws the base surfaces and plain text in the terminal's own colors.
+    pub(crate) terminal_background: bool,
+    /// The theme's text color, which plain syntax tokens carry; drawn as the terminal's own
+    /// foreground when `terminal_background` is on.
+    pub(crate) plain: ratatui::style::Color,
     reading_anchor: Option<ReadingAnchor>,
 }
 
@@ -80,6 +85,7 @@ impl App {
         wake: std::sync::mpsc::SyncSender<()>,
     ) -> anyhow::Result<Self> {
         let colors = theme::load(appearance)?.0;
+        let plain = colors.fg;
         let worker = crate::highlight::start(wake);
         Ok(Self {
             view: View::default(),
@@ -96,6 +102,8 @@ impl App {
             search_match: None,
             selection: None,
             markers: Default::default(),
+            terminal_background: false,
+            plain,
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
@@ -503,9 +511,26 @@ impl App {
 
     pub fn toggle_theme(&mut self) -> anyhow::Result<()> {
         self.appearance = self.appearance.toggle();
-        self.colors = theme::load(self.appearance)?.0;
+        self.load_colors()?;
         self.epoch += 1;
         self.cache = Cache::default();
+        Ok(())
+    }
+
+    /// Draws the base surfaces and plain text in the terminal's own colors, or in the theme's.
+    pub(crate) fn set_terminal_background(&mut self, on: bool) -> Result<()> {
+        self.terminal_background = on;
+        self.load_colors()
+    }
+
+    fn load_colors(&mut self) -> Result<()> {
+        let theme = theme::load(self.appearance)?.0;
+        self.plain = theme.fg;
+        self.colors = if self.terminal_background {
+            theme::on_terminal(self.appearance)?
+        } else {
+            theme
+        };
         Ok(())
     }
 

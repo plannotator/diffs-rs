@@ -77,6 +77,20 @@ Read the state the footer would have shown from `status()`: `loading`, `coloring
 The review label, layout and theme are the host's own inputs and `options()`.
 `chrome` is fixed for the engine's lifetime, and `replace()` keeps it.
 
+### Terminal background
+
+By default the engine paints its whole rectangle with the theme's background (#0a0a0a dark, #ffffff light) and its own text color.
+A host whose other screens use the terminal's own colors can call `engine.set_terminal_background(true)?`:
+
+- Empty rows, plain context lines, gaps, metadata and "no newline" rows, file headers, the Files sidebar, and with chrome the label row, footer and help draw with `Color::Reset` as background.
+- Plain text, including syntax tokens the theme leaves uncolored, uses the terminal's default foreground. Other syntax colors stay.
+- Added and deleted lines, changed words, hunk headers, the empty half of a split row, and the Files keyboard cursor row keep explicit colors. They come from the palette of `Options::appearance`, so set the appearance that matches the terminal: `Dark` for a dark terminal, `Light` for a light one.
+- The engine cannot know the terminal's exact background, so those colors are mixed for it: hunk headers are stronger than on the theme's own background, and the dark tints start from a slightly lighter base than #0a0a0a, so they read on black, #1e1e1e or a blue-grey alike.
+- Gutter markers, the cursor and selection indicators, and the search match keep their own colors and underlines.
+
+It is off by default. It can be set before the first file arrives, stays set across `replace()`, and follows the `t` theme toggle.
+It is a method rather than an `Options` field so that adding it does not break hosts that build `Options` without `..Options::default()`.
+
 ## Commands and selection
 
 `handle_event(event, focused)` applies the viewer's default bindings.

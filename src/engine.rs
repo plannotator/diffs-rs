@@ -127,6 +127,8 @@ pub struct Engine {
     markers: markers::Markers,
     /// File marks set before the first file arrived, taken like `markers`.
     file_marks: file_marks::FileMarks,
+    /// Draw on the terminal's own background and foreground. Kept across `replace()`.
+    terminal_background: bool,
 }
 
 impl Engine {
@@ -171,7 +173,24 @@ impl Engine {
             area: Rect::default(),
             markers: markers::Markers::default(),
             file_marks: file_marks::FileMarks::default(),
+            terminal_background: false,
         })
+    }
+
+    /// Draws the base surfaces in the terminal's default colors instead of the theme's:
+    /// empty rows, plain context lines, gaps, file headers, the Files sidebar, and the label
+    /// row and footer use `Color::Reset` as background, and plain text uses the terminal's
+    /// default foreground. Added and deleted lines, changed words, hunk headers and the
+    /// empty half of a split row keep explicit colors from the palette of
+    /// `Options::appearance`, so pick the appearance that matches the terminal. Off by
+    /// default; it stays set across `replace()`.
+    pub fn set_terminal_background(&mut self, on: bool) -> Result<()> {
+        self.terminal_background = on;
+        if let Some(app) = &mut self.app {
+            app.set_terminal_background(on)?;
+        }
+        self.changed(InputEffect::Redraw);
+        Ok(())
     }
 
     pub fn review_id(&self) -> ReviewId {
@@ -323,6 +342,9 @@ impl Engine {
             app.chrome = self.options.chrome;
             app.markers = std::mem::take(&mut self.markers);
             app.set_file_marks(std::mem::take(&mut self.file_marks));
+            if self.terminal_background {
+                app.set_terminal_background(true)?;
+            }
             if self.full_sources {
                 app.sources = Some(Vec::new());
             }
@@ -596,8 +618,10 @@ impl Engine {
     /// Close the previous review before creating fresh channels, identity and workers.
     pub fn replace(&mut self, input: Input) -> Result<()> {
         let options = self.options();
+        let terminal_background = self.terminal_background;
         self.close()?;
         *self = Self::open(input, options, self.wake.clone())?;
+        self.terminal_background = terminal_background;
         Ok(())
     }
 

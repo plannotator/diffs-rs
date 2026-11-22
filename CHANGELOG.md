@@ -3,7 +3,7 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## 0.2.1 - Unreleased
+## 0.2.1 - 2026-11-22
 
 - `Engine::set_file_marks` lets the host mark files in the Files sidebar, for example as
   viewed. A `FileMark` names a file by path and carries an optional `Badge` of one or two

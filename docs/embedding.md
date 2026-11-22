@@ -10,7 +10,7 @@ The host must use Ratatui 0.30.
 
 ```toml
 [dependencies]
-diffs-rs = { version = "0.1", default-features = false }
+diffs-rs = { version = "0.2", default-features = false }
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
 ```
 

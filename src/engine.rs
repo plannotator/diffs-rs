@@ -3,6 +3,7 @@
 pub(crate) mod file_marks;
 pub(crate) mod markers;
 mod reading;
+mod rows;
 mod selection;
 
 use std::{
@@ -32,6 +33,7 @@ use crate::{
 };
 pub use file_marks::{Badge, BadgeColor, FileMark};
 pub use markers::Marker;
+pub use rows::{DiffRow, DiffRowKind};
 
 pub enum Input {
     Patch(PathBuf),

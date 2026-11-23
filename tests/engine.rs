@@ -9,8 +9,8 @@ use crossterm::event::{
 };
 use diffs_rs::{
     engine::{
-        Badge, BadgeColor, Command, Engine, FileMark, Input, InputEffect, Layout, Marker, Options,
-        Side, SidebarPreference,
+        Badge, BadgeColor, Command, DiffRowKind, Engine, FileMark, Input, InputEffect, Layout,
+        Marker, Options, Side, SidebarPreference,
     },
     reading::SourceRange,
 };
@@ -823,4 +823,58 @@ fn terminal_background_draws_plain_text_and_context_in_the_terminal_colors() {
         let path = host.directory.path().join("review.patch");
         host.engine.replace(Input::Patch(path)).unwrap();
     }
+}
+
+#[test]
+fn cursor_row_and_row_at_name_the_file_on_every_row_of_a_host_pane() {
+    let mut host = Host::open(&patch("after"), false);
+    let buffer = host.settle();
+    let area = host.area;
+    let review = host.engine.review_id();
+    let heading = find(&buffer, area, "src/review.rs");
+    let at = host.engine.row_at(area.x + 2, heading).unwrap();
+    assert_eq!(
+        (at.review, at.file, at.path.as_str(), at.kind),
+        (review, 0, "src/review.rs", DiffRowKind::Header)
+    );
+    assert_eq!(host.engine.cursor_row().unwrap().kind, DiffRowKind::Header);
+    let hunk = find(&buffer, area, "@@ -1,6 +1,7 @@");
+    assert_eq!(
+        host.engine.row_at(area.x + 2, hunk).unwrap().kind,
+        DiffRowKind::Hunk(0)
+    );
+    let note = find(&buffer, area, "no textual hunks");
+    let at = host.engine.row_at(area.x + 2, note).unwrap();
+    assert_eq!(
+        (at.file, at.path.as_str(), at.kind),
+        (1, "script.sh", DiffRowKind::Metadata)
+    );
+
+    // A split row with a line on the right only: the left cell is empty but in the file.
+    let row = find(&buffer, area, "let extra = true;");
+    let left = host.engine.row_at(area.x + 5, row).unwrap();
+    let right = host.engine.row_at(area.x + 60, row).unwrap();
+    assert_eq!(
+        (left.kind, left.side, left.old_line, left.new_line),
+        (DiffRowKind::Code, Side::Old, None, Some(3))
+    );
+    assert_eq!(right.side, Side::New);
+    assert_eq!((left.hunk, right.hunk), (Some(0), Some(0)));
+    assert_eq!(host.engine.row_at(area.x + 2, note).unwrap().hunk, None);
+    assert_eq!(
+        host.engine.selected_source().unwrap(),
+        None,
+        "asking moved nothing"
+    );
+    host.click(area.x + 5, row);
+    assert_eq!(host.engine.cursor_row().unwrap(), left);
+    assert_eq!(
+        host.engine.selected_source().unwrap(),
+        None,
+        "no line on that side"
+    );
+
+    // Outside the pane, and past its last row.
+    assert_eq!(host.engine.row_at(0, 0), None);
+    assert_eq!(host.engine.row_at(area.x + 2, area.bottom() - 1), None);
 }

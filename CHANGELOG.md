@@ -3,6 +3,15 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+- `Engine::cursor_row` says which file and which kind of row the cursor is on, including rows
+  with no line: headings, hunk headings, gaps, binary and mode-only notes, empty split cells,
+  "No newline" marks and wrapped parts. It also gives the row's hunk (none on revealed context)
+  and its original line numbers. `Engine::row_at` answers the same for a screen cell of the
+  last frame, the sticky file heading included. Both are read-only and return an
+  `Option<DiffRow>`. `DiffRow` and `DiffRowKind` are `#[non_exhaustive]`.
+
 ## 0.2.1 - 2026-11-22
 
 - `Engine::set_file_marks` lets the host mark files in the Files sidebar, for example as

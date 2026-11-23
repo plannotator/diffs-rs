@@ -120,32 +120,6 @@ The default mouse route supports Shift-click within the same file and side. The 
 The standalone maps `V` and Escape to these commands. `handle_event` alone does not add those keyboard bindings.
 Headers and padding never become endpoints. Ranges can span unavailable patch-only gaps; `source_read` rejects those gaps during streaming.
 
-### The cursor's row and the row at a cell
-
-`cursor_row()` returns an optional `DiffRow` for the row under the cursor, on every kind of row:
-a file heading, a hunk heading, a gap, a binary or mode-only file's note, an empty side of a split
-row, the "No newline" mark, and each wrapped part of a row. Use it to tell which file the cursor
-is in when `selected_source()` has no answer.
-
-- `file` and `path` name the file the row belongs to, as `file(index)` does.
-- `kind` is a `DiffRowKind`: `Header`, `StickyHeader`, `Hunk(index)`, `Gap`, `Metadata`, `Code` or
-  `NoNewline`.
-- `hunk` is the index of the file's hunk the row is in, on a hunk's heading, its lines and its
-  "No newline" marks; headings, gaps and notes have none.
-- `part` is the wrapped part of the row, 0 for its first screen row.
-- `old_line` and `new_line` are the original lines the row shows. A split row takes the old line
-  from its left cell and the new line from its right cell, and either can be empty. Rows that
-  are not code have neither.
-- `side` is the side the cursor is on.
-
-`row_at(column, row)` answers the same for the screen cell in the last frame, as a click there
-would find it, with `side` the pane of the cell in a split diff. The top row of a file whose
-rows scroll under its heading is `StickyHeader`; a click there does not move the cursor. Cells
-outside the diff, below its last row, and every cell before the first draw return `None`.
-
-Neither call moves the cursor, the view or the selection, so a host can ask on every event.
-`cursor_row()` follows the cursor at once, before the next frame; `row_at` reads the last frame.
-
 ### Host-driven position and selection
 
 `reveal(file, side, line)` scrolls an original source line into view and puts the cursor on it, on that side.
@@ -208,6 +182,63 @@ Marks for paths that are not in the review draw nothing, and marks can be set be
 `set_file_marks` redraws the sidebar only; the diff does not reflow. It costs one hash of each path in the set plus one pass over the files already in the tree, so it can run on every toggle.
 It rejects the whole set, keeping the previous one, if a badge is empty, wider than two cells or contains control characters. It also fails after `close()`.
 `replace()` and `close()` drop the marks and the badge column. The standalone viewer never sets marks.
+
+### The cursor's row and the row at a cell
+
+`cursor_row()` returns the row under the cursor as a `DiffRow`. It answers on rows where
+`selected_source()` has no line: a file heading, a hunk heading, a gap, a binary or mode-only
+file's note, an empty side of a split row, a "No newline" mark, and each wrapped part of a row.
+Use it to tell which file the cursor is in.
+
+- `review` is the review the row is from, as `review_id()` reports it.
+- `file` and `path` name the file the row belongs to, as `file(index)` does.
+- `kind` is a `DiffRowKind`: `Header`, `StickyHeader`, `Hunk(index)`, `Gap`, `Metadata`, `Code` or
+  `NoNewline`. The enum is `#[non_exhaustive]`, and so is `DiffRow`.
+- `hunk` is the index of the file's hunk the row is part of: on a hunk's heading, the hunk's own
+  lines and its own "No newline" marks. Headings, gaps and notes have none, and neither do
+  context lines that a gap revealed or their "No newline" mark: they are in no hunk.
+- `part` is the wrapped part of the row, 0 for its first screen row.
+- `old_line` and `new_line` are the original lines the row shows. A split row takes the old line
+  from its left cell and the new line from its right cell, and either can be empty. Rows that
+  are not code have neither.
+- `side`:
+  - Split: the pane the cursor is in. For `row_at`, the pane of the cell, by the rule a click
+    uses, so the column between the panes counts as the side a click there would pick.
+  - Unified, on a line: the line's side, as `selected_source()` reports it.
+  - Unified, on a row with no line: the side the cursor is on, and `New` on the sticky heading.
+
+`row_at(column, row)` answers the same for a screen cell in the last frame, as a click there
+would find it. The top row of a file whose rows scroll under its heading is `StickyHeader`; a
+click there does not move the cursor.
+
+Neither call moves the cursor, the view or the selection, so a host can ask on every event.
+`cursor_row()` reads the cursor itself, so it is right at once, before the next frame. `row_at`
+reads the last frame, as a click does.
+
+Both return `None` when there is no true answer:
+
+- for a diff with no files;
+- after `replace()`, until the new files arrive (and, for `row_at`, until they are drawn);
+- on a revealed context line whose source was withdrawn.
+
+`cursor_row()` also returns `None` before the first file arrives. `row_at` also returns `None`
+before the first draw, while the help is shown, outside the diff's area and below its last row.
+
+```rust
+use diffs_rs::engine::{DiffRowKind, Engine};
+
+/// The file a "mark viewed" key acts on: the one the cursor is in, on any row.
+fn file_under_cursor(engine: &Engine) -> Option<usize> {
+    engine.cursor_row().map(|row| row.file)
+}
+
+/// Whether a press at a cell lands on code, so a host can start a line selection there.
+fn on_code(engine: &Engine, column: u16, row: u16) -> bool {
+    engine
+        .row_at(column, row)
+        .is_some_and(|row| matches!(row.kind, DiffRowKind::Code))
+}
+```
 
 ### Source reading and search
 

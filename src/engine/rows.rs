@@ -10,20 +10,26 @@ use crate::{
     view::LineId,
 };
 
-/// One row of the diff: the file it belongs to and what it shows.
+/// One row of the diff: the file it belongs to and what it shows, from
+/// [`Engine::cursor_row`] or [`Engine::row_at`].
 ///
-/// Every row belongs to a file, the headings and gaps included, so a host can always tell
-/// which file the cursor is in.
+/// Every row belongs to a file, the headings, gaps and notes included.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct DiffRow {
+    /// The review the row is from, as [`Engine::review_id`] reports it. A row read before
+    /// [`Engine::replace`] has the earlier review's id.
     pub review: ReviewId,
     /// The file's index, as [`Engine::file`] takes it.
     pub file: usize,
     /// The file's [`FileMetadata::path`](crate::storage::FileMetadata::path).
     pub path: String,
+    /// What the row shows: a heading, a hunk's heading, a gap, a note, code or a
+    /// "No newline" mark.
     pub kind: DiffRowKind,
-    /// The index of the file's hunk the row is in: on a hunk's heading, its lines and its
-    /// "No newline" marks. `None` on headings, gaps and notes.
+    /// The index of the file's hunk the row is part of: on a hunk's heading, on the hunk's
+    /// own lines and on its own "No newline" marks. `None` on headings, gaps and notes, and on
+    /// context lines a gap revealed and their "No newline" mark, which are in no hunk.
     pub hunk: Option<usize>,
     /// Which screen row of a wrapped row: 0 for its first, 1 for the next, and so on.
     pub part: usize,
@@ -32,8 +38,14 @@ pub struct DiffRow {
     /// line has both, an added line only `new_line`, a deleted line only `old_line`.
     pub old_line: Option<u32>,
     pub new_line: Option<u32>,
-    /// The side the cursor is on, or the side of the cell: split, the pane; unified, the side
-    /// of the row's line as [`Engine::selected_source`] reports it.
+    /// The side of the row.
+    ///
+    /// - Split: from [`Engine::cursor_row`], the pane the cursor is in; from
+    ///   [`Engine::row_at`], the pane of the cell, by the rule a click uses, so the column
+    ///   between the panes counts as the side a click there would pick.
+    /// - Unified, on a line: the side of the line as [`Engine::selected_source`] reports it.
+    ///   On a row with no line, the side the cursor is on, and [`Side::New`] on the sticky
+    ///   heading.
     pub side: Side,
 }
 
@@ -59,11 +71,27 @@ pub enum DiffRowKind {
 }
 
 impl Engine {
-    /// The row under the cursor. `None` before the first file arrives.
+    /// The row under the cursor, read from the cursor itself, so it is current after any
+    /// command or event, before the next frame. Nothing moves.
     ///
-    /// Unlike [`Engine::selected_source`], this answers on every row: a heading, a hunk's
-    /// heading, a gap, a binary file's note, an empty side of a split row, the
-    /// "No newline" mark and every wrapped part of a row.
+    /// Unlike [`Engine::selected_source`], it answers on rows with no line under the cursor:
+    /// a heading, a hunk's heading, a gap, a binary or mode-only file's note, an empty side of
+    /// a split row, a "No newline" mark, and every wrapped part of a row.
+    ///
+    /// `None` when there is no true answer: before the first file arrives, for a diff with
+    /// no files, after [`Engine::replace`] until the new files arrive, and on a revealed
+    /// context line whose source was withdrawn.
+    ///
+    /// ```
+    /// use diffs_rs::engine::{DiffRowKind, Engine};
+    ///
+    /// /// The path of the file the cursor is in, and whether it is on a line.
+    /// fn under_cursor(engine: &Engine) -> Option<(String, bool)> {
+    ///     let row = engine.cursor_row()?;
+    ///     let on_line = matches!(row.kind, DiffRowKind::Code);
+    ///     Some((row.path, on_line))
+    /// }
+    /// ```
     pub fn cursor_row(&self) -> Option<DiffRow> {
         let app = self.app.as_ref()?;
         let old = if app.split() {
@@ -77,8 +105,14 @@ impl Engine {
     }
 
     /// The row drawn at the screen cell (`column`, `row`) in the last frame, as a click there
-    /// would find it. `None` outside the diff, below its last row, and before the first draw.
-    /// Nothing moves.
+    /// would find it, or [`DiffRowKind::StickyHeader`] for the heading kept over the top row,
+    /// which takes no click. Nothing moves.
+    ///
+    /// `None` when there is no true answer: before the first draw, while the help is shown,
+    /// outside the diff's area, below its last row, for a diff with no files, after
+    /// [`Engine::replace`] until the new files are drawn, and on a revealed context line whose
+    /// source was withdrawn. Between a move and the next frame it answers for the frame last
+    /// drawn, as a click does.
     pub fn row_at(&self, column: u16, row: u16) -> Option<DiffRow> {
         let app = self.app.as_ref()?;
         if app.help {
@@ -164,14 +198,17 @@ fn describe(
     let hunk = match (shown, row.kind) {
         (RowShown::Sticky, _) => None,
         (_, RowKind::Hunk(index)) => Some(index),
-        (_, RowKind::Code { .. } | RowKind::NoNewline { .. }) => app
-            .view
-            .boundary(&app.doc, at.row, app.split(), false)
-            .and_then(|heading| app.row(heading))
-            .and_then(|heading| match heading.kind {
-                RowKind::Hunk(index) if heading.file == row.file => Some(index),
-                _ => None,
-            }),
+        (_, RowKind::Code { .. } | RowKind::NoNewline { .. })
+            if app.view.is_patch_row(&app.doc, at.row, app.split()) =>
+        {
+            app.view
+                .boundary(&app.doc, at.row, app.split(), false)
+                .and_then(|heading| app.row(heading))
+                .and_then(|heading| match heading.kind {
+                    RowKind::Hunk(index) if heading.file == row.file => Some(index),
+                    _ => None,
+                })
+        }
         _ => None,
     };
     let part = if shown == RowShown::Sticky {

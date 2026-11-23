@@ -239,6 +239,21 @@ impl View {
         })
     }
 
+    /// Whether `row` is one of the patch's own rows, not one revealed in a gap or a gap's
+    /// "No newline" mark.
+    pub(crate) fn is_patch_row(&self, doc: &Document, row: usize, split: bool) -> bool {
+        let Some(file) = self.file_at(doc, row, split) else {
+            return false;
+        };
+        let Some(view) = self.files.get(&file.id) else {
+            return true;
+        };
+        let local = row - self.file_row(doc, file.id, split);
+        view.rows[usize::from(split)]
+            .segment(local)
+            .is_some_and(|segment| matches!(segment.part, Part::Patch))
+    }
+
     pub(crate) fn row(&self, doc: &Document, row: usize, split: bool) -> Option<Row<LineId>> {
         let file = self.file_at(doc, row, split)?;
         let local = row - self.file_row(doc, file.id, split);

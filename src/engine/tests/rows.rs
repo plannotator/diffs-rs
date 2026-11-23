@@ -474,3 +474,188 @@ fn asking_moves_nothing() {
     assert_eq!(draw(&mut engine, size), before);
     assert_eq!(engine.row_at(500, 2), None, "outside the diff");
 }
+
+/// Two files with checked sources: `a.txt`, two one-line hunks with gaps before, between and
+/// after them and no newline at its end, and `b.txt`, one hunk whose own lines end with no
+/// newline. Its hunks' new-side lines are 5, 15 and 1-2.
+fn checked(layout: Layout) -> (Engine, tempfile::TempDir) {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("review.patch");
+    let mut patch = String::from("diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n");
+    patch.push_str("@@ -5 +5 @@\n-l5\n+L5\n@@ -15 +15 @@\n-l15\n+L15\n");
+    patch.push_str("diff --git a/b.txt b/b.txt\n--- a/b.txt\n+++ b/b.txt\n");
+    patch.push_str("@@ -1,2 +1,2 @@\n one\n-two\n\\ No newline at end of file\n+TWO\n\\ No newline at end of file\n");
+    fs::write(&path, patch).unwrap();
+    let (wake, ready) = mpsc::sync_channel(1);
+    let options = Options {
+        layout,
+        chrome: false,
+        sidebar: SidebarPreference::Hide,
+        ..Options::default()
+    };
+    let mut engine = Engine::open(Input::Patch(path), options, wake).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while engine.status().loading {
+        engine.poll().unwrap();
+        assert!(Instant::now() < deadline);
+        if engine.status().loading {
+            let _ = ready.recv_timeout(Duration::from_millis(20));
+        }
+    }
+    assert!(engine.status().error.is_none());
+    let lines = |change: &[(u32, &str)]| {
+        (1..=20)
+            .map(|n| {
+                change
+                    .iter()
+                    .find(|(at, _)| *at == n)
+                    .map_or_else(|| format!("l{n}"), |(_, text)| (*text).to_owned())
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let texts = [
+        (lines(&[]), lines(&[(5, "L5"), (15, "L15")])),
+        ("one\ntwo".to_owned(), "one\nTWO".to_owned()),
+    ];
+    let app = engine.app.as_ref().unwrap();
+    let mut store = SourceStore::sharing(&app.doc.files[0].spool).unwrap();
+    let pairs: Vec<_> = app
+        .doc
+        .files
+        .iter()
+        .zip(&texts)
+        .map(|(file, (old, new))| {
+            let old = store.capture(old.as_bytes(), &|| Ok(())).unwrap();
+            let new = store.capture(new.as_bytes(), &|| Ok(())).unwrap();
+            Arc::new(check_pair(file.clone(), Some(old), Some(new), &|| Ok(())).unwrap())
+        })
+        .collect();
+    install(&mut engine, &pairs);
+    (engine, directory)
+}
+
+/// The hunk of `checked()`'s line, by its numbers: each hunk's file, old and new lines.
+fn hunk_of(row: &DiffRow) -> Option<usize> {
+    let spans = [(0, 5..=5, 5..=5), (0, 15..=15, 15..=15), (1, 1..=2, 1..=2)];
+    spans
+        .iter()
+        .filter(|(file, ..)| *file == row.file)
+        .position(|(_, old, new)| {
+            row.old_line.is_some_and(|line| old.contains(&line))
+                || row.new_line.is_some_and(|line| new.contains(&line))
+        })
+}
+
+/// Every row of the frame of `checked()` against its hunk. Returns the first gap's screen
+/// row, and notes revealed lines and the "No newline" marks drawn.
+fn scan(
+    engine: &Engine,
+    buffer: &Buffer,
+    what: &str,
+    revealed: &mut std::collections::BTreeSet<u32>,
+    marks: &mut [bool; 2],
+) -> Option<u16> {
+    let mut gap = None;
+    for y in 0..buffer.area.height {
+        for column in [buffer.area.width / 4, buffer.area.width * 3 / 4] {
+            let Some(row) = engine.row_at(column, y) else {
+                continue;
+            };
+            let line = text(buffer, y);
+            match row.kind {
+                DiffRowKind::Code => {
+                    let expected = hunk_of(&row);
+                    assert_eq!(row.hunk, expected, "{what}: row {y} {line:?} {row:?}");
+                    if expected.is_none() {
+                        revealed.insert(row.new_line.or(row.old_line).unwrap());
+                    }
+                }
+                DiffRowKind::NoNewline => {
+                    // a.txt's mark comes with its last gap's lines; b.txt's is its
+                    // hunk's own.
+                    let expected = (row.file == 1).then_some(0);
+                    assert_eq!(row.hunk, expected, "{what}: row {y} {line:?}");
+                    marks[row.file] = true;
+                }
+                DiffRowKind::Gap => {
+                    assert_eq!(row.hunk, None);
+                    assert!(line.contains("Show"), "{what}: an expandable gap {line:?}");
+                    gap.get_or_insert(y);
+                }
+                _ => {}
+            }
+        }
+    }
+    gap
+}
+
+#[test]
+fn revealed_context_and_its_no_newline_mark_are_in_no_hunk() {
+    for layout in [Layout::Unified, Layout::Split] {
+        let (mut engine, _directory) = checked(layout);
+        let size = (120, 70);
+        draw(&mut engine, size);
+        assert_eq!(
+            engine.app.as_ref().unwrap().split(),
+            layout == Layout::Split
+        );
+        let mut revealed = std::collections::BTreeSet::new();
+        let mut marks = [false, false];
+        for click in 0..30 {
+            let buffer = draw(&mut engine, size);
+            let what = format!("{layout:?} click {click}");
+            let gap = scan(&engine, &buffer, &what, &mut revealed, &mut marks);
+            let Some(y) = gap else { break };
+            // A click on a gap shows its lines, and the cursor is then on one of them.
+            let event = MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: size.0 / 4,
+                row: y,
+                modifiers: KeyModifiers::NONE,
+            };
+            engine.handle_event(Event::Mouse(event), true).unwrap();
+            let cursor = engine.cursor_row().unwrap();
+            if cursor.kind == DiffRowKind::Code {
+                assert_eq!(
+                    cursor.hunk,
+                    hunk_of(&cursor),
+                    "{what}: the cursor {cursor:?}"
+                );
+            }
+        }
+        // Back at the top, under no sticky heading: the lines a heading hid after a click.
+        engine.execute(Command::FirstSource).unwrap();
+        for _ in 0..3 {
+            let buffer = draw(&mut engine, size);
+            scan(
+                &engine,
+                &buffer,
+                &format!("{layout:?} top"),
+                &mut revealed,
+                &mut marks,
+            );
+            engine.execute(Command::PageDown).unwrap();
+        }
+        // Lines from before the first hunk, between the two and after the last.
+        let expected: std::collections::BTreeSet<u32> =
+            (1..=20).filter(|n| ![5, 15].contains(n)).collect();
+        assert_eq!(revealed, expected, "{layout:?}: every gap was shown");
+        assert_eq!(marks, [true, true], "{layout:?}: both marks were drawn");
+        // The cursor on each row, walking down: the same answer.
+        engine.execute(Command::FirstSource).unwrap();
+        for _ in 0..80 {
+            let cursor = engine.cursor_row().unwrap();
+            match cursor.kind {
+                DiffRowKind::Code => assert_eq!(cursor.hunk, hunk_of(&cursor), "{cursor:?}"),
+                DiffRowKind::NoNewline => {
+                    assert_eq!(cursor.hunk, (cursor.file == 1).then_some(0), "{cursor:?}")
+                }
+                _ => {}
+            }
+            if engine.execute(Command::Down).unwrap() == InputEffect::Ignored {
+                break;
+            }
+        }
+    }
+}

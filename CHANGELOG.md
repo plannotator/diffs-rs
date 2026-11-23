@@ -3,7 +3,7 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## Unreleased
+## 0.2.2 - 2026-11-23
 
 - `Engine::cursor_row` says which file and which kind of row the cursor is on, including rows
   with no line: headings, hunk headings, gaps, binary and mode-only notes, empty split cells,

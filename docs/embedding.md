@@ -120,6 +120,30 @@ The default mouse route supports Shift-click within the same file and side. The 
 The standalone maps `V` and Escape to these commands. `handle_event` alone does not add those keyboard bindings.
 Headers and padding never become endpoints. Ranges can span unavailable patch-only gaps; `source_read` rejects those gaps during streaming.
 
+### The cursor's row and the row at a cell
+
+`cursor_row()` returns an optional `DiffRow` for the row under the cursor, on every kind of row:
+a file heading, a hunk heading, a gap, a binary or mode-only file's note, an empty side of a split
+row, the "No newline" mark, and each wrapped part of a row. Use it to tell which file the cursor
+is in when `selected_source()` has no answer.
+
+- `file` and `path` name the file the row belongs to, as `file(index)` does.
+- `kind` is a `DiffRowKind`: `Header`, `StickyHeader`, `Hunk(index)`, `Gap`, `Metadata`, `Code` or
+  `NoNewline`.
+- `part` is the wrapped part of the row, 0 for its first screen row.
+- `old_line` and `new_line` are the original lines the row shows. A split row takes the old line
+  from its left cell and the new line from its right cell, and either can be empty. Rows that
+  are not code have neither.
+- `side` is the side the cursor is on.
+
+`row_at(column, row)` answers the same for the screen cell in the last frame, as a click there
+would find it, with `side` the pane of the cell in a split diff. The top row of a file whose
+rows scroll under its heading is `StickyHeader`; a click there does not move the cursor. Cells
+outside the diff, below its last row, and every cell before the first draw return `None`.
+
+Neither call moves the cursor, the view or the selection, so a host can ask on every event.
+`cursor_row()` follows the cursor at once, before the next frame; `row_at` reads the last frame.
+
 ### Host-driven position and selection
 
 `reveal(file, side, line)` scrolls an original source line into view and puts the cursor on it, on that side.

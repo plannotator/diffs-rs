@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod domain;
+mod rows;
 mod search;
 mod search_delivery;
 mod search_semantics;

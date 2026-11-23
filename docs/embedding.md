@@ -130,6 +130,8 @@ is in when `selected_source()` has no answer.
 - `file` and `path` name the file the row belongs to, as `file(index)` does.
 - `kind` is a `DiffRowKind`: `Header`, `StickyHeader`, `Hunk(index)`, `Gap`, `Metadata`, `Code` or
   `NoNewline`.
+- `hunk` is the index of the file's hunk the row is in, on a hunk's heading, its lines and its
+  "No newline" marks; headings, gaps and notes have none.
 - `part` is the wrapped part of the row, 0 for its first screen row.
 - `old_line` and `new_line` are the original lines the row shows. A split row takes the old line
   from its left cell and the new line from its right cell, and either can be empty. Rows that

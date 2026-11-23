@@ -103,6 +103,8 @@ fn kind_of(text: &str) -> DiffRowKind {
 fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
     let height = buffer.area.height;
     let mut file: Option<usize> = None;
+    // The hunk whose heading was drawn last above, when one was.
+    let mut hunk: Option<Option<usize>> = None;
     let mut found = Vec::new();
     for y in 0..height {
         let line = text(buffer, y);
@@ -114,6 +116,7 @@ fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
                 assert_eq!(index, before + 1, "{what}: headings in order at row {y}");
             }
             file = Some(index);
+            hunk = Some(None);
         }
         match &at {
             None => {
@@ -152,6 +155,28 @@ fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
                         line.starts_with(&format!(" {}", &header[..header.len().min(20)])),
                         "{what}: {line:?}"
                     );
+                }
+                match row.kind {
+                    DiffRowKind::Hunk(index) => {
+                        assert_eq!(row.hunk, Some(index), "{what}: row {y}");
+                        hunk = Some(Some(index));
+                    }
+                    DiffRowKind::Gap => {
+                        assert_eq!(row.hunk, None, "{what}: row {y}");
+                        hunk = Some(None);
+                    }
+                    DiffRowKind::Code | DiffRowKind::NoNewline => {
+                        assert!(row.hunk.is_some(), "{what}: row {y} is in a hunk");
+                        if let Some(above) = hunk {
+                            assert_eq!(row.hunk, above, "{what}: the hunk of row {y} {line:?}");
+                        }
+                    }
+                    DiffRowKind::StickyHeader => {
+                        // Kept over the file's rows: the hunk heading may be above the screen.
+                        assert_eq!(row.hunk, None, "{what}: row {y}");
+                        hunk = None;
+                    }
+                    _ => assert_eq!(row.hunk, None, "{what}: row {y}"),
                 }
                 if row.kind != DiffRowKind::Code {
                     assert_eq!(

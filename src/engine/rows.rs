@@ -22,6 +22,9 @@ pub struct DiffRow {
     /// The file's [`FileMetadata::path`](crate::storage::FileMetadata::path).
     pub path: String,
     pub kind: DiffRowKind,
+    /// The index of the file's hunk the row is in: on a hunk's heading, its lines and its
+    /// "No newline" marks. `None` on headings, gaps and notes.
+    pub hunk: Option<usize>,
     /// Which screen row of a wrapped row: 0 for its first, 1 for the next, and so on.
     pub part: usize,
     /// The original one-based lines the row shows. A split row takes its old line from the
@@ -158,6 +161,19 @@ fn describe(
             }
         }
     };
+    let hunk = match (shown, row.kind) {
+        (RowShown::Sticky, _) => None,
+        (_, RowKind::Hunk(index)) => Some(index),
+        (_, RowKind::Code { .. } | RowKind::NoNewline { .. }) => app
+            .view
+            .boundary(&app.doc, at.row, app.split(), false)
+            .and_then(|heading| app.row(heading))
+            .and_then(|heading| match heading.kind {
+                RowKind::Hunk(index) if heading.file == row.file => Some(index),
+                _ => None,
+            }),
+        _ => None,
+    };
     let part = if shown == RowShown::Sticky {
         0
     } else {
@@ -168,6 +184,7 @@ fn describe(
         file: row.file,
         path: file.meta.path.to_string(),
         kind,
+        hunk,
         part,
         old_line,
         new_line,

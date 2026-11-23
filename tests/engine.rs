@@ -859,6 +859,8 @@ fn cursor_row_and_row_at_name_the_file_on_every_row_of_a_host_pane() {
         (DiffRowKind::Code, Side::Old, None, Some(3))
     );
     assert_eq!(right.side, Side::New);
+    assert_eq!((left.hunk, right.hunk), (Some(0), Some(0)));
+    assert_eq!(host.engine.row_at(area.x + 2, note).unwrap().hunk, None);
     assert_eq!(
         host.engine.selected_source().unwrap(),
         None,

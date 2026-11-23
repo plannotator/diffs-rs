@@ -5,6 +5,7 @@ pub(crate) mod markers;
 mod reading;
 mod rows;
 mod selection;
+pub(crate) mod split;
 
 use std::{
     collections::VecDeque,
@@ -34,6 +35,7 @@ use crate::{
 pub use file_marks::{Badge, BadgeColor, FileMark};
 pub use markers::Marker;
 pub use rows::{DiffRow, DiffRowKind};
+pub use split::SplitRatio;
 
 pub enum Input {
     Patch(PathBuf),
@@ -131,6 +133,8 @@ pub struct Engine {
     file_marks: file_marks::FileMarks,
     /// Draw on the terminal's own background and foreground. Kept across `replace()`.
     terminal_background: bool,
+    /// How a split row is shared between the sides. Kept across `replace()`.
+    split_ratio: SplitRatio,
 }
 
 impl Engine {
@@ -176,6 +180,7 @@ impl Engine {
             markers: markers::Markers::default(),
             file_marks: file_marks::FileMarks::default(),
             terminal_background: false,
+            split_ratio: SplitRatio::EVEN,
         })
     }
 
@@ -342,6 +347,7 @@ impl Engine {
             app.wrap = self.options.wrap;
             app.numbers = self.options.line_numbers;
             app.chrome = self.options.chrome;
+            app.split_ratio = self.split_ratio;
             app.markers = std::mem::take(&mut self.markers);
             app.set_file_marks(std::mem::take(&mut self.file_marks));
             if self.terminal_background {
@@ -621,9 +627,11 @@ impl Engine {
     pub fn replace(&mut self, input: Input) -> Result<()> {
         let options = self.options();
         let terminal_background = self.terminal_background;
+        let split_ratio = self.split_ratio;
         self.close()?;
         *self = Self::open(input, options, self.wake.clone())?;
         self.terminal_background = terminal_background;
+        self.split_ratio = split_ratio;
         Ok(())
     }
 

@@ -5,7 +5,7 @@ use super::*;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
-const WIDE: &str = "a very wide line that runs on and on past the edge of any pane this test draws, \
+pub(super) const WIDE: &str = "a very wide line that runs on and on past the edge of any pane this test draws, \
                     so that wrapping it takes several screen rows in either layout and more";
 
 /// A binary file first, a mode change, a rename, a deleted file, a new one, a symlink replaced
@@ -26,7 +26,7 @@ fn mixed() -> String {
     patch
 }
 
-fn open(layout: Layout, wrap: bool) -> (Engine, tempfile::TempDir) {
+pub(super) fn open(layout: Layout, wrap: bool) -> (Engine, tempfile::TempDir) {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("review.patch");
     fs::write(&path, mixed()).unwrap();
@@ -52,7 +52,7 @@ fn open(layout: Layout, wrap: bool) -> (Engine, tempfile::TempDir) {
     (engine, directory)
 }
 
-fn draw(engine: &mut Engine, (width, height): (u16, u16)) -> Buffer {
+pub(super) fn draw(engine: &mut Engine, (width, height): (u16, u16)) -> Buffer {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal
         .draw(|frame| engine.draw(frame, frame.area()).unwrap())
@@ -61,7 +61,7 @@ fn draw(engine: &mut Engine, (width, height): (u16, u16)) -> Buffer {
     terminal.backend().buffer().clone()
 }
 
-fn text(buffer: &Buffer, y: u16) -> String {
+pub(super) fn text(buffer: &Buffer, y: u16) -> String {
     (0..buffer.area.width)
         .map(|x| buffer[(x, y)].symbol())
         .collect()
@@ -91,7 +91,8 @@ fn kind_of(text: &str) -> DiffRowKind {
         DiffRowKind::Gap
     } else if text.contains("no textual hunks") {
         DiffRowKind::Metadata
-    } else if text.contains("No newline at end of file") {
+    } else if text.contains("No newline at end") {
+        // A side as narrow as a split ratio allows cuts the note short.
         DiffRowKind::NoNewline
     } else {
         DiffRowKind::Code
@@ -100,7 +101,7 @@ fn kind_of(text: &str) -> DiffRowKind {
 
 /// Every screen row of the frame against `row_at`, and the cursor's row against
 /// `cursor_row`. Returns what `row_at` said for each screen row.
-fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
+pub(super) fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
     let height = buffer.area.height;
     let mut file: Option<usize> = None;
     // The hunk whose heading was drawn last above, when one was.
@@ -235,14 +236,14 @@ fn check(engine: &Engine, buffer: &Buffer, what: &str) -> Vec<Option<DiffRow>> {
     found
 }
 
-fn run(engine: &mut Engine, size: (u16, u16), command: Command, what: &str) -> bool {
+pub(super) fn run(engine: &mut Engine, size: (u16, u16), command: Command, what: &str) -> bool {
     let moved = engine.execute(command).unwrap() != InputEffect::Ignored;
     let buffer = draw(engine, size);
     check(engine, &buffer, what);
     moved
 }
 
-const LAYOUTS: [(Layout, bool); 4] = [
+pub(super) const LAYOUTS: [(Layout, bool); 4] = [
     (Layout::Unified, false),
     (Layout::Unified, true),
     (Layout::Split, false),

@@ -31,13 +31,13 @@ fn code_width(app: &App, file: usize, pane: usize) -> usize {
     .max(1)
 }
 
-fn pane_widths(width: u16) -> (usize, usize) {
-    let left = width.saturating_sub(1) as usize / 2;
-    (left, width as usize - left - 1)
+/// The widths of a split row's old and new side, the line between them not counted.
+fn pane_widths(app: &App) -> (usize, usize) {
+    crate::engine::split::sides(app.width, app.split_ratio)
 }
 
 fn source_pane(app: &App, id: LineId, old: bool) -> (usize, usize) {
-    let (left, right) = pane_widths(app.width);
+    let (left, right) = pane_widths(app);
     let (x, width) = if !app.split() {
         (0, app.width as usize)
     } else if old {
@@ -114,7 +114,7 @@ pub fn row_height(app: &App, index: usize) -> anyhow::Result<usize> {
         return Ok(1);
     };
     let (l, r) = if app.split() {
-        pane_widths(app.width)
+        pane_widths(app)
     } else {
         (app.width as usize, app.width as usize)
     };
@@ -136,7 +136,7 @@ pub(crate) fn horizontal_limit(app: &App) -> anyhow::Result<usize> {
         .is_some_and(|row| row.kind != RowKind::Header);
     let rows = app.height.saturating_sub(2 + u16::from(sticky_header));
     let end = app.top.row.saturating_add(rows as usize).min(app.row_len());
-    let (left_width, right_width) = pane_widths(app.width);
+    let (left_width, right_width) = pane_widths(app);
     let mut limit = 0;
     for index in app.top.row..end {
         let Some(row) = app.row(index) else {
@@ -628,7 +628,7 @@ fn draw_row(
         }
         RowKind::Code { left, right } => {
             if app.split() {
-                let (lw, rw) = pane_widths(app.width);
+                let (lw, rw) = pane_widths(app);
                 code(
                     buf,
                     app,
@@ -681,7 +681,7 @@ fn draw_row(
         RowKind::NoNewline { left, right } => {
             let note = " No newline at end of file";
             if app.split() {
-                let (lw, rw) = pane_widths(app.width);
+                let (lw, rw) = pane_widths(app);
                 if left {
                     label(buf, x, y, lw as u16, note, c.dim, c.bg, false);
                 }

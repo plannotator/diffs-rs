@@ -70,6 +70,8 @@ pub struct App {
     pub(crate) markers: crate::engine::markers::Markers,
     /// Draws the base surfaces and plain text in the terminal's own colors.
     pub(crate) terminal_background: bool,
+    /// How a split row is shared between the old and the new side.
+    pub(crate) split_ratio: crate::engine::SplitRatio,
     /// The theme's text color, which plain syntax tokens carry; drawn as the terminal's own
     /// foreground when `terminal_background` is on.
     pub(crate) plain: ratatui::style::Color,
@@ -103,6 +105,7 @@ impl App {
             selection: None,
             markers: Default::default(),
             terminal_background: false,
+            split_ratio: crate::engine::SplitRatio::EVEN,
             plain,
             top: Position::default(),
             cursor: Position::default(),
@@ -254,6 +257,23 @@ impl App {
         self.reflow(self.layout, self.width, self.height)
     }
 
+    /// Shares split rows between the sides by `ratio`. True when it changed. The source line
+    /// under the cursor keeps its screen row when the sides drawn change width.
+    pub(crate) fn set_split_ratio(&mut self, ratio: crate::engine::SplitRatio) -> Result<bool> {
+        if ratio == self.split_ratio {
+            return Ok(false);
+        }
+        let drawn = crate::engine::split::sides(self.width, self.split_ratio);
+        if !self.split() || drawn == crate::engine::split::sides(self.width, ratio) {
+            self.split_ratio = ratio;
+            return Ok(true);
+        }
+        self.remember_position(None)?;
+        self.split_ratio = ratio;
+        self.reflow(self.layout, self.width, self.height)?;
+        Ok(true)
+    }
+
     pub fn move_horizontal(&mut self, forward: bool) -> Result<()> {
         let horizontal = if forward {
             self.horizontal
@@ -278,7 +298,7 @@ impl App {
     pub fn select(&mut self, position: Position, column: u16) -> Result<()> {
         self.cursor = position;
         if self.split() {
-            self.old_side = column < self.width / 2;
+            self.old_side = crate::engine::split::old_at(self.width, self.split_ratio, column);
         }
         self.reading_anchor = None;
         self.remember_position(Some(column))?;

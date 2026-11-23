@@ -3,6 +3,18 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+- `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new
+  side, from one tenth to nine tenths for the old side; each side keeps at least 20 cells. The
+  default, `SplitRatio::EVEN`, draws exactly as before. The cursor's line keeps its screen row,
+  wrapping and horizontal scrolling are measured per side, and clicks, `Engine::row_at` and
+  `Engine::cursor_row` take the side the line divides. `Engine::split_line` gives the line's
+  screen column in the last frame and `Engine::split_ratio_at` the ratio for a column, so a host
+  can let the person drag the line. `SplitRatio` is `#[non_exhaustive]`.
+- `Engine::set_layout` changes the layout after opening, `Layout::Auto` included, keeping the
+  cursor's line on its screen row as the layout toggle does.
+
 ## 0.2.2 - 2026-11-23
 
 - `Engine::cursor_row` says which file and which kind of row the cursor is on, including rows

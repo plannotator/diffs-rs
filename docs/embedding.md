@@ -110,6 +110,7 @@ The default, `SplitRatio::EVEN`, draws exactly as before, so a host that never c
 To let the person drag the line, find it with `split_line()`: its screen column in the last frame, or `None` before the first draw, while unified, and while the pane is too small.
 It is drawn on rows of code; headings, hunk headings and gaps run across it.
 While the pointer moves, set `split_ratio_at(column)`, the ratio that draws the line at that column, or as near as the limits allow.
+A ratio is kept in thousandths, so on a row wider than about a thousand cells some columns cannot hold the line; the ratio then draws it at the nearest column that can.
 It answers from the last frame's pane, so a burst of drag events before the next frame ends where the last event points.
 
 ```rust,ignore

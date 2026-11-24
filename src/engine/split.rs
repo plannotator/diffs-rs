@@ -22,7 +22,6 @@ use super::{Engine, InputEffect, Layout};
 /// assert_eq!(SplitRatio::from_permille(990), SplitRatio::MAX);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub struct SplitRatio {
     old: u16,
 }
@@ -148,6 +147,10 @@ impl Engine {
     /// frame, or as near to it as the limits allow: what a host sets while the person drags
     /// that line. `None` when [`Engine::split_line`] is, and when the pane is too narrow for
     /// the line to move.
+    ///
+    /// A ratio is kept in thousandths, so on a row wider than about a thousand cells not every
+    /// column can hold the line: the ratio returned then draws it at the nearest column that
+    /// can, a cell or so from `column`.
     pub fn split_ratio_at(&self, column: u16) -> Option<SplitRatio> {
         self.split_line()?;
         let app = self.app.as_ref()?;

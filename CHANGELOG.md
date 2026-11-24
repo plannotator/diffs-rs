@@ -11,7 +11,8 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   wrapping and horizontal scrolling are measured per side, and clicks, `Engine::row_at` and
   `Engine::cursor_row` take the side the line divides. `Engine::split_line` gives the line's
   screen column in the last frame and `Engine::split_ratio_at` the ratio for a column, so a host
-  can let the person drag the line. `SplitRatio` is `#[non_exhaustive]`.
+  can let the person drag the line. `SplitRatio` keeps its value private; build one with
+  `SplitRatio::from_permille` or its constants.
 - `Engine::set_layout` changes the layout after opening, `Layout::Auto` included, keeping the
   cursor's line on its screen row as the layout toggle does.
 

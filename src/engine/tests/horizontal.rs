@@ -8,8 +8,8 @@ use super::*;
 use crate::app::Position;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
-const SIZE: (u16, u16) = (190, 24);
-const NARROW: (u16, u16) = (130, 24);
+const SIZE: (u16, u16) = (190, 22);
+const NARROW: (u16, u16) = (130, 22);
 
 /// The three ways a long line is shared: split evenly, split 30:70, and unified.
 const LAYOUTS: [(Layout, u16); 3] = [
@@ -71,8 +71,8 @@ fn open((layout, ratio): (Layout, u16), wrap: bool) -> (Engine, tempfile::TempDi
         .set_split_ratio(SplitRatio::from_permille(ratio))
         .unwrap();
     draw(&mut engine, SIZE);
-    // Seven wheel steps of three rows: the top is the 20th context line, and the rows below
-    // reach the end of the file.
+    // Seven wheel steps of three rows: the top is the 20th context line, and the 21 rows
+    // below the sticky heading end with the last row, the top of the last full page.
     for _ in 0..7 {
         mouse(&mut engine, MouseEventKind::ScrollDown, 1, 5);
     }
@@ -199,9 +199,9 @@ const STEPS: [Step; 9] = [
         engine.execute(Command::ToggleLayout).unwrap();
     }),
     ("a pane wide enough for every line", |_, size| {
-        *size = (1000, 24)
+        *size = (1000, 22)
     }),
-    ("narrow again", |_, size| *size = (121, 24)),
+    ("narrow again", |_, size| *size = (121, 22)),
 ];
 
 /// Each step alone after `prepare`, then all of them in turn, keep the view unscrolled.

@@ -178,6 +178,7 @@ impl App {
         }
         let place = self.place();
         let screen_row = self.screen_row();
+        let full = self.page_full()?;
         // Everything that can fail before anything changes: the new files, and the rows that
         // show them with the context each gap reveals.
         let hidden = if whitespace == Whitespace::Show {
@@ -233,8 +234,13 @@ impl App {
         self.cursor.row = self.cursor.row.min(self.row_len().saturating_sub(1));
         self.top = self.cursor;
         self.visible.clear();
-        if let Err(error) = self.reflow_from(self.layout, self.width, self.height, Some(screen_row))
-        {
+        if let Err(error) = self.reflow_from(
+            self.layout,
+            self.width,
+            self.height,
+            Some(screen_row),
+            Some(full),
+        ) {
             match undo {
                 Undo::Show => {
                     if let Some(patch) = self.patch.take() {

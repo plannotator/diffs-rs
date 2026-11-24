@@ -100,7 +100,8 @@ The scroll is only lowered, when the frame is drawn, if the lines shown no longe
 A host that never sends `Left` or `Right` therefore always shows lines from their first column, wherever the person clicked before.
 
 Turning wrapping on keeps the cursor's source line on its screen row, on the part that holds the text the cursor was on.
-Turning it off keeps the top row at the top, on its first screen row, and the cursor on its row.
+Turning it off keeps the top row at the top, on its first screen row, and the cursor on its row; turning it straight back on returns to the wrapped view it left.
+Near the end of the diff, a reflow or turning wrapping off adds no empty rows under the last row: if there were none, the top is raised to the last full page when needed.
 
 A host that scrolls sideways itself can call `engine.set_keep_text_in_view(true)`, as the standalone viewer does.
 A reflow then scrolls to keep the text last clicked, or the first column shown on the cursor's line, in view, and turning wrapping off keeps the cursor's line on its screen row instead of the top row.

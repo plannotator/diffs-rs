@@ -8,6 +8,7 @@ use crate::{
 
 mod domain;
 mod horizontal;
+mod last_page;
 mod reveal;
 mod rows;
 mod search;

@@ -16,7 +16,14 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   empty half of a split row, on a "No newline at end of file" row, and on any wrapped part.
   The horizontal scroll is now kept, and only lowered when the lines shown no longer reach it.
 - Turning wrapping off keeps the top row at the top, on its first screen row. With the cursor
-  on a wrapped part, the top used to move to an earlier line.
+  on a wrapped part, the top used to move to an earlier line. Turning it straight back on, with
+  nothing done in between, returns to the wrapped view it left.
+- Near the end of the diff, a reflow or turning wrapping off adds no empty rows under the
+  last row: when there were none, the top is raised to the last full page if needed, and the
+  cursor stays on screen. A taller pane, a change to unified, hidden whitespace or unwrapping
+  used to leave the rows under the end empty. A view already scrolled past the end, by the
+  wheel or a jump to a short last file, keeps the cursor's screen row as before, and so does
+  the standalone viewer (`set_keep_text_in_view(true)`).
 
 ### Changed
 

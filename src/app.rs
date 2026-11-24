@@ -30,7 +30,7 @@ pub struct Position {
     pub part: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct ReadingAnchor {
     source: LineId,
     display_byte: usize,
@@ -85,6 +85,9 @@ pub struct App {
     /// A reflow scrolls sideways to keep the anchor's text in view, as the standalone viewer
     /// wants. Off, a reflow never moves the horizontal scroll.
     pub(crate) keep_text_in_view: bool,
+    /// The top and the cursor as wrapping last went off, with the anchor it left, so turning
+    /// it straight back on returns to them. Any reflow forgets them.
+    unwrapped: Option<(Position, Position, ReadingAnchor)>,
     /// The files as the patch has them while `doc` hides whitespace, so the setting can be
     /// turned off again and later files checked against the input's order.
     patch: Option<Document>,
@@ -125,6 +128,7 @@ impl App {
             inline_changes: crate::engine::InlineChanges::Word,
             whitespace: crate::engine::Whitespace::Show,
             keep_text_in_view: false,
+            unwrapped: None,
             patch: None,
             scan: crate::storage::PatchScan::default(),
             top: Position::default(),
@@ -197,15 +201,20 @@ impl App {
     /// Unlike `visible`, the rows of the last frame, it is right between frames: after the
     /// top moved, and after the list was cleared, however many moves came since the last draw.
     fn laid_out_row(&self, position: Position) -> Result<Option<u16>> {
-        if position < self.top || self.width < 40 || self.height < 10 {
+        self.laid_out_from(self.top, position)
+    }
+
+    /// `laid_out_row` with `top` as the top row.
+    fn laid_out_from(&self, top: Position, position: Position) -> Result<Option<u16>> {
+        if position < top || self.width < 40 || self.height < 10 {
             return Ok(None);
         }
         let sticky = self
-            .row(self.top.row)
+            .row(top.row)
             .is_some_and(|row| row.kind != RowKind::Header);
         let first = 1 + u16::from(sticky);
         let rows = self.height.saturating_sub(2 + u16::from(sticky));
-        let mut p = self.top;
+        let mut p = top;
         for n in 0..rows {
             if p == position {
                 return Ok(Some(first + n));
@@ -220,6 +229,45 @@ impl App {
             p = next;
         }
         Ok(None)
+    }
+
+    /// The lowest top row that leaves no screen row empty below the last row: the top of
+    /// the last full page, or the first row when everything fits. A reflow and turning
+    /// wrapping off keep the top no lower than this.
+    fn last_page_top(&self) -> Result<Position> {
+        let Some(row) = self.row_len().checked_sub(1) else {
+            return Ok(Position::default());
+        };
+        let last = Position {
+            row,
+            part: self.row_height(row)?.saturating_sub(1),
+        };
+        let mut top = last;
+        loop {
+            let up = self.previous(top)?;
+            if up == top || self.laid_out_from(up, last)?.is_none() {
+                return Ok(top);
+            }
+            top = up;
+        }
+    }
+
+    /// Whether no screen row is empty under the last row: the top is no lower than the last
+    /// full page. A view scrolled past it, by the wheel or a jump to a short last file, is not.
+    fn page_full(&self) -> Result<bool> {
+        Ok(self.width < 40 || self.height < 10 || self.top <= self.last_page_top()?)
+    }
+
+    /// After a reflow or turning wrapping off, when the view was `full` before: raises the top
+    /// to the last full page when it is lower, so a pane that grew or rows that shrank leave
+    /// no empty rows under the last one. Everything from that top down is on screen, so the
+    /// cursor, which was at or below the top, still is. The standalone viewer, which keeps
+    /// the text in view, keeps the cursor's screen row as it always has.
+    fn keep_page_full(&mut self, full: bool) -> Result<()> {
+        if full && !self.keep_text_in_view && self.width >= 40 && self.height >= 10 {
+            self.top = self.top.min(self.last_page_top()?);
+        }
+        Ok(())
     }
 
     fn remember_position(&mut self, clicked_column: Option<u16>) -> Result<()> {
@@ -255,19 +303,25 @@ impl App {
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
-        self.reflow_from(layout, width, height, None)
+        self.reflow_from(layout, width, height, None, None)
     }
 
     /// `reflow`, keeping the cursor on `screen_row` when it has no anchor that says where it
-    /// was, because the rows were just rebuilt.
+    /// was, because the rows were just rebuilt, and taking `full` for whether the view had no
+    /// empty rows under the last one before they were.
     fn reflow_from(
         &mut self,
         layout: Layout,
         width: u16,
         height: u16,
         screen_row: Option<usize>,
+        full: Option<bool>,
     ) -> Result<()> {
         self.remember_position(None)?;
+        let full = match full {
+            Some(full) => full,
+            None => self.page_full()?,
+        };
         let anchor = self.reading_anchor;
         let screen_row = anchor
             .and_then(|anchor| anchor.screen_row)
@@ -334,9 +388,13 @@ impl App {
         {
             self.top = self.next(self.top)?;
         }
+        self.keep_page_full(full)?;
+        // The screen row asked for, not the one the end of the diff left: a later reflow
+        // with room below puts the cursor back on it.
         if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = Some(screen_row);
         }
+        self.unwrapped = None;
         self.visible.clear();
         Ok(())
     }
@@ -344,25 +402,50 @@ impl App {
     /// Turning wrapping on keeps the cursor's source line on its screen row, showing the part
     /// with the text the anchor points at. Turning it off keeps the top row at the top: every
     /// row becomes one screen row and the rows themselves stay, so the cursor stays on screen
-    /// on its row, since no row above it got taller. The horizontal scroll is kept either way.
+    /// on its row, since no row above it got taller, though never lower than the last full
+    /// page when the view had no empty rows under the last one before. Turning it straight back on, with
+    /// nothing done in between, returns to the wrapped view it left. The horizontal scroll is
+    /// kept either way.
     /// With `keep_text_in_view`, turning it off keeps the cursor's line on its screen row and
     /// scrolls sideways to the anchor's text, as any reflow then does.
     pub fn toggle_wrap(&mut self) -> Result<()> {
         self.remember_position(None)?;
+        let full = self.page_full()?;
         self.wrap = !self.wrap;
         if self.wrap || self.keep_text_in_view || self.width < 40 || self.height < 10 {
-            return self.reflow(self.layout, self.width, self.height);
+            let unwrapped = self.unwrapped.take();
+            self.reflow(self.layout, self.width, self.height)?;
+            // Wrapping back on with nothing done since it went off: the wrapped view it left.
+            if self.wrap
+                && let Some((top, cursor, anchor)) = unwrapped
+                && self.reading_anchor == Some(anchor)
+                && top.part < self.row_height(top.row)?
+                && cursor.part < self.row_height(cursor.row)?
+                && cursor.row == self.cursor.row
+            {
+                (self.top, self.cursor) = (top, cursor);
+                let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
+                if let Some(anchor) = &mut self.reading_anchor {
+                    anchor.screen_row = screen_row;
+                }
+            }
+            return Ok(());
         }
+        let wrapped = (self.top, self.cursor);
         self.cursor.part = 0;
         self.top = Position {
             row: self.top.row.min(self.cursor.row),
             part: 0,
         };
+        self.keep_page_full(full)?;
         self.visible.clear();
         let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
         if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = screen_row;
         }
+        self.unwrapped = self
+            .reading_anchor
+            .map(|anchor| (wrapped.0, wrapped.1, anchor));
         Ok(())
     }
 

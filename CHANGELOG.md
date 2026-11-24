@@ -3,7 +3,7 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## 0.2.3 - 2026-11-24
+## 0.2.3 - 2026-11-23
 
 - `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new
   side, from one tenth to nine tenths for the old side; each side keeps at least 20 cells. The

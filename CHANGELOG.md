@@ -17,6 +17,9 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   lines, and a hunk with no other change shows only its heading, marked "whitespace only".
   Unpaired lines, hunk boundaries, files and counts stay as the patch has them; see
   `Whitespace` for the limits. `Whitespace::Show`, the default, draws as before.
+- `Engine::hunk_is_whitespace_only` and `DiffRow::whitespace_only` give the engine's own
+  verdict on what the whitespace setting hides, a hunk drawn as its heading alone or a row
+  drawn as one unchanged line, so a host need not repeat the rule.
 - Each setting has a getter, can be set before the first file arrives and stays set across
   `Engine::replace`. `InlineChanges` and `Whitespace` are `#[non_exhaustive]`.
 

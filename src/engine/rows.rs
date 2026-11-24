@@ -39,6 +39,13 @@ pub struct DiffRow {
     /// of lines drawn as unchanged because whitespace is hidden has both, like context.
     pub old_line: Option<u32>,
     pub new_line: Option<u32>,
+    /// Whether the row shows changes that are hidden as whitespace only, by the engine's own
+    /// rule for the current [`Engine::set_whitespace`] setting: on a code row, a removed and
+    /// an added line that differ only in whitespace, drawn as one unchanged line; on a hunk's
+    /// heading, a hunk whose every change is such a pair, drawn as its heading alone.
+    /// [`Engine::hunk_is_whitespace_only`] answers the same for a hunk without its row.
+    /// Always `false` while whitespace is shown.
+    pub whitespace_only: bool,
     /// The side of the row.
     ///
     /// - Split: from [`Engine::cursor_row`], the pane the cursor is in; from
@@ -224,6 +231,17 @@ fn describe(
     } else {
         at.part
     };
+    let whitespace_only = match (shown, row.kind) {
+        (RowShown::Row, RowKind::Hunk(index)) => file.hunk_hidden(index),
+        (
+            RowShown::Row,
+            RowKind::Code {
+                left: Some(LineId::Patch(id)),
+                ..
+            },
+        ) => file.whitespace_only(id),
+        _ => false,
+    };
     Ok(Some(DiffRow {
         review,
         file: row.file,
@@ -233,6 +251,7 @@ fn describe(
         part,
         old_line,
         new_line,
+        whitespace_only,
         side: if old { Side::Old } else { Side::New },
     }))
 }

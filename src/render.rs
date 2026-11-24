@@ -103,6 +103,23 @@ pub fn anchored_position(
     }
 }
 
+/// The lines a code row with `left` and `right` draws, each with the width of its pane. Split,
+/// both sides. Unified, the one line it shows: the added line of a pair drawn as unchanged
+/// because whitespace is hidden, and otherwise the row's only line. Every measure of a row,
+/// its height, how far it scrolls and where the cursor is on it, goes by these lines.
+pub(crate) fn drawn_lines(
+    app: &App,
+    left: Option<LineId>,
+    right: Option<LineId>,
+) -> [(Option<LineId>, usize); 2] {
+    if app.split() {
+        let (left_width, right_width) = pane_widths(app);
+        [(left, left_width), (right, right_width)]
+    } else {
+        [(right.or(left), app.width as usize), (None, 0)]
+    }
+}
+
 pub fn row_height(app: &App, index: usize) -> anyhow::Result<usize> {
     if !app.wrap {
         return Ok(1);
@@ -113,13 +130,8 @@ pub fn row_height(app: &App, index: usize) -> anyhow::Result<usize> {
     let RowKind::Code { left, right } = row.kind else {
         return Ok(1);
     };
-    let (l, r) = if app.split() {
-        pane_widths(app)
-    } else {
-        (app.width as usize, app.width as usize)
-    };
     let mut height = 1;
-    for (id, pane) in [(left, l), (right, r)] {
+    for (id, pane) in drawn_lines(app, left, right) {
         if let Some(id) = id {
             height = height.max(
                 app.line_geometry(id, Some(code_width(app, row.file, pane)))?
@@ -136,7 +148,6 @@ pub(crate) fn horizontal_limit(app: &App) -> anyhow::Result<usize> {
         .is_some_and(|row| row.kind != RowKind::Header);
     let rows = app.height.saturating_sub(2 + u16::from(sticky_header));
     let end = app.top.row.saturating_add(rows as usize).min(app.row_len());
-    let (left_width, right_width) = pane_widths(app);
     let mut limit = 0;
     for index in app.top.row..end {
         let Some(row) = app.row(index) else {
@@ -145,12 +156,7 @@ pub(crate) fn horizontal_limit(app: &App) -> anyhow::Result<usize> {
         let RowKind::Code { left, right } = row.kind else {
             continue;
         };
-        let panes = if app.split() {
-            [(left, left_width), (right, right_width)]
-        } else {
-            [(right.or(left), app.width as usize), (None, 0)]
-        };
-        for (id, width) in panes {
+        for (id, width) in drawn_lines(app, left, right) {
             if let Some(id) = id {
                 let line = app.line_geometry(id, None)?;
                 limit = limit.max(

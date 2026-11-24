@@ -1072,3 +1072,116 @@ fn vertical_tab_and_form_feed_are_not_whitespace_to_git() {
         }
     }
 }
+
+#[test]
+fn unified_wrapped_pairs_take_the_height_of_the_line_drawn() {
+    // A pair whose old line wraps further than its new one, in hunks that also have a real
+    // change: trailing spaces, and tabs that are wide at 16 cells.
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("wrap.patch");
+    let spaces = " ".repeat(150);
+    let patch = format!(
+        "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,4 +1,4 @@\n before\n-value = 1;{spaces}\n-real old\n+value = 1;\n+real new\n after\ndiff --git a/b.rs b/b.rs\n--- a/b.rs\n+++ b/b.rs\n@@ -1,4 +1,4 @@\n fn f() {{\n-\t\t\t\tlet a = 1;\n-\told\n+    let a = 1;\n+    new\n }}\n"
+    );
+    fs::write(&path, patch).unwrap();
+    let size = (60, 30);
+    for whitespace in [Whitespace::IgnoreAll, Whitespace::IgnoreChange] {
+        for (layout, wrap) in LAYOUTS {
+            let what = format!("{layout:?} {wrap} {whitespace:?}");
+            let mut review = open_with(Input::Patch(path.clone()), layout, wrap, None);
+            review.engine.set_tab_width(TabWidth::new(16)).unwrap();
+            review.engine.set_whitespace(whitespace).unwrap();
+            let buffer = review.settle(size);
+            check(&review.engine, &buffer, &what);
+            let rows = screen(&buffer);
+            let pairs: Vec<usize> = rows
+                .iter()
+                .enumerate()
+                .filter(|(_, row)| row.contains("value = 1;") || row.contains("let a = 1;"))
+                .map(|(y, _)| y)
+                .collect();
+            assert_eq!(pairs.len(), 2, "{what}: {rows:#?}");
+            for y in pairs {
+                let row = review.engine.row_at(10, y as u16).unwrap();
+                assert!(row.whitespace_only, "{what}: row {y}");
+                assert_eq!((row.old_line, row.new_line), (Some(2), Some(2)), "{what}");
+                if layout == Layout::Unified {
+                    // The line drawn fits on one row, and the next line is right below it.
+                    let next = review.engine.row_at(10, y as u16 + 1).unwrap();
+                    assert_eq!((next.kind, next.part), (DiffRowKind::Code, 0), "{what}");
+                    assert!(!rows[y + 1].trim().is_empty(), "{what}: {rows:#?}");
+                    assert!(!next.whitespace_only, "{what}");
+                }
+            }
+            // No blank row among the review's rows.
+            let last = rows.iter().rposition(|row| !row.trim().is_empty()).unwrap();
+            assert!(
+                rows[..=last].iter().all(|row| !row.trim().is_empty()),
+                "{what}: {rows:#?}"
+            );
+            review.walk(size, &what);
+        }
+    }
+}
+
+#[test]
+fn the_engine_says_which_rows_and_hunks_it_hides_as_whitespace() {
+    for (whitespace, indent, spaced) in [
+        (Whitespace::Show, false, false),
+        (Whitespace::IgnoreChange, true, false),
+        (Whitespace::IgnoreAll, true, true),
+    ] {
+        let what = format!("{whitespace:?}");
+        let mut review = open(Layout::Unified, false);
+        review.engine.set_whitespace(whitespace).unwrap();
+        // indent.rs, file 2, only re-indents; mixed.txt's second hunk only adds spaces.
+        assert_eq!(
+            review.engine.hunk_is_whitespace_only(2, 0),
+            indent,
+            "{what}"
+        );
+        assert_eq!(
+            review.engine.hunk_is_whitespace_only(MIXED, 1),
+            spaced,
+            "{what}"
+        );
+        assert!(!review.engine.hunk_is_whitespace_only(MIXED, 0), "{what}");
+        assert!(!review.engine.hunk_is_whitespace_only(MIXED, 9), "{what}");
+        assert!(!review.engine.hunk_is_whitespace_only(99, 0), "{what}");
+        let buffer = review.settle((120, 120));
+        check(&review.engine, &buffer, &what);
+        let mut flagged_hunks = 0;
+        let mut flagged_lines = 0;
+        for y in 0..buffer.area.height {
+            let Some(row) = review.engine.row_at(10, y) else {
+                continue;
+            };
+            let line = text(&buffer, y);
+            match row.kind {
+                DiffRowKind::Hunk(h) => {
+                    assert_eq!(
+                        row.whitespace_only,
+                        review.engine.hunk_is_whitespace_only(row.file, h),
+                        "{what}: row {y}"
+                    );
+                    assert_eq!(row.whitespace_only, line.contains("whitespace only"));
+                    flagged_hunks += usize::from(row.whitespace_only);
+                }
+                DiffRowKind::Code => {
+                    // A pair is drawn as unchanged: both numbers and no sign.
+                    if row.whitespace_only {
+                        assert!(row.old_line.is_some() && row.new_line.is_some());
+                        assert!(!line.contains('−') && !line[..12].contains('+'), "{line:?}");
+                    }
+                    flagged_lines += usize::from(row.whitespace_only);
+                }
+                _ => assert!(!row.whitespace_only, "{what}: row {y}"),
+            }
+        }
+        if whitespace == Whitespace::Show {
+            assert_eq!((flagged_hunks, flagged_lines), (0, 0));
+        } else {
+            assert!(flagged_hunks > 0 && flagged_lines > 0, "{what}");
+        }
+    }
+}

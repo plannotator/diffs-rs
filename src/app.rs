@@ -160,7 +160,10 @@ impl App {
         let RowKind::Code { left, right } = kind else {
             return None;
         };
-        if self.old_side {
+        if !self.split() {
+            // The line the row draws, as `render::drawn_lines` measures it.
+            right.or(left)
+        } else if self.old_side {
             left.or(right)
         } else {
             right.or(left)

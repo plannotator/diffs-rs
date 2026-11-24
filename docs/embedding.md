@@ -170,6 +170,8 @@ When the line no longer has a row of its own, the cursor goes to the row that sh
 A selection is kept by its line numbers, and an open selection keeps extending.
 `cursor_row`, `row_at`, `selected_source` and a search match's `location()` report a pair like a context line, with both numbers, in either layout.
 A `SearchRead` taken before the change is out of date and its `find` fails; search again.
+To know what the setting hides without repeating its rule, ask the engine: `hunk_is_whitespace_only(file, hunk)` says whether a hunk is drawn as its heading alone, and `DiffRow::whitespace_only`, from `cursor_row` and `row_at`, marks such a heading and every row drawn as an unchanged pair.
+Unified, a pair takes the height of the line it draws, so wrapping it leaves no empty rows under it.
 
 Hiding reads the removed and added lines of the files that have arrived once, on the calling thread, and each later file as it arrives.
 Files with no removed line next to an added line cost nothing.

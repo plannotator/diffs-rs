@@ -203,6 +203,20 @@ impl Engine {
         Ok(())
     }
 
+    /// Whether hunk `hunk` of file `file` is drawn as its heading alone because its every
+    /// change is whitespace only, by the engine's own rule for the current
+    /// [`Engine::set_whitespace`] setting. `hunk` counts the file's hunks from 0, as
+    /// [`DiffRow::hunk`](super::DiffRow::hunk) does. `false` while whitespace is shown, before
+    /// the file arrives, and for a hunk the file does not have.
+    pub fn hunk_is_whitespace_only(&self, file: usize, hunk: usize) -> bool {
+        self.app.as_ref().is_some_and(|app| {
+            app.doc
+                .files
+                .get(file)
+                .is_some_and(|file| hunk < file.hunks.len() && file.hunk_hidden(hunk))
+        })
+    }
+
     /// The setting set by [`Engine::set_whitespace`].
     pub fn whitespace(&self) -> Whitespace {
         self.whitespace

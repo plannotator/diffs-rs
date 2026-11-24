@@ -3,7 +3,7 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## Unreleased
+## 0.2.4 - 2026-11-24
 
 - `Engine::set_tab_width` draws tabs from 1 to 16 cells wide, everywhere code is measured or
   drawn: wrapping, horizontal scrolling, clicks, `Engine::row_at`, changed-word emphasis and

@@ -24,19 +24,22 @@ pub struct DiffRow {
     pub file: usize,
     /// The file's [`FileMetadata::path`](crate::storage::FileMetadata::path).
     pub path: String,
-    /// What the row shows: a heading, a hunk's heading, a gap, a note, code or a
-    /// "No newline" mark.
+    /// What the row shows: a heading, a hunk's heading, a gap, a note, code, a
+    /// "No newline" mark or a host inset.
     pub kind: DiffRowKind,
     /// The index of the file's hunk the row is part of: on a hunk's heading, on the hunk's
     /// own lines and on its own "No newline" marks. `None` on headings, gaps and notes, and on
-    /// context lines a gap revealed and their "No newline" mark, which are in no hunk.
+    /// context lines a gap revealed and their "No newline" mark, which are in no hunk. On an
+    /// inset, the hunk of the line it hangs under.
     pub hunk: Option<usize>,
-    /// Which screen row of a wrapped row: 0 for its first, 1 for the next, and so on.
+    /// Which screen row of a wrapped row: 0 for its first, 1 for the next, and so on. On an
+    /// inset, which of its rows, from 0.
     pub part: usize,
     /// The original one-based lines the row shows. A split row takes its old line from the
     /// left cell and its new line from the right one; either can be empty. Unified, a context
     /// line has both, an added line only `new_line`, a deleted line only `old_line`. A pair
-    /// of lines drawn as unchanged because whitespace is hidden has both, like context.
+    /// of lines drawn as unchanged because whitespace is hidden has both, like context. On an
+    /// inset, the line it hangs under, on the inset's side only; neither under a heading.
     pub old_line: Option<u32>,
     pub new_line: Option<u32>,
     /// Whether the row shows changes that are hidden as whitespace only, by the engine's own
@@ -76,6 +79,9 @@ pub enum DiffRowKind {
     Code,
     /// The "No newline at end of file" mark.
     NoNewline,
+    /// A row of the host inset with this [`Inset::id`](super::Inset::id), set by
+    /// [`Engine::set_insets`]. [`DiffRow::part`] says which of its rows.
+    Inset { id: u64 },
 }
 
 impl Engine {
@@ -84,7 +90,8 @@ impl Engine {
     ///
     /// Unlike [`Engine::selected_source`], it answers on rows with no line under the cursor:
     /// a heading, a hunk's heading, a gap, a binary or mode-only file's note, an empty side of
-    /// a split row, a "No newline" mark, and every wrapped part of a row.
+    /// a split row, a "No newline" mark, every wrapped part of a row, and a host inset
+    /// ([`DiffRowKind::Inset`]).
     ///
     /// `None` when there is no true answer: before the first file arrives, for a diff with
     /// no files, after [`Engine::replace`] until the new files arrive, and on a revealed
@@ -183,6 +190,39 @@ fn describe(
     let Some(file) = app.doc.files.get(row.file) else {
         return Ok(None);
     };
+    if shown == RowShown::Row
+        && let Some((index, offset)) = app.inset_at(at)?
+    {
+        let inset = app.insets.get(index);
+        let (old_line, new_line) = match inset.anchor {
+            super::InsetAnchor::Line {
+                side: Side::Old,
+                line,
+            } => (Some(line), None),
+            super::InsetAnchor::Line { line, .. } => (None, Some(line)),
+            _ => (None, None),
+        };
+        let line = Position {
+            row: at.row,
+            part: 0,
+        };
+        let hunk = match row.kind {
+            RowKind::Code { .. } => describe(review, app, line, shown, old)?.and_then(|r| r.hunk),
+            _ => None,
+        };
+        return Ok(Some(DiffRow {
+            review,
+            file: row.file,
+            path: file.meta.path.to_string(),
+            kind: DiffRowKind::Inset { id: inset.id },
+            hunk,
+            part: offset,
+            old_line,
+            new_line,
+            whitespace_only: false,
+            side: if old { Side::Old } else { Side::New },
+        }));
+    }
     let line = |id: Option<LineId>, old: bool| -> Result<Option<u32>> {
         let Some(id) = id else { return Ok(None) };
         let info = app.line_info(id)?;

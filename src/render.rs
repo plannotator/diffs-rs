@@ -122,7 +122,17 @@ pub(crate) fn drawn_lines(
     }
 }
 
+/// The screen rows row `index` takes: its text, wrapped or not, and the insets under it.
 pub fn row_height(app: &App, index: usize) -> anyhow::Result<usize> {
+    let text = text_height(app, index)?;
+    if app.insets.is_empty() {
+        return Ok(text);
+    }
+    Ok(text + app.inset_rows(index))
+}
+
+/// The screen rows of row `index`'s own text, the insets under it not counted.
+pub(crate) fn text_height(app: &App, index: usize) -> anyhow::Result<usize> {
     if !app.wrap {
         return Ok(1);
     }
@@ -144,10 +154,28 @@ pub fn row_height(app: &App, index: usize) -> anyhow::Result<usize> {
     Ok(height)
 }
 
+/// The width of the column an inset in `file` draws in: the code column unified, and the
+/// code column of the old or the new side split.
+pub(crate) fn inset_width(app: &App, file: usize, old: bool) -> usize {
+    inset_columns(app, file)[usize::from(!old)].1
+}
+
+/// The first cell and width of the code columns an inset in `file` draws over, from the
+/// diff's left edge: the old side's and the new side's, the same column twice unified.
+fn inset_columns(app: &App, file: usize) -> [(usize, usize); 2] {
+    if app.split() {
+        let (left, right) = pane_widths(app);
+        let (old, new) = (code_width(app, file, left), code_width(app, file, right));
+        [(left - old, old), (left + 1 + right - new, new)]
+    } else {
+        let width = app.width as usize;
+        let code = code_width(app, file, width);
+        [(width - code, code); 2]
+    }
+}
+
 pub(crate) fn horizontal_limit(app: &App) -> anyhow::Result<usize> {
-    let sticky_header = app
-        .row(app.top.row)
-        .is_some_and(|row| row.kind != RowKind::Header);
+    let sticky_header = app.sticky(app.top);
     let rows = app.height.saturating_sub(2 + u16::from(sticky_header));
     let end = app.top.row.saturating_add(rows as usize).min(app.row_len());
     let mut limit = 0;
@@ -199,6 +227,7 @@ pub(crate) fn draw_with_controls(
         area,
     );
     app.visible.clear();
+    app.inset_areas.clear();
     if area.width < 40 || app.layout_height(area.height) < 10 {
         app.protect_visible_styles();
         let text = if app.chrome {
@@ -226,6 +255,10 @@ pub(crate) fn draw_with_controls(
     app.protect_visible_styles();
     if let Some(index) = app.visible.iter().position(|(p, _)| *p == app.cursor) {
         app.cursor_screen_row = index;
+    }
+    if app.help {
+        // The help is drawn over the diff, and nothing goes over the help.
+        app.inset_areas.clear();
     }
     if app.chrome {
         footer(frame, app, area, input_error, controls);
@@ -496,18 +529,25 @@ fn ellipsize(text: &str, width: usize) -> String {
 
 fn draw_diff(buf: &mut Buffer, app: &mut App, area: Rect) -> anyhow::Result<()> {
     let mut y = area.y;
-    if let Some(row) = app.row(app.top.row)
-        && row.kind != RowKind::Header
+    if app.sticky(app.top)
+        && let Some(row) = app.row(app.top.row)
     {
         file_header(buf, app, row.file, area.x, y);
         y += 1;
     }
+    let cursor_inset = app.inset_at(app.cursor)?.map(|(index, _)| index);
     let mut p = app.top;
     while y < area.bottom() {
         let Some(row) = app.row(p.row) else {
             break;
         };
-        draw_row(buf, app, p, (area.x, y), row.file, row.kind)?;
+        if let Some((index, offset)) = app.inset_at(p)? {
+            let cursor = cursor_inset == Some(index);
+            inset_row(buf, app, index, (area.x, y), cursor);
+            record_inset(app, index, offset, (area.x, y), row.file, cursor);
+        } else {
+            draw_row(buf, app, p, (area.x, y), row.file, row.kind)?;
+        }
         app.visible.push((p, y - area.y + 1));
         y += 1;
         let next = app.next(p)?;
@@ -533,6 +573,62 @@ fn draw_diff(buf: &mut Buffer, app: &mut App, area: Rect) -> anyhow::Result<()> 
         );
     }
     Ok(())
+}
+
+/// A screen row of an inset: the background, the line between the sides of a split diff, and
+/// the cursor's `▎` in the gutter of the inset's side while the cursor is on it. The host
+/// draws the rest.
+fn inset_row(buf: &mut Buffer, app: &App, index: usize, (x, y): (u16, u16), cursor: bool) {
+    let c = &app.colors;
+    fill(buf, Rect::new(x, y, app.width, 1), c.bg);
+    let new_side = match app.insets.get(index).anchor {
+        crate::engine::InsetAnchor::Line { side, .. } => side == crate::engine::Side::New,
+        _ => false,
+    };
+    let mut gutter = x;
+    if app.split() {
+        let (left, _) = pane_widths(app);
+        label(buf, x + left as u16, y, 1, "│", c.separator, c.bg, false);
+        if new_side {
+            gutter = x + left as u16 + 1;
+        }
+    }
+    if cursor {
+        label(buf, gutter, y, 1, "▎", c.accent, c.bg, false);
+    }
+}
+
+/// Adds screen row `offset` of inset `index`, drawn at `(x, y)`, to the frame's inset areas.
+fn record_inset(
+    app: &mut App,
+    index: usize,
+    offset: usize,
+    (x, y): (u16, u16),
+    file: usize,
+    cursor: bool,
+) {
+    let inset = *app.insets.get(index);
+    if let Some(last) = app.inset_areas.last_mut()
+        && last.id == inset.id
+        && last.area.bottom() == y
+    {
+        last.area.height += 1;
+        last.left.height += 1;
+        last.right.height += 1;
+        return;
+    }
+    let [(old_x, old_width), (new_x, new_width)] = inset_columns(app, file);
+    let rect = |at: usize, width: usize| Rect::new(x + at as u16, y, width as u16, 1);
+    let (left, right) = (rect(old_x, old_width), rect(new_x, new_width));
+    app.inset_areas.push(crate::engine::InsetArea {
+        id: inset.id,
+        area: left.union(right),
+        left,
+        right,
+        clipped_top: u16::try_from(offset).unwrap_or(u16::MAX),
+        height: inset.height,
+        cursor,
+    });
 }
 
 fn file_header(buf: &mut Buffer, app: &App, file: usize, x: u16, y: u16) {

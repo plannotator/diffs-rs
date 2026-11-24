@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 
 mod controls;
+mod insets;
 pub use controls::{Command, InputEffect};
 mod settings;
 mod sidebar;
@@ -71,6 +72,12 @@ pub struct App {
     pub(crate) search_match: Option<crate::reading::SearchMatch>,
     pub(crate) selection: Option<crate::reading::LineSelection>,
     pub(crate) markers: crate::engine::markers::Markers,
+    /// The host's insets: rows kept free under rows of the diff.
+    pub(crate) insets: crate::engine::insets::Insets,
+    /// The cursor stops on insets.
+    pub(crate) inset_stops: bool,
+    /// Where the insets on screen were drawn in the last frame.
+    pub(crate) inset_areas: Vec<crate::engine::InsetArea>,
     /// Draws the base surfaces and plain text in the terminal's own colors.
     pub(crate) terminal_background: bool,
     /// How a split row is shared between the old and the new side.
@@ -122,6 +129,9 @@ impl App {
             search_match: None,
             selection: None,
             markers: Default::default(),
+            insets: Default::default(),
+            inset_stops: true,
+            inset_areas: Vec::new(),
             terminal_background: false,
             split_ratio: crate::engine::SplitRatio::EVEN,
             plain,
@@ -209,9 +219,7 @@ impl App {
         if position < top || self.width < 40 || self.height < 10 {
             return Ok(None);
         }
-        let sticky = self
-            .row(top.row)
-            .is_some_and(|row| row.kind != RowKind::Header);
+        let sticky = self.sticky(top);
         let first = 1 + u16::from(sticky);
         let rows = self.height.saturating_sub(2 + u16::from(sticky));
         let mut p = top;
@@ -229,6 +237,29 @@ impl App {
             p = next;
         }
         Ok(None)
+    }
+
+    /// Whether the file heading is drawn over the top row with `top` as the top row: the top
+    /// row is not the heading itself, nor is it an inset under a heading.
+    pub(crate) fn sticky(&self, top: Position) -> bool {
+        self.row(top.row)
+            .is_some_and(|row| row.kind != RowKind::Header || top.part > 0)
+    }
+
+    /// The top row that draws `position` on one-based screen row `screen_row`, or as near as
+    /// the start of the diff allows.
+    fn top_for(&self, position: Position, screen_row: usize) -> Result<Position> {
+        let mut top = position;
+        for _ in 0..screen_row
+            .min(self.height.saturating_sub(2) as usize)
+            .saturating_sub(1)
+        {
+            top = self.previous(top)?;
+        }
+        if top < position && self.sticky(top) {
+            top = self.next(top)?;
+        }
+        Ok(top)
     }
 
     /// The lowest top row that leaves no screen row empty below the last row: the top of
@@ -283,12 +314,20 @@ impl App {
                     Kind::Context => self.old_side,
                 }
             };
+            // On an inset the line it hangs under is the anchor, read from its first column
+            // shown; reflows put the cursor back on the inset itself.
+            let on_inset = self.inset_at(self.cursor)?.is_some();
+            let (part, clicked_column) = if on_inset {
+                (0, None)
+            } else {
+                (self.cursor.part, clicked_column)
+            };
             self.reading_anchor = Some(ReadingAnchor {
                 source,
                 display_byte: render::source_anchor_byte(
                     self,
                     source,
-                    self.cursor.part,
+                    part,
                     old_side,
                     clicked_column,
                 )?,
@@ -303,12 +342,14 @@ impl App {
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
-        self.reflow_from(layout, width, height, None, None)
+        let inset = self.inset_id_at(self.cursor)?;
+        self.reflow_from(layout, width, height, None, None, inset)
     }
 
     /// `reflow`, keeping the cursor on `screen_row` when it has no anchor that says where it
     /// was, because the rows were just rebuilt, and taking `full` for whether the view had no
-    /// empty rows under the last one before they were.
+    /// empty rows under the last one before they were. With the cursor on `inset` (an id and
+    /// one of its rows) before, it goes back onto it when it is still shown.
     fn reflow_from(
         &mut self,
         layout: Layout,
@@ -316,6 +357,7 @@ impl App {
         height: u16,
         screen_row: Option<usize>,
         full: Option<bool>,
+        inset: Option<(u64, usize)>,
     ) -> Result<()> {
         self.remember_position(None)?;
         let full = match full {
@@ -374,20 +416,8 @@ impl App {
             .cursor
             .part
             .min(self.row_height(self.cursor.row)?.saturating_sub(1));
-        self.top = self.cursor;
-        for _ in 0..screen_row
-            .min(height.saturating_sub(2) as usize)
-            .saturating_sub(1)
-        {
-            self.top = self.previous(self.top)?;
-        }
-        if self.top < self.cursor
-            && self
-                .row(self.top.row)
-                .is_some_and(|row| row.kind != RowKind::Header)
-        {
-            self.top = self.next(self.top)?;
-        }
+        self.restore_inset(inset)?;
+        self.top = self.top_for(self.cursor, screen_row)?;
         self.keep_page_full(full)?;
         // The screen row asked for, not the one the end of the diff left: a later reflow
         // with room below puts the cursor back on it.
@@ -411,10 +441,19 @@ impl App {
     pub fn toggle_wrap(&mut self) -> Result<()> {
         self.remember_position(None)?;
         let full = self.page_full()?;
+        let (cursor_inset, top_inset) =
+            (self.inset_id_at(self.cursor)?, self.inset_id_at(self.top)?);
         self.wrap = !self.wrap;
         if self.wrap || self.keep_text_in_view || self.width < 40 || self.height < 10 {
             let unwrapped = self.unwrapped.take();
-            self.reflow(self.layout, self.width, self.height)?;
+            self.reflow_from(
+                self.layout,
+                self.width,
+                self.height,
+                None,
+                None,
+                cursor_inset,
+            )?;
             // Wrapping back on with nothing done since it went off: the wrapped view it left.
             if self.wrap
                 && let Some((top, cursor, anchor)) = unwrapped
@@ -437,6 +476,16 @@ impl App {
             row: self.top.row.min(self.cursor.row),
             part: 0,
         };
+        // The same row of the same inset, for the cursor and for the top, as long as the
+        // cursor stays at or below the top.
+        self.restore_inset(cursor_inset)?;
+        if let Some((id, offset)) = top_inset
+            && let Some(top) = self.inset_position(id, offset)?
+            && top.row == self.top.row
+            && top <= self.cursor
+        {
+            self.top = top;
+        }
         self.keep_page_full(full)?;
         self.visible.clear();
         let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
@@ -451,8 +500,9 @@ impl App {
 
     pub fn toggle_numbers(&mut self) -> Result<()> {
         self.remember_position(None)?;
+        let inset = self.inset_id_at(self.cursor)?;
         self.numbers = !self.numbers;
-        self.reflow(self.layout, self.width, self.height)
+        self.reflow_from(self.layout, self.width, self.height, None, None, inset)
     }
 
     /// Shares split rows between the sides by `ratio`. True when it changed. The source line
@@ -467,8 +517,9 @@ impl App {
             return Ok(true);
         }
         self.remember_position(None)?;
+        let inset = self.inset_id_at(self.cursor)?;
         self.split_ratio = ratio;
-        self.reflow(self.layout, self.width, self.height)?;
+        self.reflow_from(self.layout, self.width, self.height, None, None, inset)?;
         Ok(true)
     }
 
@@ -594,14 +645,36 @@ impl App {
         })
     }
 
+    /// Moves `amount` screen rows. A move of one row moves between stops: an inset is one
+    /// stop however tall it is, and none when insets are not stops. A longer move counts
+    /// every screen row, and when insets are not stops, one that ends on an inset goes on to
+    /// the next row that is not.
     pub fn move_cursor(&mut self, amount: isize) -> Result<()> {
         let before = self.cursor;
-        for _ in 0..amount.unsigned_abs() {
+        if amount.unsigned_abs() == 1 && !self.insets.is_empty() {
             self.cursor = if amount > 0 {
-                self.next(self.cursor)?
+                self.next_stop(self.cursor)?
             } else {
-                self.previous(self.cursor)?
+                self.previous_stop(self.cursor)?
             };
+        } else {
+            for _ in 0..amount.unsigned_abs() {
+                self.cursor = if amount > 0 {
+                    self.next(self.cursor)?
+                } else {
+                    self.previous(self.cursor)?
+                };
+            }
+            if !self.insets.is_empty() {
+                let everywhere = (
+                    Position::default(),
+                    Position {
+                        row: usize::MAX,
+                        part: usize::MAX,
+                    },
+                );
+                self.cursor = self.off_inset(self.cursor, amount > 0, everywhere)?;
+            }
         }
         if before != self.cursor {
             self.reading_anchor = None;
@@ -618,15 +691,16 @@ impl App {
                 self.previous(self.top)?
             };
         }
-        let sticky_header = self
-            .row(self.top.row)
-            .is_some_and(|row| row.kind != RowKind::Header);
+        let sticky_header = self.sticky(self.top);
         let visible_rows = self.height.saturating_sub(2 + u16::from(sticky_header));
         let mut bottom = self.top;
         for _ in 1..visible_rows {
             bottom = self.next(bottom)?;
         }
         self.cursor = self.cursor.clamp(self.top, bottom);
+        if !self.insets.is_empty() {
+            self.cursor = self.off_inset(self.cursor, amount > 0, (self.top, bottom))?;
+        }
         if self.cursor != before {
             self.reading_anchor = None;
         } else if let Some(anchor) = &mut self.reading_anchor {
@@ -683,8 +757,16 @@ impl App {
             }
         }
         self.reading_anchor = None;
-        self.cursor = Position { row, part: 0 };
         self.old_side = self.line_info(id)?.new.is_none();
+        // The insets under the last line are shown with it, as far as the pane allows.
+        if end && self.inset_rows(row) > 0 {
+            self.cursor = Position {
+                row,
+                part: self.row_height(row)? - 1,
+            };
+            self.reveal()?;
+        }
+        self.cursor = Position { row, part: 0 };
         self.reveal()
     }
 

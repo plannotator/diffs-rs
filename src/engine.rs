@@ -1,6 +1,7 @@
 //! A review owns its workers and view state, but never the host terminal.
 
 pub(crate) mod file_marks;
+pub(crate) mod insets;
 pub(crate) mod markers;
 mod reading;
 mod rows;
@@ -34,6 +35,7 @@ use crate::{
     theme::Appearance,
 };
 pub use file_marks::{Badge, BadgeColor, FileMark};
+pub use insets::{Inset, InsetAnchor, InsetArea};
 pub use markers::Marker;
 pub use rows::{DiffRow, DiffRowKind};
 pub use settings::{InlineChanges, TabWidth, Whitespace};
@@ -78,7 +80,7 @@ impl Default for Options {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ReviewId(u64);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Side {
     Old,
     New,
@@ -135,6 +137,10 @@ pub struct Engine {
     markers: markers::Markers,
     /// File marks set before the first file arrived, taken like `markers`.
     file_marks: file_marks::FileMarks,
+    /// Insets set before the first file arrived, taken like `markers`.
+    insets: insets::Insets,
+    /// The cursor stops on insets. Kept across `replace()`.
+    inset_stops: bool,
     /// Draw on the terminal's own background and foreground. Kept across `replace()`.
     terminal_background: bool,
     /// How a split row is shared between the sides. Kept across `replace()`.
@@ -189,6 +195,8 @@ impl Engine {
             area: Rect::default(),
             markers: markers::Markers::default(),
             file_marks: file_marks::FileMarks::default(),
+            insets: insets::Insets::default(),
+            inset_stops: true,
             terminal_background: false,
             split_ratio: SplitRatio::EVEN,
             tab_width: TabWidth::DEFAULT,
@@ -407,6 +415,8 @@ impl Engine {
             app.set_whitespace(self.whitespace)?;
             app.markers = std::mem::take(&mut self.markers);
             app.set_file_marks(std::mem::take(&mut self.file_marks));
+            app.insets = std::mem::take(&mut self.insets);
+            app.inset_stops = self.inset_stops;
             if self.terminal_background {
                 app.set_terminal_background(true)?;
             }
@@ -686,6 +696,7 @@ impl Engine {
         let terminal_background = self.terminal_background;
         let split_ratio = self.split_ratio;
         let keep_text_in_view = self.keep_text_in_view;
+        let inset_stops = self.inset_stops;
         let (tab_width, inline_changes, whitespace) =
             (self.tab_width, self.inline_changes, self.whitespace);
         self.close()?;
@@ -693,6 +704,7 @@ impl Engine {
         self.terminal_background = terminal_background;
         self.split_ratio = split_ratio;
         self.keep_text_in_view = keep_text_in_view;
+        self.inset_stops = inset_stops;
         self.tab_width = tab_width;
         self.inline_changes = inline_changes;
         self.whitespace = whitespace;
@@ -717,6 +729,7 @@ impl Engine {
         self.app = None;
         self.markers = markers::Markers::default();
         self.file_marks = file_marks::FileMarks::default();
+        self.insets = insets::Insets::default();
         self.loading = false;
         self.error = None;
         self.source_failed = false;

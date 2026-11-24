@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod domain;
+mod horizontal;
 mod reveal;
 mod rows;
 mod search;

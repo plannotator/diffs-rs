@@ -36,6 +36,8 @@ struct ReadingAnchor {
     display_byte: usize,
     old_side: bool,
     screen_row: Option<usize>,
+    /// The cursor is on the "No newline at end of file" mark under `source`, not on its row.
+    mark: bool,
 }
 
 pub struct App {
@@ -80,6 +82,9 @@ pub struct App {
     pub(crate) inline_changes: crate::engine::InlineChanges,
     /// Whether whitespace-only changes are hidden.
     pub(crate) whitespace: crate::engine::Whitespace,
+    /// A reflow scrolls sideways to keep the anchor's text in view, as the standalone viewer
+    /// wants. Off, a reflow never moves the horizontal scroll.
+    pub(crate) keep_text_in_view: bool,
     /// The files as the patch has them while `doc` hides whitespace, so the setting can be
     /// turned off again and later files checked against the input's order.
     patch: Option<Document>,
@@ -119,6 +124,7 @@ impl App {
             plain,
             inline_changes: crate::engine::InlineChanges::Word,
             whitespace: crate::engine::Whitespace::Show,
+            keep_text_in_view: false,
             patch: None,
             scan: crate::storage::PatchScan::default(),
             top: Position::default(),
@@ -240,6 +246,9 @@ impl App {
                 )?,
                 old_side,
                 screen_row: Some(self.screen_row()),
+                mark: self
+                    .row(self.cursor.row)
+                    .is_some_and(|row| matches!(row.kind, RowKind::NoNewline { .. })),
             });
         }
         Ok(())
@@ -273,14 +282,35 @@ impl App {
         self.width = width;
         self.height = height;
         if let Some(anchor) = anchor {
-            self.cursor.row = self.shown_row(anchor.source).unwrap_or(self.cursor.row);
+            self.cursor.row = self
+                .shown_row(anchor.source)
+                .map(|row| {
+                    // The mark stays on the mark, which follows its line in either layout.
+                    let mark = row + 1;
+                    if anchor.mark
+                        && self
+                            .row(mark)
+                            .is_some_and(|row| matches!(row.kind, RowKind::NoNewline { .. }))
+                    {
+                        mark
+                    } else {
+                        row
+                    }
+                })
+                .unwrap_or(self.cursor.row);
             self.old_side = anchor.old_side;
-            (self.cursor.part, self.horizontal) = render::anchored_position(
+            let horizontal;
+            (self.cursor.part, horizontal) = render::anchored_position(
                 self,
                 anchor.source,
                 anchor.display_byte,
                 anchor.old_side,
             )?;
+            // Unless the host asked to keep the anchor's text in view, the horizontal scroll
+            // stays as it is, lowered when drawn if the lines shown no longer reach it.
+            if self.keep_text_in_view {
+                self.horizontal = horizontal;
+            }
         } else if old_split != self.split() {
             self.cursor.row = file
                 .map(|f| self.view.file_row(&self.doc, f, self.split()))
@@ -311,10 +341,29 @@ impl App {
         Ok(())
     }
 
+    /// Turning wrapping on keeps the cursor's source line on its screen row, showing the part
+    /// with the text the anchor points at. Turning it off keeps the top row at the top: every
+    /// row becomes one screen row and the rows themselves stay, so the cursor stays on screen
+    /// on its row, since no row above it got taller. The horizontal scroll is kept either way.
+    /// With `keep_text_in_view`, turning it off keeps the cursor's line on its screen row and
+    /// scrolls sideways to the anchor's text, as any reflow then does.
     pub fn toggle_wrap(&mut self) -> Result<()> {
         self.remember_position(None)?;
         self.wrap = !self.wrap;
-        self.reflow(self.layout, self.width, self.height)
+        if self.wrap || self.keep_text_in_view || self.width < 40 || self.height < 10 {
+            return self.reflow(self.layout, self.width, self.height);
+        }
+        self.cursor.part = 0;
+        self.top = Position {
+            row: self.top.row.min(self.cursor.row),
+            part: 0,
+        };
+        self.visible.clear();
+        let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
+        if let Some(anchor) = &mut self.reading_anchor {
+            anchor.screen_row = screen_row;
+        }
+        Ok(())
     }
 
     pub fn toggle_numbers(&mut self) -> Result<()> {
@@ -418,6 +467,7 @@ impl App {
             display_byte,
             old_side,
             screen_row: None,
+            mark: false,
         });
         // Whether a later reveal moves the view is worked out from the top, not from this
         // list, so clearing it here never makes the next reveal scroll.
@@ -566,6 +616,7 @@ impl App {
             display_byte: 0,
             old_side: self.old_side,
             screen_row: Some(screen_row),
+            mark: false,
         });
         self.reflow(self.layout, self.width, self.height)?;
         Ok(true)

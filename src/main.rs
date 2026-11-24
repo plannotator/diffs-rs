@@ -326,6 +326,8 @@ fn run(cli: Cli) -> Result<i32> {
             ..Options::default()
         };
         let mut engine = Engine::open(input, options, wake.clone())?;
+        // The viewer scrolls sideways itself, so a reflow keeps the text being read in view.
+        engine.set_keep_text_in_view(true);
         let mut reading = reading_ui::Reading::new(wake.clone());
         let mut resized = false;
         let result = (|| -> Result<i32> {

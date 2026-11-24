@@ -85,7 +85,7 @@ impl App {
     }
 
     /// Draws tabs `width` cells wide. True when it changed. The source line under the cursor
-    /// keeps its screen row and its text stays in view. On an error nothing changed.
+    /// keeps its screen row and the horizontal scroll is kept. On an error nothing changed.
     pub(crate) fn set_tab_width(&mut self, width: TabWidth) -> Result<bool> {
         let cells = usize::from(width.get());
         let before = self.geometry.tab_width();

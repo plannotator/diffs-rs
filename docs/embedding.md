@@ -91,6 +91,21 @@ A host whose other screens use the terminal's own colors can call `engine.set_te
 It is off by default. It can be set before the first file arrives, stays set across `replace()`, and follows the `t` theme toggle.
 It is a method rather than an `Options` field so that adding it does not break hosts that build `Options` without `..Options::default()`.
 
+### Horizontal scrolling
+
+Without wrapping, a line wider than its pane is clipped at the right, and only `Command::Left` and `Command::Right` scroll it sideways.
+`reveal`, `select_range` and a search jump scroll to show what they point at, the start of the line or the match, only when it is out of view.
+Nothing else moves the view sideways: a resize, a layout, ratio, tab-width, line-number, wrapping or whitespace change, or expanding context keeps the horizontal scroll.
+The scroll is only lowered, when the frame is drawn, if the lines shown no longer reach it.
+A host that never sends `Left` or `Right` therefore always shows lines from their first column, wherever the person clicked before.
+
+Turning wrapping on keeps the cursor's source line on its screen row, on the part that holds the text the cursor was on.
+Turning it off keeps the top row at the top, on its first screen row, and the cursor on its row.
+
+A host that scrolls sideways itself can call `engine.set_keep_text_in_view(true)`, as the standalone viewer does.
+A reflow then scrolls to keep the text last clicked, or the first column shown on the cursor's line, in view, and turning wrapping off keeps the cursor's line on its screen row instead of the top row.
+It can be set before the first file arrives and stays set across `replace()`.
+
 ### Layout and the line between the sides
 
 `Options::layout` picks the layout the review opens with, and `set_layout(layout)` changes it later:
@@ -133,7 +148,7 @@ At their defaults the engine draws exactly as before, so a host that never calls
 `set_tab_width(TabWidth::new(cells))` draws a tab up to the next multiple of `cells`, from `TabWidth::MIN` (1) to `TabWidth::MAX` (16); `TabWidth::new` keeps a value between them.
 The default is `TabWidth::DEFAULT` (4).
 It applies wherever code is measured or drawn, on both sides of a split row: wrapping, horizontal scrolling, clicks and `row_at`, changed-word emphasis and search matches.
-The source line under the cursor keeps its screen row, as when wrapping is toggled.
+The source line under the cursor keeps its screen row, as when the pane is resized.
 
 `set_inline_changes(mode)` chooses how the changed text inside a replaced line is emphasized.
 The names follow `lineDiffType` in Pierre's `@pierre/diffs`:

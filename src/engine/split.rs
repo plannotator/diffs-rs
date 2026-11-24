@@ -106,8 +106,9 @@ impl Engine {
     /// Shares a split row's width between the old and the new side, moving the line between
     /// them. The default is [`SplitRatio::EVEN`]; a host that never calls this draws as before.
     ///
-    /// The source line under the cursor stays where it is on the screen, as it does when
-    /// wrapping is turned on or off. Wrapped rows are measured again at the new widths. The
+    /// The source line under the cursor stays where it is on the screen, as it does when the
+    /// pane is resized, and the view does not scroll sideways. Wrapped rows are measured again
+    /// at the new widths. The
     /// ratio applies whenever the diff is split, it can be set before the first file arrives
     /// or while the diff is unified, and it stays set across [`Engine::replace`].
     pub fn set_split_ratio(&mut self, ratio: SplitRatio) -> Result<()> {

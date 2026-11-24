@@ -3,6 +3,45 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+### Fixed
+
+- A reflow never scrolls the view sideways. A resize, `Engine::set_layout`,
+  `Engine::set_split_ratio`, `Engine::set_tab_width`, `Engine::set_whitespace`, the line-number
+  and wrapping toggles and expanding context used to make the column of the last click the
+  first one shown when it fell outside the narrower pane, and with the cursor on a wrapped
+  part, turning wrapping off scrolled to that part's text. A host without horizontal scrolling
+  then showed only the ends of every line, with no way back. This happened with a click in the
+  empty half of a split row, on a "No newline at end of file" row, and on any wrapped part.
+  The horizontal scroll is now kept, and only lowered when the lines shown no longer reach it.
+- Turning wrapping off keeps the top row at the top, on its first screen row. With the cursor
+  on a wrapped part, the top used to move to an earlier line. Turning it straight back on, with
+  nothing done in between, returns to the wrapped view it left.
+- Near the end of the diff, a reflow or turning wrapping off adds no empty rows under the
+  last row: when there were none, the top is raised to the last full page if needed, and the
+  cursor stays on screen. A taller pane, a change to unified, hidden whitespace or unwrapping
+  used to leave the rows under the end empty. A view already scrolled past the end, by the
+  wheel or a jump to a short last file, keeps the cursor's screen row as before, and so does
+  the standalone viewer (`set_keep_text_in_view(true)`).
+
+### Changed
+
+- By default only `Command::Left` and `Command::Right`, and `Engine::reveal`,
+  `Engine::select_range` and search jumps when what they show is out of view, move the view
+  sideways. A reflow no longer scrolls left either: toggling line numbers with the cursor on a
+  line shorter than the scroll used to jump to its end, and now keeps the scroll. The recorded
+  default frames change only at `ToggleNumbers` and the frame after it: on a scrolled view
+  (`fixtures/review.patch` and `fixtures/position/review.patch`), and in `git-output/log.patch`,
+  whose cursor is then on its "No newline at end of file" mark and now stays there.
+- A reflow with the cursor on a "No newline at end of file" mark keeps it on the mark. It used
+  to move to the line above, one row up, which moved the top row down by one.
+- `Engine::set_keep_text_in_view(true)` keeps the old behaviour for a host that scrolls
+  sideways itself: a reflow scrolls to keep the text last clicked, or the first column shown
+  on the cursor's line, in view, and turning wrapping off keeps the cursor's line on its screen
+  row. The standalone viewer turns it on, so it behaves as before. It stays set across
+  `Engine::replace`.
+
 ## 0.2.4 - 2026-11-24
 
 - `Engine::set_tab_width` draws tabs from 1 to 16 cells wide, everywhere code is measured or

@@ -125,10 +125,10 @@ impl Engine {
     /// Draws tabs `width` cells wide. The default is [`TabWidth::DEFAULT`]; a host that never
     /// calls this draws as before.
     ///
-    /// The source line under the cursor stays where it is on the screen, as it does when
-    /// wrapping is turned on or off, and the text under the cursor stays in view. When
-    /// measuring the lines fails, the error is returned and the review and the setting stay as
-    /// they were. It can be set before the first file arrives, and it stays set across
+    /// The source line under the cursor stays where it is on the screen, as it does when the
+    /// pane is resized, and the view does not scroll sideways: the horizontal scroll is kept,
+    /// and only lowered when the lines shown no longer reach it. When measuring the lines
+    /// fails, the error is returned and the review and the setting stay as they were. It can be set before the first file arrives, and it stays set across
     /// [`Engine::replace`].
     pub fn set_tab_width(&mut self, width: TabWidth) -> Result<()> {
         // Kept only once the review shows it, so a failure leaves the setting as it was.

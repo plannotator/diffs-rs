@@ -80,6 +80,8 @@ pub(crate) fn source_has_part(
     Ok(part < app.line_geometry(id, app.wrap.then_some(width))?.height())
 }
 
+/// The part and the horizontal scroll that show `byte` of `id`: the scroll is kept when the
+/// byte is already in view, and otherwise starts at it.
 pub fn anchored_position(
     app: &App,
     id: LineId,

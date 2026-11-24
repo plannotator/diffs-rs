@@ -143,6 +143,8 @@ pub struct Engine {
     tab_width: TabWidth,
     inline_changes: InlineChanges,
     whitespace: Whitespace,
+    /// A reflow scrolls sideways to keep the cursor's text in view. Kept across `replace()`.
+    keep_text_in_view: bool,
 }
 
 impl Engine {
@@ -192,6 +194,7 @@ impl Engine {
             tab_width: TabWidth::DEFAULT,
             inline_changes: InlineChanges::Word,
             whitespace: Whitespace::Show,
+            keep_text_in_view: false,
         })
     }
 
@@ -209,6 +212,31 @@ impl Engine {
         }
         self.changed(InputEffect::Redraw);
         Ok(())
+    }
+
+    /// Scrolls sideways on a reflow to keep the text the cursor is on in view, as the
+    /// standalone viewer does: the text last clicked, or else the first column shown on the
+    /// cursor's line. A reflow is a resize, [`Engine::set_layout`], [`Engine::set_split_ratio`],
+    /// [`Engine::set_tab_width`], [`Engine::set_whitespace`], a line-number or wrapping toggle,
+    /// or expanding context. With it on, turning wrapping off keeps the cursor's line on its
+    /// screen row rather than the top row at the top.
+    ///
+    /// Off by default. Then only `Command::Left` and `Command::Right`, and [`Engine::reveal`],
+    /// [`Engine::select_range`] and search jumps when what they show is out of view, move the
+    /// view sideways. A reflow keeps the horizontal scroll and only lowers it when the lines
+    /// shown no longer reach it, so a host that never sends `Left` or `Right` always shows
+    /// lines from their first column. It can be set before the first file arrives, and it
+    /// stays set across [`Engine::replace`].
+    pub fn set_keep_text_in_view(&mut self, on: bool) {
+        self.keep_text_in_view = on;
+        if let Some(app) = &mut self.app {
+            app.keep_text_in_view = on;
+        }
+    }
+
+    /// The setting set by [`Engine::set_keep_text_in_view`].
+    pub fn keeps_text_in_view(&self) -> bool {
+        self.keep_text_in_view
     }
 
     pub fn review_id(&self) -> ReviewId {
@@ -373,6 +401,7 @@ impl Engine {
             app.numbers = self.options.line_numbers;
             app.chrome = self.options.chrome;
             app.split_ratio = self.split_ratio;
+            app.keep_text_in_view = self.keep_text_in_view;
             app.set_tab_width(self.tab_width)?;
             app.set_inline_changes(self.inline_changes);
             app.set_whitespace(self.whitespace)?;
@@ -656,12 +685,14 @@ impl Engine {
         let options = self.options();
         let terminal_background = self.terminal_background;
         let split_ratio = self.split_ratio;
+        let keep_text_in_view = self.keep_text_in_view;
         let (tab_width, inline_changes, whitespace) =
             (self.tab_width, self.inline_changes, self.whitespace);
         self.close()?;
         *self = Self::open(input, options, self.wake.clone())?;
         self.terminal_background = terminal_background;
         self.split_ratio = split_ratio;
+        self.keep_text_in_view = keep_text_in_view;
         self.tab_width = tab_width;
         self.inline_changes = inline_changes;
         self.whitespace = whitespace;

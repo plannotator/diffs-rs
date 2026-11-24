@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 
-use super::{App, Position};
+use super::{App, Position, ReadingAnchor};
 use crate::{
     engine::{InlineChanges, TabWidth, Whitespace},
     highlight::Cache,
@@ -13,6 +13,26 @@ use crate::{
     storage::{Document, FileIndex, PatchScan},
     view::LineId,
 };
+
+/// Where the cursor and the screen were, to go back to when a change fails.
+struct Place {
+    cursor: Position,
+    top: Position,
+    horizontal: usize,
+    old_side: bool,
+    reading_anchor: Option<ReadingAnchor>,
+}
+
+/// How to put the document back as it was before a whitespace change.
+enum Undo {
+    /// The review showed the patch's files, which are now kept aside: show them again.
+    Show,
+    /// The review showed these files, whitespace hidden another way: show them again. The
+    /// patch's files stay aside.
+    Hidden(Document),
+    /// The review showed these files and now shows the patch's: hide again with them.
+    Hide(Document),
+}
 
 /// A row with no source line, found again by what it is: the `ordinal`-th row of its kind in
 /// its file. Whitespace never adds or removes such rows, only the lines between them.
@@ -45,16 +65,40 @@ impl Kind {
 }
 
 impl App {
+    fn place(&self) -> Place {
+        Place {
+            cursor: self.cursor,
+            top: self.top,
+            horizontal: self.horizontal,
+            old_side: self.old_side,
+            reading_anchor: self.reading_anchor,
+        }
+    }
+
+    fn go_back(&mut self, place: Place) {
+        self.cursor = place.cursor;
+        self.top = place.top;
+        self.horizontal = place.horizontal;
+        self.old_side = place.old_side;
+        self.reading_anchor = place.reading_anchor;
+        self.visible.clear();
+    }
+
     /// Draws tabs `width` cells wide. True when it changed. The source line under the cursor
-    /// keeps its screen row and its text stays in view.
+    /// keeps its screen row and its text stays in view. On an error nothing changed.
     pub(crate) fn set_tab_width(&mut self, width: TabWidth) -> Result<bool> {
         let cells = usize::from(width.get());
-        if cells == self.geometry.tab_width() {
+        let before = self.geometry.tab_width();
+        if cells == before {
             return Ok(false);
         }
-        self.remember_position(None)?;
+        let place = self.place();
         self.geometry.set_tab_width(cells);
-        self.reflow(self.layout, self.width, self.height)?;
+        if let Err(error) = self.reflow(self.layout, self.width, self.height) {
+            self.geometry.set_tab_width(before);
+            self.go_back(place);
+            return Err(error);
+        }
         Ok(true)
     }
 
@@ -127,21 +171,16 @@ impl App {
 
     /// Shows or hides whitespace-only changes. True when it changed. The cursor keeps its
     /// source line on its screen row; a line no longer on a row of its own is found on the row
-    /// that shows it now.
+    /// that shows it now. On an error nothing changed.
     pub(crate) fn set_whitespace(&mut self, whitespace: Whitespace) -> Result<bool> {
         if whitespace == self.whitespace {
             return Ok(false);
         }
+        let place = self.place();
         let screen_row = self.screen_row();
-        self.remember_position(None)?;
-        let landmark = if self.reading_anchor.is_some() {
-            None
-        } else {
-            self.landmark()
-        };
-        // Build the new files before changing anything, so a read failure leaves the review
-        // as it was.
-        let shown = if whitespace == Whitespace::Show {
+        // Everything that can fail before anything changes: the new files, and the rows that
+        // show them with the context each gap reveals.
+        let hidden = if whitespace == Whitespace::Show {
             None
         } else {
             let mut doc = Document::default();
@@ -156,31 +195,32 @@ impl App {
             }
             Some(doc)
         };
-        match shown {
-            None => {
-                self.doc = self
-                    .patch
-                    .take()
-                    .context("Whitespace was hidden without the patch's files")?;
-            }
-            Some(doc) => {
-                let patch = std::mem::replace(&mut self.doc, doc);
-                self.patch.get_or_insert(patch);
-            }
+        let rows = match &hidden {
+            Some(doc) => self.view.rebuilt(doc)?,
+            None => self.view.rebuilt(
+                self.patch
+                    .as_ref()
+                    .context("Whitespace was hidden without the patch's files")?,
+            )?,
+        };
+        if let Err(error) = self.remember_position(None) {
+            self.go_back(place);
+            return Err(error);
         }
+        let landmark = if self.reading_anchor.is_some() {
+            None
+        } else {
+            self.landmark()
+        };
+        let before = self.whitespace;
+        let undo = self.show_files(hidden);
         self.whitespace = whitespace;
-        if let Some(mut sources) = self.sources.take() {
-            for (file, state) in sources.iter_mut().enumerate() {
-                let current = std::mem::replace(state, SourceState::Pending);
-                *state = self.shown_source(file, current);
-            }
-            self.sources = Some(sources);
-        }
-        self.view.rebuild(&self.doc)?;
+        self.repoint_sources();
+        let old_rows = self.view.replace_rows(&self.doc, rows);
         // Pairs change which lines are compared for emphasis.
         self.epoch += 1;
         self.cache = Cache::default();
-        self.search_match = None;
+        let search_match = self.search_match.take();
         let row = match (self.reading_anchor, landmark) {
             (Some(anchor), _) => self.shown_row(anchor.source),
             (None, Some(landmark)) => self.find_landmark(landmark),
@@ -193,8 +233,60 @@ impl App {
         self.cursor.row = self.cursor.row.min(self.row_len().saturating_sub(1));
         self.top = self.cursor;
         self.visible.clear();
-        self.reflow_from(self.layout, self.width, self.height, Some(screen_row))?;
+        if let Err(error) = self.reflow_from(self.layout, self.width, self.height, Some(screen_row))
+        {
+            match undo {
+                Undo::Show => {
+                    if let Some(patch) = self.patch.take() {
+                        self.doc = patch;
+                    }
+                }
+                Undo::Hidden(doc) => self.doc = doc,
+                Undo::Hide(doc) => {
+                    let patch = std::mem::replace(&mut self.doc, doc);
+                    self.patch = Some(patch);
+                }
+            }
+            self.whitespace = before;
+            self.repoint_sources();
+            self.view.replace_rows(&self.doc, old_rows);
+            self.epoch += 1;
+            self.cache = Cache::default();
+            self.search_match = search_match;
+            self.go_back(place);
+            return Err(error);
+        }
         Ok(true)
+    }
+
+    /// Shows `hidden`, or the patch's files when it is `None`, and says how to go back.
+    fn show_files(&mut self, hidden: Option<Document>) -> Undo {
+        match hidden {
+            None => {
+                let patch = self.patch.take().unwrap_or_default();
+                Undo::Hide(std::mem::replace(&mut self.doc, patch))
+            }
+            Some(doc) => {
+                let shown = std::mem::replace(&mut self.doc, doc);
+                if self.patch.is_none() {
+                    self.patch = Some(shown);
+                    Undo::Show
+                } else {
+                    Undo::Hidden(shown)
+                }
+            }
+        }
+    }
+
+    /// Points checked sources at the files as they are shown now.
+    fn repoint_sources(&mut self) {
+        if let Some(mut sources) = self.sources.take() {
+            for (file, state) in sources.iter_mut().enumerate() {
+                let current = std::mem::replace(state, SourceState::Pending);
+                *state = self.shown_source(file, current);
+            }
+            self.sources = Some(sources);
+        }
     }
 
     /// What the cursor's row is, when it has no source line.

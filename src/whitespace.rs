@@ -12,10 +12,11 @@ use crate::engine::Whitespace;
 /// enormous block cannot stall the caller.
 const MIDDLE_LIMIT: usize = 4096;
 
-/// Whitespace as Git's `-b` and `-w` see it: space, tab, line feed, vertical tab, form feed and
-/// carriage return.
+/// Whitespace as Git's `-b` and `-w` see it: space, tab, line feed and carriage return. Git's
+/// own `isspace` leaves out vertical tab and form feed, so a change to or from either still
+/// shows.
 fn space(byte: u8) -> bool {
-    matches!(byte, b' ' | b'\t' | b'\n' | b'\x0b' | b'\x0c' | b'\r')
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r')
 }
 
 /// The text of a line as `whitespace` compares it, in `out`.
@@ -116,7 +117,6 @@ mod tests {
             ("a  b\n", "a\tb\n"),
             ("end\n", "end   \n"),
             ("end\r\n", "end\n"),
-            ("x\x0b\x0cy\n", "x y\n"),
         ] {
             assert!(same(b, x, y), "-b {x:?} {y:?}");
             assert!(same(w, x, y), "-w {x:?} {y:?}");
@@ -130,8 +130,16 @@ mod tests {
             assert!(!same(b, x, y), "-b {x:?} {y:?}");
             assert!(same(w, x, y), "-w {x:?} {y:?}");
         }
-        // Real changes: neither.
-        for (x, y) in [("a\n", "b\n"), ("ab\n", "a\n"), ("a b\n", "b a\n")] {
+        // Real changes: neither. Vertical tab and form feed are not whitespace to Git.
+        for (x, y) in [
+            ("a\n", "b\n"),
+            ("ab\n", "a\n"),
+            ("a b\n", "b a\n"),
+            ("x\x0b\x0cy\n", "x y\n"),
+            ("x\x0by\n", "x y\n"),
+            ("p\x0cq\n", "p q\n"),
+            ("p\x0cq\n", "pq\n"),
+        ] {
             assert!(!same(b, x, y));
             assert!(!same(w, x, y));
         }

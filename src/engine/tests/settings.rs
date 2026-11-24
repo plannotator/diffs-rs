@@ -670,6 +670,12 @@ fn the_cursor_on_a_paired_line_stays_on_the_row_that_shows_it() {
                 let row = review.engine.cursor_row().unwrap();
                 assert_eq!(row.kind, DiffRowKind::Code, "{what}");
                 assert_eq!((row.old_line, row.new_line), (Some(5), Some(5)), "{what}");
+                let location = review.engine.selected_source().unwrap().unwrap();
+                assert_eq!(
+                    (location.old_line, location.new_line),
+                    (Some(5), Some(5)),
+                    "{what}: a pair has both numbers in either layout"
+                );
                 review.assert_kept(screen_row, &what);
                 review
                     .engine
@@ -896,6 +902,11 @@ fn search_sees_the_lines_displayed_and_an_old_search_is_out_of_date() {
     // A pair shows its new text, which is found.
     let found = find(&mut review.engine, "compute(a, b)").unwrap();
     assert_eq!(found.location().new_line, Some(5));
+    assert_eq!(
+        found.location().old_line,
+        Some(5),
+        "a pair has both numbers"
+    );
     review.engine.show_search_match(&found).unwrap();
     let buffer = draw(&mut review.engine, (121, 30));
     check(&review.engine, &buffer, "after the match");
@@ -1024,5 +1035,35 @@ fn hidden_whitespace_keeps_revealed_context_of_checked_sources() {
             review.engine.execute(Command::Up).unwrap();
         }
         review.walk_by(size, &format!("{what} revealed while hidden"), check_local);
+    }
+}
+
+#[test]
+fn vertical_tab_and_form_feed_are_not_whitespace_to_git() {
+    // `git diff -b` and `git diff -w` both show these as two removed and two added lines.
+    let patch = b"diff --git a/vf.txt b/vf.txt\n--- a/vf.txt\n+++ b/vf.txt\n@@ -1,4 +1,4 @@\n keep\n-x\x0by\n-p\x0cq\n+x y\n+p q\n end\n";
+    for layout in [Layout::Unified, Layout::Split] {
+        for whitespace in [Whitespace::IgnoreChange, Whitespace::IgnoreAll] {
+            let what = format!("{layout:?} {whitespace:?}");
+            let (mut engine, _directory) = super::search::review(patch);
+            engine.set_layout(layout).unwrap();
+            engine.set_whitespace(whitespace).unwrap();
+            let buffer = draw(&mut engine, (100, 20));
+            let rows = screen(&buffer);
+            assert!(
+                !rows.iter().any(|row| row.contains("whitespace only")),
+                "{what}: {rows:#?}"
+            );
+            // Rows of code, not the file's counts or the hunk's heading.
+            let changed = rows
+                .iter()
+                .filter(|row| row.trim_start().starts_with(|c: char| c.is_ascii_digit()))
+                .filter(|row| row.contains("− ") || row.contains("+ "))
+                .count();
+            let expected = if layout == Layout::Split { 2 } else { 4 };
+            assert_eq!(changed, expected, "{what}: {rows:#?}");
+            let app = engine.app.as_ref().unwrap();
+            assert!(!app.doc.files[0].whitespace_only(app.doc.files[0].source_base + 1));
+        }
     }
 }

@@ -146,12 +146,21 @@ impl SearchRead {
             LineId::Patch(id) => {
                 let info = file.order.file.info(id);
                 let mut reader = file.order.file.uncached_lines();
-                (
-                    text::source_offsets(reader.line(id, 0)?, hit.bytes.clone(), &check)?,
-                    info.old,
-                    info.new,
-                    info.kind,
-                )
+                let display = text::source_offsets(reader.line(id, 0)?, hit.bytes.clone(), &check)?;
+                match file.order.file.whitespace_pair(id) {
+                    // A pair drawn as unchanged is found by its added line and reports both
+                    // numbers, as a context line does.
+                    Some(other) => {
+                        let other = file.order.file.info(other);
+                        (
+                            display,
+                            info.old.or(other.old),
+                            info.new.or(other.new),
+                            Kind::Context,
+                        )
+                    }
+                    None => (display, info.old, info.new, info.kind),
+                }
             }
             LineId::Context { old, new, .. } => {
                 let mut reader = file

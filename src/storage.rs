@@ -178,6 +178,22 @@ impl FileIndex {
         self.projection.whitespace_only(id - self.source_base)
     }
 
+    /// The other line of record `id`'s pair, when `id` is a removed or added line drawn as
+    /// unchanged because it differs from that line only in whitespace.
+    pub(crate) fn whitespace_pair(&self, id: usize) -> Option<usize> {
+        if !self.whitespace_only(id) {
+            return None;
+        }
+        let row = self.row_for_source(id, false) - self.row_base(false);
+        match self.rows(false).get(row)?.kind {
+            RowKind::Code {
+                left: Some(left),
+                right: Some(right),
+            } => Some(if left == id { right } else { left }),
+            _ => None,
+        }
+    }
+
     /// Whether record `id` is in a hunk drawn as its heading alone, its changes all whitespace.
     pub(crate) fn hidden(&self, id: usize) -> bool {
         self.projection.hides(id - self.source_base)

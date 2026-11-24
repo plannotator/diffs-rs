@@ -85,8 +85,8 @@ pub enum Side {
 }
 
 /// Original one-based source lines of the selected record, never display-row or byte offsets.
-/// While whitespace is hidden, a unified row that shows a pair of lines drawn as unchanged
-/// reports both numbers, as a context line does.
+/// While whitespace is hidden, a pair of lines drawn as unchanged reports both numbers in
+/// either layout, as a context line does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceLocation {
     pub review: ReviewId,
@@ -336,21 +336,26 @@ impl Engine {
             return Ok(None);
         };
         let info = app.line_info(id)?;
-        // A unified row of two lines is a pair that differs only in whitespace, drawn as
-        // unchanged: it reports both numbers, as a context line does.
-        let old_line = match row.kind {
-            RowKind::Code {
-                left: Some(left),
-                right: Some(right),
-            } if !app.split() && left != right => app.line_info(left)?.old,
-            _ => info.old,
+        // A pair of lines that differ only in whitespace is drawn as unchanged: in either
+        // layout it reports both numbers, as a context line does.
+        let (old_line, new_line) = match (id, row.kind) {
+            (
+                crate::view::LineId::Patch(n),
+                RowKind::Code {
+                    left: Some(left),
+                    right: Some(right),
+                },
+            ) if left != right && app.doc.file_for_source(n).whitespace_only(n) => {
+                (app.line_info(left)?.old, app.line_info(right)?.new)
+            }
+            _ => (info.old, info.new),
         };
         Ok(Some(SourceLocation {
             review: self.id,
             file: row.file,
             side: if old { Side::Old } else { Side::New },
             old_line,
-            new_line: info.new,
+            new_line,
         }))
     }
 

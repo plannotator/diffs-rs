@@ -3,18 +3,8 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## 0.2.3 - 2026-11-23
+## Unreleased
 
-- `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new
-  side, from one tenth to nine tenths for the old side; each side keeps at least 20 cells. The
-  default, `SplitRatio::EVEN`, draws exactly as before. The cursor's line keeps its screen row,
-  wrapping and horizontal scrolling are measured per side, and clicks, `Engine::row_at` and
-  `Engine::cursor_row` take the side the line divides. `Engine::split_line` gives the line's
-  screen column in the last frame and `Engine::split_ratio_at` the ratio for a column, so a host
-  can let the person drag the line. `SplitRatio` keeps its value private; build one with
-  `SplitRatio::from_permille` or its constants.
-- `Engine::set_layout` changes the layout after opening, `Layout::Auto` included, keeping the
-  cursor's line on its screen row as the layout toggle does.
 - `Engine::set_tab_width` draws tabs from 1 to 16 cells wide, everywhere code is measured or
   drawn: wrapping, horizontal scrolling, clicks, `Engine::row_at`, changed-word emphasis and
   search matches, on both split sides. `TabWidth::DEFAULT` (4) draws as before.
@@ -29,6 +19,19 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   `Whitespace` for the limits. `Whitespace::Show`, the default, draws as before.
 - Each setting has a getter, can be set before the first file arrives and stays set across
   `Engine::replace`. `InlineChanges` and `Whitespace` are `#[non_exhaustive]`.
+
+## 0.2.3 - 2026-11-23
+
+- `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new
+  side, from one tenth to nine tenths for the old side; each side keeps at least 20 cells. The
+  default, `SplitRatio::EVEN`, draws exactly as before. The cursor's line keeps its screen row,
+  wrapping and horizontal scrolling are measured per side, and clicks, `Engine::row_at` and
+  `Engine::cursor_row` take the side the line divides. `Engine::split_line` gives the line's
+  screen column in the last frame and `Engine::split_ratio_at` the ratio for a column, so a host
+  can let the person drag the line. `SplitRatio` keeps its value private; build one with
+  `SplitRatio::from_permille` or its constants.
+- `Engine::set_layout` changes the layout after opening, `Layout::Auto` included, keeping the
+  cursor's line on its screen row as the layout toggle does.
 
 ## 0.2.2 - 2026-11-23
 

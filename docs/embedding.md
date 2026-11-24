@@ -168,7 +168,7 @@ What it does not do, compared with running `git diff -w` on the files:
 The cursor keeps its source line on its screen row.
 When the line no longer has a row of its own, the cursor goes to the row that shows it: the unchanged row of its pair, or the heading of its hidden hunk.
 A selection is kept by its line numbers, and an open selection keeps extending.
-`cursor_row`, `row_at` and `selected_source` report a pair like a context line, with both numbers.
+`cursor_row`, `row_at`, `selected_source` and a search match's `location()` report a pair like a context line, with both numbers, in either layout.
 A `SearchRead` taken before the change is out of date and its `find` fails; search again.
 
 Hiding reads the removed and added lines of the files that have arrived once, on the calling thread, and each later file as it arrives.

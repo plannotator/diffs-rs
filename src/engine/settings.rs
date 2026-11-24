@@ -129,11 +129,12 @@ impl Engine {
     /// wrapping is turned on or off, and the text under the cursor stays in view. It can be set
     /// before the first file arrives, and it stays set across [`Engine::replace`].
     pub fn set_tab_width(&mut self, width: TabWidth) -> Result<()> {
-        self.tab_width = width;
+        // Kept only once the review shows it, so a failure leaves the setting as it was.
         let changed = match &mut self.app {
             Some(app) => app.set_tab_width(width)?,
             None => false,
         };
+        self.tab_width = width;
         if changed {
             self.changed(InputEffect::Highlight);
         }
@@ -177,14 +178,16 @@ impl Engine {
     /// A search captured before the change is out of date and its `find` fails; search again.
     ///
     /// Hiding reads the removed and added lines of every file that has arrived once, on the
-    /// calling thread, and files that arrive later as they arrive. It can be set before the
-    /// first file arrives, and it stays set across [`Engine::replace`].
+    /// calling thread, and files that arrive later as they arrive. When reading fails, the
+    /// error is returned and the review and the setting stay as they were. It can be set before
+    /// the first file arrives, and it stays set across [`Engine::replace`].
     pub fn set_whitespace(&mut self, whitespace: Whitespace) -> Result<()> {
-        self.whitespace = whitespace;
+        // Kept only once the review shows it, so a failure leaves the setting as it was.
         let changed = match &mut self.app {
             Some(app) => app.set_whitespace(whitespace)?,
             None => false,
         };
+        self.whitespace = whitespace;
         if changed {
             self.changed(InputEffect::Highlight);
             self.track_selection(false)?;

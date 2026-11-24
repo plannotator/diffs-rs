@@ -8,6 +8,13 @@
 A fast terminal diff viewer, and the Rust diff engine behind it that you can embed in a Ratatui
 application.
 
+**‼️ Crate Only:** This is just the rust package. Use Plannotator TUI to use it in multiplexers like Rex and Herdr:
+
+#### Use with Multiplexers/CLI Agents:
+https://github.com/plannotator/plannotator-tui
+
+
+_example screen:_
 ![diffs showing a split diff with the changed-file sidebar](https://raw.githubusercontent.com/plannotator/diffs-rs/main/assets/screenshot.webp)
 
 ## Install

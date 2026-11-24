@@ -126,7 +126,7 @@ impl Engine {
         let y = row - area.y + 1;
         if let Some((position, _)) = app.visible.iter().find(|(_, at)| *at == y) {
             let old = if app.split() {
-                column - area.x < app.width / 2
+                super::split::old_at(app.width, app.split_ratio, column - area.x)
             } else {
                 unified_old(app, position.row)
             };
@@ -137,7 +137,8 @@ impl Engine {
         // The top row holds the sticky heading of the file the first row drawn is in.
         let (first, at) = app.visible.first()?;
         if y == 1 && *at == 2 {
-            let old = app.split() && column - area.x < app.width / 2;
+            let old =
+                app.split() && super::split::old_at(app.width, app.split_ratio, column - area.x);
             return describe(self.id, app, *first, RowShown::Sticky, old)
                 .ok()
                 .flatten();

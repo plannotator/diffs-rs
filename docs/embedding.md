@@ -91,6 +91,39 @@ A host whose other screens use the terminal's own colors can call `engine.set_te
 It is off by default. It can be set before the first file arrives, stays set across `replace()`, and follows the `t` theme toggle.
 It is a method rather than an `Options` field so that adding it does not break hosts that build `Options` without `..Options::default()`.
 
+### Layout and the line between the sides
+
+`Options::layout` picks the layout the review opens with, and `set_layout(layout)` changes it later:
+`Split`, `Unified`, or `Auto`, which splits a pane 120 columns wide or wider.
+It keeps the source line under the cursor on its screen row, as `Command::ToggleLayout` does, and `options().layout` reports it.
+
+A split row shares its width between the old side, left of a one-cell line, and the new side.
+`set_split_ratio(SplitRatio::from_permille(old))` gives the old side `old` thousandths of the width beside the line, from `SplitRatio::MIN` (100) to `SplitRatio::MAX` (900); the new side takes the rest.
+The default, `SplitRatio::EVEN`, draws exactly as before, so a host that never calls it sees no change.
+
+- Each side keeps at least `SplitRatio::MIN_SIDE_WIDTH` (20) cells, its gutter included. A pane too narrow for two such sides is split evenly.
+- `split_ratio()` returns the ratio as it was set. A narrow pane draws the line nearer the middle without changing it, and draws the ratio again when it widens.
+- The source line under the cursor keeps its screen row. Wrapped rows are measured again at the new widths, and horizontal scrolling reaches the end of the widest line on either side.
+- Clicks and `row_at` take the side the line divides: a cell left of the line is old, right of it new, and the line itself counts toward the narrower side, or toward the new side when both are as wide.
+- It can be set before the first file arrives or while the diff is unified, and stays set across `replace()`.
+
+To let the person drag the line, find it with `split_line()`: its screen column in the last frame, or `None` before the first draw, while unified, and while the pane is too small.
+It is drawn on rows of code; headings, hunk headings and gaps run across it.
+While the pointer moves, set `split_ratio_at(column)`, the ratio that draws the line at that column, or as near as the limits allow.
+A ratio is kept in thousandths, so on a row wider than about a thousand cells some columns cannot hold the line; the ratio then draws it at the nearest column that can.
+It answers from the last frame's pane, so a burst of drag events before the next frame ends where the last event points.
+
+```rust,ignore
+// A press on the line starts a drag; each drag event moves it.
+if engine.split_line() == Some(mouse.column) {
+    dragging = true;
+} else if dragging {
+    if let Some(ratio) = engine.split_ratio_at(mouse.column) {
+        engine.set_split_ratio(ratio)?;
+    }
+}
+```
+
 ## Commands and selection
 
 `handle_event(event, focused)` applies the viewer's default bindings.

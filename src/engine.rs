@@ -5,6 +5,7 @@ pub(crate) mod markers;
 mod reading;
 mod rows;
 mod selection;
+mod settings;
 pub(crate) mod split;
 
 use std::{
@@ -35,6 +36,7 @@ use crate::{
 pub use file_marks::{Badge, BadgeColor, FileMark};
 pub use markers::Marker;
 pub use rows::{DiffRow, DiffRowKind};
+pub use settings::{InlineChanges, TabWidth, Whitespace};
 pub use split::SplitRatio;
 
 pub enum Input {
@@ -83,6 +85,8 @@ pub enum Side {
 }
 
 /// Original one-based source lines of the selected record, never display-row or byte offsets.
+/// While whitespace is hidden, a pair of lines drawn as unchanged reports both numbers in
+/// either layout, as a context line does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceLocation {
     pub review: ReviewId,
@@ -135,6 +139,10 @@ pub struct Engine {
     terminal_background: bool,
     /// How a split row is shared between the sides. Kept across `replace()`.
     split_ratio: SplitRatio,
+    /// The display settings of `settings.rs`, each kept across `replace()`.
+    tab_width: TabWidth,
+    inline_changes: InlineChanges,
+    whitespace: Whitespace,
 }
 
 impl Engine {
@@ -181,6 +189,9 @@ impl Engine {
             file_marks: file_marks::FileMarks::default(),
             terminal_background: false,
             split_ratio: SplitRatio::EVEN,
+            tab_width: TabWidth::DEFAULT,
+            inline_changes: InlineChanges::Word,
+            whitespace: Whitespace::Show,
         })
     }
 
@@ -325,12 +336,26 @@ impl Engine {
             return Ok(None);
         };
         let info = app.line_info(id)?;
+        // A pair of lines that differ only in whitespace is drawn as unchanged: in either
+        // layout it reports both numbers, as a context line does.
+        let (old_line, new_line) = match (id, row.kind) {
+            (
+                crate::view::LineId::Patch(n),
+                RowKind::Code {
+                    left: Some(left),
+                    right: Some(right),
+                },
+            ) if left != right && app.doc.file_for_source(n).whitespace_only(n) => {
+                (app.line_info(left)?.old, app.line_info(right)?.new)
+            }
+            _ => (info.old, info.new),
+        };
         Ok(Some(SourceLocation {
             review: self.id,
             file: row.file,
             side: if old { Side::Old } else { Side::New },
-            old_line: info.old,
-            new_line: info.new,
+            old_line,
+            new_line,
         }))
     }
 
@@ -348,6 +373,9 @@ impl Engine {
             app.numbers = self.options.line_numbers;
             app.chrome = self.options.chrome;
             app.split_ratio = self.split_ratio;
+            app.set_tab_width(self.tab_width)?;
+            app.set_inline_changes(self.inline_changes);
+            app.set_whitespace(self.whitespace)?;
             app.markers = std::mem::take(&mut self.markers);
             app.set_file_marks(std::mem::take(&mut self.file_marks));
             if self.terminal_background {
@@ -384,7 +412,7 @@ impl Engine {
                             .visible
                             .last()
                             .is_none_or(|(p, _)| p.row + 1 >= app.row_len());
-                        app.doc.append(file)?;
+                        app.append_file(file)?;
                         if let Some(sources) = &mut app.sources {
                             sources.push(SourceState::Pending);
                         }
@@ -628,10 +656,15 @@ impl Engine {
         let options = self.options();
         let terminal_background = self.terminal_background;
         let split_ratio = self.split_ratio;
+        let (tab_width, inline_changes, whitespace) =
+            (self.tab_width, self.inline_changes, self.whitespace);
         self.close()?;
         *self = Self::open(input, options, self.wake.clone())?;
         self.terminal_background = terminal_background;
         self.split_ratio = split_ratio;
+        self.tab_width = tab_width;
+        self.inline_changes = inline_changes;
+        self.whitespace = whitespace;
         Ok(())
     }
 

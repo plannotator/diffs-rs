@@ -8,14 +8,16 @@ pub(crate) fn copy_index(file: &mut FileIndex) -> (StoreWriter, tempfile::TempPa
         })
         .collect();
     let (mut writer, path) = StoreWriter::named_sharing(&file.spool).unwrap();
-    file.source = SourceSpans::new(
-        &mut writer,
-        0,
-        records.iter().copied(),
-        file.spool.len(),
-        &|| Ok(()),
-    )
-    .unwrap();
+    file.source = Arc::new(
+        SourceSpans::new(
+            &mut writer,
+            0,
+            records.iter().copied(),
+            file.spool.len(),
+            &|| Ok(()),
+        )
+        .unwrap(),
+    );
     (writer, path)
 }
 
@@ -89,14 +91,16 @@ fn canonical_export_rejects_reordered_spans() {
         .collect();
     records.swap(1, 2);
     let mut index = StoreWriter::sharing(&file.spool).unwrap();
-    file.source = SourceSpans::new(
-        &mut index,
-        0,
-        records.iter().copied(),
-        file.spool.len(),
-        &|| Ok(()),
-    )
-    .unwrap();
+    file.source = Arc::new(
+        SourceSpans::new(
+            &mut index,
+            0,
+            records.iter().copied(),
+            file.spool.len(),
+            &|| Ok(()),
+        )
+        .unwrap(),
+    );
     let error = file.write_canonical(&mut Vec::new()).unwrap_err();
     assert!(error.to_string().contains("overlap or are out of order"));
 }

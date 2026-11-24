@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 
 mod controls;
 pub use controls::{Command, InputEffect};
+mod settings;
 mod sidebar;
 mod source;
 pub use sidebar::SidebarPreference;
@@ -75,6 +76,15 @@ pub struct App {
     /// The theme's text color, which plain syntax tokens carry; drawn as the terminal's own
     /// foreground when `terminal_background` is on.
     pub(crate) plain: ratatui::style::Color,
+    /// How changed text inside a replaced line is emphasized.
+    pub(crate) inline_changes: crate::engine::InlineChanges,
+    /// Whether whitespace-only changes are hidden.
+    pub(crate) whitespace: crate::engine::Whitespace,
+    /// The files as the patch has them while `doc` hides whitespace, so the setting can be
+    /// turned off again and later files checked against the input's order.
+    patch: Option<Document>,
+    /// Reads removed and added lines of arriving files while whitespace is hidden.
+    scan: crate::storage::PatchScan,
     reading_anchor: Option<ReadingAnchor>,
 }
 
@@ -107,6 +117,10 @@ impl App {
             terminal_background: false,
             split_ratio: crate::engine::SplitRatio::EVEN,
             plain,
+            inline_changes: crate::engine::InlineChanges::Word,
+            whitespace: crate::engine::Whitespace::Show,
+            patch: None,
+            scan: crate::storage::PatchScan::default(),
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
@@ -146,7 +160,10 @@ impl App {
         let RowKind::Code { left, right } = kind else {
             return None;
         };
-        if self.old_side {
+        if !self.split() {
+            // The line the row draws, as `render::drawn_lines` measures it.
+            right.or(left)
+        } else if self.old_side {
             left.or(right)
         } else {
             right.or(left)
@@ -157,7 +174,46 @@ impl App {
         self.visible
             .iter()
             .find(|(p, _)| *p == self.cursor)
-            .map_or(self.cursor_screen_row + 2, |(_, y)| *y as usize)
+            .map(|(_, y)| usize::from(*y))
+            .or_else(|| {
+                self.laid_out_row(self.cursor)
+                    .ok()
+                    .flatten()
+                    .map(usize::from)
+            })
+            .unwrap_or(self.cursor_screen_row + 2)
+    }
+
+    /// The one-based screen row the next frame draws `position` on, counted as
+    /// `render::draw_diff` lays rows out from the top: under the sticky heading when the top
+    /// row is not a heading. `None` when it is off screen or the pane is too small to draw.
+    ///
+    /// Unlike `visible`, the rows of the last frame, it is right between frames: after the
+    /// top moved, and after the list was cleared, however many moves came since the last draw.
+    fn laid_out_row(&self, position: Position) -> Result<Option<u16>> {
+        if position < self.top || self.width < 40 || self.height < 10 {
+            return Ok(None);
+        }
+        let sticky = self
+            .row(self.top.row)
+            .is_some_and(|row| row.kind != RowKind::Header);
+        let first = 1 + u16::from(sticky);
+        let rows = self.height.saturating_sub(2 + u16::from(sticky));
+        let mut p = self.top;
+        for n in 0..rows {
+            if p == position {
+                return Ok(Some(first + n));
+            }
+            if p > position || self.row(p.row).is_none() {
+                return Ok(None);
+            }
+            let next = self.next(p)?;
+            if next == p {
+                return Ok(None);
+            }
+            p = next;
+        }
+        Ok(None)
     }
 
     fn remember_position(&mut self, clicked_column: Option<u16>) -> Result<()> {
@@ -190,10 +246,23 @@ impl App {
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
+        self.reflow_from(layout, width, height, None)
+    }
+
+    /// `reflow`, keeping the cursor on `screen_row` when it has no anchor that says where it
+    /// was, because the rows were just rebuilt.
+    fn reflow_from(
+        &mut self,
+        layout: Layout,
+        width: u16,
+        height: u16,
+        screen_row: Option<usize>,
+    ) -> Result<()> {
         self.remember_position(None)?;
         let anchor = self.reading_anchor;
         let screen_row = anchor
             .and_then(|anchor| anchor.screen_row)
+            .or(screen_row)
             .unwrap_or_else(|| self.screen_row());
         let file = self.row(self.cursor.row).map(|r| r.file);
         let old_split = self.split();
@@ -204,10 +273,7 @@ impl App {
         self.width = width;
         self.height = height;
         if let Some(anchor) = anchor {
-            self.cursor.row = self
-                .view
-                .source_row(&self.doc, anchor.source, self.split())
-                .unwrap_or(self.cursor.row);
+            self.cursor.row = self.shown_row(anchor.source).unwrap_or(self.cursor.row);
             self.old_side = anchor.old_side;
             (self.cursor.part, self.horizontal) = render::anchored_position(
                 self,
@@ -330,7 +396,7 @@ impl App {
         let mut top = self.top;
         if cursor < top {
             top = cursor;
-        } else if !self.visible.iter().any(|(position, _)| *position == cursor) {
+        } else if self.laid_out_row(cursor)?.is_none() {
             top = cursor;
             for _ in 0..self.height.saturating_sub(4) {
                 top = self.previous(top)?;
@@ -353,6 +419,8 @@ impl App {
             old_side,
             screen_row: None,
         });
+        // Whether a later reveal moves the view is worked out from the top, not from this
+        // list, so clearing it here never makes the next reveal scroll.
         self.visible.clear();
         Ok(())
     }
@@ -437,7 +505,7 @@ impl App {
     pub fn reveal(&mut self) -> Result<()> {
         if self.cursor < self.top {
             self.top = self.cursor;
-        } else if !self.visible.iter().any(|(p, _)| *p == self.cursor) {
+        } else if self.laid_out_row(self.cursor)?.is_none() {
             self.top = self.cursor;
             for _ in 0..self.height.saturating_sub(4) {
                 self.top = self.previous(self.top)?;
@@ -453,10 +521,7 @@ impl App {
         let patch = if end { last } else { 0 };
         let file = self.doc.file_for_source(patch).id;
         let mut id = LineId::Patch(patch);
-        let mut row = self
-            .view
-            .source_row(&self.doc, id, self.split())
-            .context("Patch endpoint is missing")?;
+        let mut row = self.shown_row(id).context("Patch endpoint is missing")?;
         let mut index = if end {
             if file + 1 < self.doc.files.len() {
                 self.view.file_row(&self.doc, file + 1, self.split()) - 1

@@ -203,6 +203,9 @@ impl FileView {
     }
 }
 
+/// The rows of every file with revealed context, built over another document.
+pub(crate) struct RebuiltRows(Vec<(usize, [Rows; 2])>);
+
 #[derive(Default)]
 pub(crate) struct View {
     files: BTreeMap<usize, FileView>,
@@ -300,7 +303,12 @@ impl View {
 
     pub(crate) fn source_row(&self, doc: &Document, id: LineId, split: bool) -> Option<usize> {
         match id {
-            LineId::Patch(id) => Some(self.patch_row(doc, doc.row_for_source(id, split), split)),
+            LineId::Patch(id) => {
+                let file = doc.file_for_source(id);
+                // A line of a hunk hidden for whitespace has no row of its own.
+                (!file.hidden(id))
+                    .then(|| self.patch_row(doc, file.row_for_source(id, split), split))
+            }
             LineId::Context { file, old, new } => {
                 let (old, new) = (old.get(), new.get());
                 let view = self.files.get(&file)?;
@@ -475,6 +483,39 @@ impl View {
         self.install(doc, file, view)?;
         self.source_revision.invalidate();
         Ok(())
+    }
+
+    /// Every file's rows built again over `doc`, whose files have new rows, keeping what each
+    /// gap reveals. Nothing changes until they are given to [`View::replace_rows`].
+    pub(crate) fn rebuilt(&self, doc: &Document) -> Result<RebuiltRows> {
+        let rows = self
+            .files
+            .iter()
+            .map(|(&file, view)| Ok((file, view.build(&doc.files[file])?)))
+            .collect::<Result<_>>()?;
+        Ok(RebuiltRows(rows))
+    }
+
+    /// Shows `rows`, built by [`View::rebuilt`] over `doc`, and returns the rows they replace,
+    /// which show the document before it again.
+    pub(crate) fn replace_rows(&mut self, doc: &Document, rows: RebuiltRows) -> RebuiltRows {
+        let mut old = Vec::with_capacity(rows.0.len());
+        for (file, rows) in rows.0 {
+            if let Some(view) = self.files.get_mut(&file) {
+                old.push((file, std::mem::replace(&mut view.rows, rows)));
+            }
+        }
+        let mut total = [0usize; 2];
+        for (file, extra) in self.extra.iter_mut().enumerate() {
+            if let Some(view) = self.files.get(&file) {
+                for (layout, total) in total.iter_mut().enumerate() {
+                    *total += view.rows[layout].len - doc.files[file].rows(layout == 1).len();
+                }
+            }
+            *extra = total;
+        }
+        self.source_revision.invalidate();
+        RebuiltRows(old)
     }
 
     fn install(&mut self, doc: &Document, file: usize, view: Option<FileView>) -> Result<()> {

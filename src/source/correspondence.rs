@@ -27,6 +27,17 @@ impl CheckedPair {
     pub fn file(&self) -> &Arc<FileIndex> {
         &self.file
     }
+
+    /// The same checked sources for `file`, the same patch file with other rows.
+    pub(crate) fn with_file(&self, file: Arc<FileIndex>) -> Self {
+        Self {
+            identity: self.identity,
+            file,
+            old: self.old.clone(),
+            new: self.new.clone(),
+            gaps: self.gaps.clone(),
+        }
+    }
     pub fn old(&self) -> Option<&Arc<Snapshot>> {
         self.old.as_ref()
     }

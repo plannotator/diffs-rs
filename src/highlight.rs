@@ -60,6 +60,7 @@ mod input;
 pub use input::{FileSource, Origin};
 
 mod inline;
+pub(crate) use inline::changed_spans_by;
 pub use inline::{ChangeSide, changed_spans};
 
 #[cfg(feature = "owner-census")]
@@ -280,6 +281,8 @@ pub struct Worker {
 #[derive(Default)]
 struct Pending {
     request: Option<Request<LineId>>,
+    /// How replies to the next request emphasize changed text.
+    inline: crate::engine::InlineChanges,
     #[cfg(feature = "owner-census")]
     census: Option<crate::owner_census::Request>,
     generation: u64,
@@ -306,6 +309,12 @@ impl Worker {
         pending.census = Some(request);
         self.requests.ready.notify_one();
         Ok(())
+    }
+
+    /// Emphasizes changed text by `mode` in replies to requests from now on. Bump the epoch
+    /// with it so that replies computed the other way are discarded.
+    pub(crate) fn set_inline_changes(&self, mode: crate::engine::InlineChanges) {
+        self.requests.lock().inline = mode;
     }
 
     pub fn try_reply(&self) -> Result<anyhow::Result<Reply>, mpsc::TryRecvError> {
@@ -387,14 +396,14 @@ impl Mailbox {
         &self,
         #[cfg(feature = "owner-census")] syntaxes: &syntect::parsing::SyntaxSet,
         #[cfg(feature = "owner-census")] inspect: impl Fn() -> serde_json::Value,
-    ) -> Option<(u64, Request<LineId>)> {
+    ) -> Option<(u64, Request<LineId>, crate::engine::InlineChanges)> {
         let mut pending = self.lock();
         loop {
             if pending.closed {
                 return None;
             }
             if let Some(request) = pending.request.take() {
-                return Some((pending.generation, request));
+                return Some((pending.generation, request, pending.inline));
             }
             #[cfg(feature = "owner-census")]
             if let Some(census) = pending.census.take() {
@@ -470,7 +479,7 @@ pub fn start(wake: mpsc::SyncSender<()>) -> Worker {
         let mut continuation: Option<Continuation> = None;
         let mut full = full_source::Replay::default();
         let mut checkpoints = Checkpoints::new();
-        'requests: while let Some((generation, request)) = input.take(
+        'requests: while let Some((generation, request, inline)) = input.take(
             #[cfg(feature = "owner-census")]
             &syntaxes,
             #[cfg(feature = "owner-census")]
@@ -515,6 +524,7 @@ pub fn start(wake: mpsc::SyncSender<()>) -> Worker {
                         output: &output,
                         generation,
                         request: &request,
+                        inline,
                         source,
                         wanted: &selected,
                         syntaxes: &syntaxes,
@@ -739,9 +749,9 @@ pub fn start(wake: mpsc::SyncSender<()>) -> Worker {
                                 let comparison_start = Instant::now();
                                 let text = text.trim_end_matches('\n');
                                 style.changed = if source.kind == Kind::Deletion {
-                                    changed_spans(text, &other, ChangeSide::Old)
+                                    changed_spans_by(text, &other, ChangeSide::Old, inline)
                                 } else {
-                                    changed_spans(&other, text, ChangeSide::New)
+                                    changed_spans_by(&other, text, ChangeSide::New, inline)
                                 };
                                 #[cfg(feature = "delivery-trace")]
                                 work.summary.word_comparison.record(comparison_start);

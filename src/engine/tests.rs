@@ -7,11 +7,13 @@ use crate::{
 };
 
 mod domain;
+mod reveal;
 mod rows;
 mod search;
 mod search_delivery;
 mod search_semantics;
 mod selection;
+mod settings;
 mod split_ratio;
 
 fn checked_review(prefix: &[u8]) -> (Engine, tempfile::TempDir, Vec<Arc<CheckedPair>>) {

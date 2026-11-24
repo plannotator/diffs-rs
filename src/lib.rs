@@ -71,6 +71,7 @@ pub mod theme;
 mod tree;
 pub mod view;
 mod wake;
+mod whitespace;
 
 #[cfg(feature = "regex-census")]
 mod regex_census;

@@ -24,6 +24,7 @@ enum CompactKind {
     Metadata,
     Context(u32),
     Replacement(u32),
+    Paired(u32),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -50,6 +51,7 @@ impl TryFrom<Block> for CompactBlock {
                     CompactKind::Context(u32::try_from(source_start)?)
                 }
                 BlockKind::Replacement(r) => CompactKind::Replacement(u32::try_from(r)?),
+                BlockKind::Paired(r) => CompactKind::Paired(u32::try_from(r)?),
             },
         })
     }
@@ -68,6 +70,7 @@ impl From<CompactBlock> for Block {
                     source_start: n as usize,
                 },
                 CompactKind::Replacement(r) => BlockKind::Replacement(r as usize),
+                CompactKind::Paired(r) => BlockKind::Paired(r as usize),
             },
         }
     }

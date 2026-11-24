@@ -124,8 +124,7 @@ impl App {
 
     pub fn set_source(&mut self, file: usize, state: SourceState) -> Result<()> {
         let entry = self
-            .doc
-            .files
+            .patch_files()
             .get(file)
             .context("Source reply is outside the current review")?;
         if let SourceState::Checked(pair) = &state {
@@ -134,6 +133,8 @@ impl App {
                 "Source reply belongs to a different patch entry"
             );
         }
+        // While whitespace is hidden the file is shown with other rows.
+        let state = self.shown_source(file, state);
         ensure!(
             self.sources
                 .as_ref()

@@ -153,6 +153,9 @@ impl SourceOrder {
             row
         };
         match self.file.rows(self.split).get(patch_row)?.kind {
+            // A unified row shows its added line when it has one: a pair of lines that differ
+            // only in whitespace shows the new one. Every other unified row has one line.
+            RowKind::Code { left, right } if !self.split => right.or(left).map(LineId::Patch),
             RowKind::Code { left, right } => left.or(right).map(LineId::Patch),
             _ => None,
         }

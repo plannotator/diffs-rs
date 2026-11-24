@@ -3,6 +3,33 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+- `Engine::set_tab_width` draws tabs from 1 to 16 cells wide, everywhere code is measured or
+  drawn: wrapping, horizontal scrolling, clicks, `Engine::row_at`, changed-word emphasis and
+  search matches, on both split sides. `TabWidth::DEFAULT` (4) draws as before.
+- `Engine::set_inline_changes` chooses how changed text inside a replaced line is emphasized,
+  with the names of Pierre's `lineDiffType`: `InlineChanges::Word` (the default, as before),
+  `WordAlt`, `Char` and `None`.
+- `Engine::set_whitespace` hides whitespace-only changes as `git diff -b`
+  (`Whitespace::IgnoreChange`) or `git diff -w` (`Whitespace::IgnoreAll`). Within each block
+  of changes, removed and added lines that match apart from whitespace are drawn as unchanged
+  lines, and a hunk with no other change shows only its heading, marked "whitespace only".
+  Unpaired lines, hunk boundaries, files and counts stay as the patch has them; see
+  `Whitespace` for the limits. `Whitespace::Show`, the default, draws as before.
+- `Engine::hunk_is_whitespace_only` and `DiffRow::whitespace_only` give the engine's own
+  verdict on what the whitespace setting hides, a hunk drawn as its heading alone or a row
+  drawn as one unchanged line, so a host need not repeat the rule.
+- Each setting has a getter, can be set before the first file arrives and stays set across
+  `Engine::replace`. `InlineChanges` and `Whitespace` are `#[non_exhaustive]`.
+
+### Fixed
+
+- `Engine::reveal`, `Engine::select_range` and search jumps never move the view to show a
+  line that is already on screen, however many of them come before the next frame. A second
+  reveal before a draw used to think every line was off screen and scroll, so revealing both
+  ends of a selected range moved the range to the bottom of the pane.
+
 ## 0.2.3 - 2026-11-23
 
 - `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new

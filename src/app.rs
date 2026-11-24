@@ -171,7 +171,46 @@ impl App {
         self.visible
             .iter()
             .find(|(p, _)| *p == self.cursor)
-            .map_or(self.cursor_screen_row + 2, |(_, y)| *y as usize)
+            .map(|(_, y)| usize::from(*y))
+            .or_else(|| {
+                self.laid_out_row(self.cursor)
+                    .ok()
+                    .flatten()
+                    .map(usize::from)
+            })
+            .unwrap_or(self.cursor_screen_row + 2)
+    }
+
+    /// The one-based screen row the next frame draws `position` on, counted as
+    /// `render::draw_diff` lays rows out from the top: under the sticky heading when the top
+    /// row is not a heading. `None` when it is off screen or the pane is too small to draw.
+    ///
+    /// Unlike `visible`, the rows of the last frame, it is right between frames: after the
+    /// top moved, and after the list was cleared, however many moves came since the last draw.
+    fn laid_out_row(&self, position: Position) -> Result<Option<u16>> {
+        if position < self.top || self.width < 40 || self.height < 10 {
+            return Ok(None);
+        }
+        let sticky = self
+            .row(self.top.row)
+            .is_some_and(|row| row.kind != RowKind::Header);
+        let first = 1 + u16::from(sticky);
+        let rows = self.height.saturating_sub(2 + u16::from(sticky));
+        let mut p = self.top;
+        for n in 0..rows {
+            if p == position {
+                return Ok(Some(first + n));
+            }
+            if p > position || self.row(p.row).is_none() {
+                return Ok(None);
+            }
+            let next = self.next(p)?;
+            if next == p {
+                return Ok(None);
+            }
+            p = next;
+        }
+        Ok(None)
     }
 
     fn remember_position(&mut self, clicked_column: Option<u16>) -> Result<()> {
@@ -354,7 +393,7 @@ impl App {
         let mut top = self.top;
         if cursor < top {
             top = cursor;
-        } else if !self.visible.iter().any(|(position, _)| *position == cursor) {
+        } else if self.laid_out_row(cursor)?.is_none() {
             top = cursor;
             for _ in 0..self.height.saturating_sub(4) {
                 top = self.previous(top)?;
@@ -377,6 +416,8 @@ impl App {
             old_side,
             screen_row: None,
         });
+        // Whether a later reveal moves the view is worked out from the top, not from this
+        // list, so clearing it here never makes the next reveal scroll.
         self.visible.clear();
         Ok(())
     }
@@ -461,7 +502,7 @@ impl App {
     pub fn reveal(&mut self) -> Result<()> {
         if self.cursor < self.top {
             self.top = self.cursor;
-        } else if !self.visible.iter().any(|(p, _)| *p == self.cursor) {
+        } else if self.laid_out_row(self.cursor)?.is_none() {
             self.top = self.cursor;
             for _ in 0..self.height.saturating_sub(4) {
                 self.top = self.previous(self.top)?;

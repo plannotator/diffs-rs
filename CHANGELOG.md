@@ -20,6 +20,13 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 - Each setting has a getter, can be set before the first file arrives and stays set across
   `Engine::replace`. `InlineChanges` and `Whitespace` are `#[non_exhaustive]`.
 
+### Fixed
+
+- `Engine::reveal`, `Engine::select_range` and search jumps never move the view to show a
+  line that is already on screen, however many of them come before the next frame. A second
+  reveal before a draw used to think every line was off screen and scroll, so revealing both
+  ends of a selected range moved the range to the bottom of the pane.
+
 ## 0.2.3 - 2026-11-23
 
 - `Engine::set_split_ratio` shares a split row's width unevenly between the old and the new

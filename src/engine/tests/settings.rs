@@ -988,6 +988,11 @@ fn hidden_whitespace_keeps_revealed_context_of_checked_sources() {
         // The whole review, from its first line, on a screen tall enough for all of it.
         let shown = |review: &mut Review| -> Vec<String> {
             review.engine.execute(Command::FirstSource).unwrap();
+            for _ in 0..50 {
+                if review.engine.execute(Command::Up).unwrap() == InputEffect::Ignored {
+                    break;
+                }
+            }
             screen(&review.settle((121, 200)))
         };
         let before = shown(&mut review);

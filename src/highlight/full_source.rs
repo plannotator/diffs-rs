@@ -53,6 +53,7 @@ pub(super) struct Job<'a, 'theme> {
     pub(super) output: &'a mpsc::SyncSender<Result<Reply>>,
     pub(super) generation: u64,
     pub(super) request: &'a Request<LineId>,
+    pub(super) inline: crate::engine::InlineChanges,
     pub(super) source: &'a FileSource,
     pub(super) wanted: &'a [LineId],
     pub(super) syntaxes: &'a SyntaxSet,
@@ -163,7 +164,7 @@ impl Replay {
                     LineStyle {
                         changed: id
                             .patch()
-                            .map(|id| emphasis(file, id))
+                            .map(|id| emphasis(file, id, job.inline))
                             .transpose()?
                             .unwrap_or_default(),
                         ..LineStyle::default()
@@ -248,7 +249,7 @@ impl Replay {
             }
             style.changed = id
                 .patch()
-                .map(|id| emphasis(file, id))
+                .map(|id| emphasis(file, id, job.inline))
                 .transpose()?
                 .unwrap_or_default();
             job.publish(id, style, None)?;
@@ -525,7 +526,11 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn emphasis(file: &FileIndex, id: usize) -> Result<Vec<Range<usize>>> {
+fn emphasis(
+    file: &FileIndex,
+    id: usize,
+    inline: crate::engine::InlineChanges,
+) -> Result<Vec<Range<usize>>> {
     let Some(partner) = file.partner(id) else {
         return Ok(Vec::new());
     };
@@ -539,8 +544,8 @@ fn emphasis(file: &FileIndex, id: usize) -> Result<Vec<Range<usize>>> {
         return Ok(Vec::new());
     }
     Ok(if file.info(id).kind == Kind::Deletion {
-        changed_spans(&text, &other, ChangeSide::Old)
+        changed_spans_by(&text, &other, ChangeSide::Old, inline)
     } else {
-        changed_spans(&other, &text, ChangeSide::New)
+        changed_spans_by(&other, &text, ChangeSide::New, inline)
     })
 }

@@ -35,7 +35,8 @@ pub struct DiffRow {
     pub part: usize,
     /// The original one-based lines the row shows. A split row takes its old line from the
     /// left cell and its new line from the right one; either can be empty. Unified, a context
-    /// line has both, an added line only `new_line`, a deleted line only `old_line`.
+    /// line has both, an added line only `new_line`, a deleted line only `old_line`. A pair
+    /// of lines drawn as unchanged because whitespace is hidden has both, like context.
     pub old_line: Option<u32>,
     pub new_line: Option<u32>,
     /// The side of the row.
@@ -191,8 +192,14 @@ fn describe(
             if app.split() {
                 (DiffRowKind::Code, line(left, true)?, line(right, false)?)
             } else {
+                // The old number is the left line's: a removed line paired with this added
+                // one when whitespace is hidden, and otherwise the line itself.
                 let id = right.or(left);
-                (DiffRowKind::Code, line(id, true)?, line(id, false)?)
+                (
+                    DiffRowKind::Code,
+                    line(left.or(id), true)?,
+                    line(id, false)?,
+                )
             }
         }
     };

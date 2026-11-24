@@ -15,6 +15,20 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   `SplitRatio::from_permille` or its constants.
 - `Engine::set_layout` changes the layout after opening, `Layout::Auto` included, keeping the
   cursor's line on its screen row as the layout toggle does.
+- `Engine::set_tab_width` draws tabs from 1 to 16 cells wide, everywhere code is measured or
+  drawn: wrapping, horizontal scrolling, clicks, `Engine::row_at`, changed-word emphasis and
+  search matches, on both split sides. `TabWidth::DEFAULT` (4) draws as before.
+- `Engine::set_inline_changes` chooses how changed text inside a replaced line is emphasized,
+  with the names of Pierre's `lineDiffType`: `InlineChanges::Word` (the default, as before),
+  `WordAlt`, `Char` and `None`.
+- `Engine::set_whitespace` hides whitespace-only changes as `git diff -b`
+  (`Whitespace::IgnoreChange`) or `git diff -w` (`Whitespace::IgnoreAll`). Within each block
+  of changes, removed and added lines that match apart from whitespace are drawn as unchanged
+  lines, and a hunk with no other change shows only its heading, marked "whitespace only".
+  Unpaired lines, hunk boundaries, files and counts stay as the patch has them; see
+  `Whitespace` for the limits. `Whitespace::Show`, the default, draws as before.
+- Each setting has a getter, can be set before the first file arrives and stays set across
+  `Engine::replace`. `InlineChanges` and `Whitespace` are `#[non_exhaustive]`.
 
 ## 0.2.2 - 2026-11-23
 

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::model;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct HunkMetadata {
     pub header: Box<str>,
     pub old_start: u32,
@@ -29,7 +29,7 @@ impl From<model::Hunk> for HunkMetadata {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FileMetadata {
     #[serde(skip)]
     pub raw_path: Box<[u8]>,

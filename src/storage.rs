@@ -59,8 +59,8 @@ pub struct FileIndex {
     pub unified_base: usize,
     pub meta: FileMetadata,
     pub spool: Arc<ByteStore>,
-    source: SourceSpans,
-    projection: Projection,
+    source: Arc<SourceSpans>,
+    projection: Arc<Projection>,
 }
 
 impl Deref for FileIndex {
@@ -153,6 +153,9 @@ impl FileIndex {
             })
     }
     pub fn partner(&self, id: usize) -> Option<usize> {
+        if self.whitespace_only(id) {
+            return None;
+        }
         let row = self
             .rows(true)
             .get(self.row_for_source(id, true) - self.split_base)?;
@@ -169,6 +172,113 @@ impl FileIndex {
             Some(if id == left { right } else { left })
         }
     }
+    /// Whether record `id` is a removed or added line drawn as unchanged because it differs
+    /// from its partner only in whitespace.
+    pub(crate) fn whitespace_only(&self, id: usize) -> bool {
+        self.projection.whitespace_only(id - self.source_base)
+    }
+
+    /// Whether record `id` is in a hunk drawn as its heading alone, its changes all whitespace.
+    pub(crate) fn hidden(&self, id: usize) -> bool {
+        self.projection.hides(id - self.source_base)
+    }
+
+    /// Whether hunk `index` is drawn as its heading alone, its changes all whitespace.
+    pub(crate) fn hunk_hidden(&self, index: usize) -> bool {
+        self.projection.hunk_hidden(index)
+    }
+
+    /// This file as `whitespace` shows it, its rows starting at `split_base` and
+    /// `unified_base`. It reads the bytes of the file's removed and added lines through `scan`
+    /// when a block of changes has both. Without anything to hide it shares this file's rows.
+    pub(crate) fn with_whitespace(
+        self: &Arc<Self>,
+        whitespace: crate::engine::Whitespace,
+        scan: &mut PatchScan,
+        split_base: usize,
+        unified_base: usize,
+    ) -> Result<Arc<Self>> {
+        let mut projection = self.projection.clone();
+        if whitespace != crate::engine::Whitespace::Show && self.projection.has_replacements() {
+            let rebuilt = self.rebuild(whitespace, scan)?;
+            if rebuilt.altered() {
+                projection = Arc::new(rebuilt);
+            }
+        }
+        if Arc::ptr_eq(&projection, &self.projection)
+            && (split_base, unified_base) == (self.split_base, self.unified_base)
+        {
+            return Ok(self.clone());
+        }
+        Ok(Arc::new(Self {
+            id: self.id,
+            source_base: self.source_base,
+            split_base,
+            unified_base,
+            meta: self.meta.clone(),
+            spool: self.spool.clone(),
+            source: self.source.clone(),
+            projection,
+        }))
+    }
+
+    /// The rows of this file built again from its records, with `whitespace` applied. Only
+    /// removed and added lines are read.
+    fn rebuild(
+        &self,
+        whitespace: crate::engine::Whitespace,
+        scan: &mut PatchScan,
+    ) -> Result<Projection> {
+        let mut lines = Vec::with_capacity(self.source.len());
+        for id in self.source_base..self.source_end() {
+            let info = self.info(id);
+            let bytes = if info.kind == Kind::Context {
+                Vec::new()
+            } else {
+                let (offset, len) = scan.spans.get(self, id)?;
+                scan.bytes
+                    .after(&self.spool, offset, offset + len as u64, len)?
+                    .to_vec()
+            };
+            lines.push(crate::model::SourceLine {
+                kind: info.kind,
+                old: info.old,
+                new: info.new,
+                bytes,
+                no_newline: info.no_newline,
+                offset: 0,
+            });
+        }
+        let parsed = Parsed {
+            lines,
+            ..Parsed::default()
+        };
+        let meta = crate::model::FileDiff {
+            identity: crate::model::PatchIdentity::default(),
+            raw_path: Vec::new(),
+            path: String::new(),
+            old_path: String::new(),
+            status: String::new(),
+            old_mode: String::new(),
+            new_mode: String::new(),
+            additions: 0,
+            deletions: 0,
+            digits: 0,
+            hunks: self
+                .meta
+                .hunks
+                .iter()
+                .map(|hunk| crate::model::Hunk {
+                    header: String::new(),
+                    old_start: hunk.old_start,
+                    new_start: hunk.new_start,
+                    lines: hunk.lines.start - self.source_base..hunk.lines.end - self.source_base,
+                })
+                .collect(),
+        };
+        Ok(Projection::with_whitespace(&parsed, &meta, whitespace))
+    }
+
     pub fn source_index_bytes(&self) -> usize {
         self.source.bytes()
     }
@@ -539,8 +649,8 @@ pub(crate) fn read_with(
                 unified_base,
                 meta: meta.into(),
                 spool: spool.clone(),
-                source,
-                projection,
+                source: Arc::new(source),
+                projection: Arc::new(projection),
             });
             source_base = file.source_end();
             split_base = file.row_end(true);

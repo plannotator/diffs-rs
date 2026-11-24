@@ -124,6 +124,63 @@ if engine.split_line() == Some(mouse.column) {
 }
 ```
 
+### Tabs, changed text and whitespace
+
+Three settings change how the diff is drawn while the review is open.
+Each has a getter, can be set before the first file arrives, and stays set across `replace()`.
+At their defaults the engine draws exactly as before, so a host that never calls them sees no change.
+
+`set_tab_width(TabWidth::new(cells))` draws a tab up to the next multiple of `cells`, from `TabWidth::MIN` (1) to `TabWidth::MAX` (16); `TabWidth::new` keeps a value between them.
+The default is `TabWidth::DEFAULT` (4).
+It applies wherever code is measured or drawn, on both sides of a split row: wrapping, horizontal scrolling, clicks and `row_at`, changed-word emphasis and search matches.
+The source line under the cursor keeps its screen row, as when wrapping is toggled.
+
+`set_inline_changes(mode)` chooses how the changed text inside a replaced line is emphasized.
+The names follow `lineDiffType` in Pierre's `@pierre/diffs`:
+
+- `InlineChanges::Word`, the default: changed words, numbers and punctuation.
+- `InlineChanges::WordAlt`: as `Word`, and two changes with only one unchanged character between them, such as the space in `old value` → `new thing`, are emphasized as one. This is Pierre's default.
+- `InlineChanges::Char`: changed characters, one grapheme at a time. A pair in which either line has more than 1,000 characters is compared by word.
+- `InlineChanges::None`: no emphasis; the line backgrounds still mark the change.
+
+Nothing moves. The emphasis of the visible lines is computed again on the worker thread, as after a theme change.
+
+`set_whitespace(whitespace)` hides changes that only touch whitespace:
+
+- `Whitespace::Show`, the default: every change, as the patch has it.
+- `Whitespace::IgnoreChange`, as `git diff -b`: a change in the amount of whitespace, and whitespace at the end of a line, are hidden. Whitespace added where there was none, as in `a+b` → `a + b`, still shows.
+- `Whitespace::IgnoreAll`, as `git diff -w` and GitHub's "Hide whitespace": lines that are equal once all whitespace is removed match.
+
+The engine reads the patch, not the two files.
+In each block of removed and added lines it pairs a removed line with an added line that matches, keeping the order of both sides and pairing as many lines as it can.
+A pair is drawn as an unchanged line, with both line numbers and no sign, background or emphasis; unified, it shows the new text, as Git does.
+A hunk whose every change is such a pair shows only its heading, followed by `· whitespace only`.
+
+What it does not do, compared with running `git diff -w` on the files:
+
+- A removed or added line with no partner in its block, blank lines included, stays a change.
+- Lines are paired only inside one block of changes. A line moved across unchanged lines, or into another hunk, still shows as removed and added.
+- A hunk with a real change keeps all of its lines and its context; Git would recount the context around what is left.
+- Files stay as the patch has them: a file whose only changes are whitespace keeps its heading, and the added and removed counts do not change.
+- The lines of a hidden hunk are not displayed, so `reveal`, `select_range` and search do not reach them.
+- Search reads the review in unified order, so it finds a pair by its new text only.
+
+The cursor keeps its source line on its screen row.
+When the line no longer has a row of its own, the cursor goes to the row that shows it: the unchanged row of its pair, or the heading of its hidden hunk.
+A selection is kept by its line numbers, and an open selection keeps extending.
+`cursor_row`, `row_at` and `selected_source` report a pair like a context line, with both numbers.
+A `SearchRead` taken before the change is out of date and its `find` fails; search again.
+
+Hiding reads the removed and added lines of the files that have arrived once, on the calling thread, and each later file as it arrives.
+Files with no removed line next to an added line cost nothing.
+
+```rust,ignore
+engine.set_tab_width(TabWidth::new(8))?;
+engine.set_inline_changes(InlineChanges::WordAlt)?;
+engine.set_whitespace(Whitespace::IgnoreAll)?;
+assert_eq!(engine.whitespace(), Whitespace::IgnoreAll);
+```
+
 ## Commands and selection
 
 `handle_event(event, focused)` applies the viewer's default bindings.

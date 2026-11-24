@@ -300,7 +300,12 @@ impl View {
 
     pub(crate) fn source_row(&self, doc: &Document, id: LineId, split: bool) -> Option<usize> {
         match id {
-            LineId::Patch(id) => Some(self.patch_row(doc, doc.row_for_source(id, split), split)),
+            LineId::Patch(id) => {
+                let file = doc.file_for_source(id);
+                // A line of a hunk hidden for whitespace has no row of its own.
+                (!file.hidden(id))
+                    .then(|| self.patch_row(doc, file.row_for_source(id, split), split))
+            }
             LineId::Context { file, old, new } => {
                 let (old, new) = (old.get(), new.get());
                 let view = self.files.get(&file)?;
@@ -473,6 +478,25 @@ impl View {
             })
             .transpose()?;
         self.install(doc, file, view)?;
+        self.source_revision.invalidate();
+        Ok(())
+    }
+
+    /// Builds every file's rows again over `doc`, whose files have new rows, keeping what each
+    /// gap reveals.
+    pub(crate) fn rebuild(&mut self, doc: &Document) -> Result<()> {
+        for (&file, view) in &mut self.files {
+            view.rows = view.build(&doc.files[file])?;
+        }
+        let mut total = [0usize; 2];
+        for (file, extra) in self.extra.iter_mut().enumerate() {
+            if let Some(view) = self.files.get(&file) {
+                for (layout, total) in total.iter_mut().enumerate() {
+                    *total += view.rows[layout].len - doc.files[file].rows(layout == 1).len();
+                }
+            }
+            *extra = total;
+        }
         self.source_revision.invalidate();
         Ok(())
     }

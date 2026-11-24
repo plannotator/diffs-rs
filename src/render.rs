@@ -590,12 +590,19 @@ fn draw_row(
         RowKind::Header => file_header(buf, app, file, x, y),
         RowKind::Hunk(h) => {
             fill(buf, Rect::new(x, y, app.width, 1), c.separator);
+            let header = &app.doc.files[file].hunks[h].header;
+            let hidden;
             label(
                 buf,
                 x + 1,
                 y,
                 app.width - 2,
-                &app.doc.files[file].hunks[h].header,
+                if app.doc.files[file].hunk_hidden(h) {
+                    hidden = format!("{header}  ·  whitespace only");
+                    &hidden
+                } else {
+                    header
+                },
                 c.dim,
                 c.separator,
                 false,
@@ -735,15 +742,22 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
         return Ok(());
     };
     let source = app.line_info(id)?;
+    let other_info = other.map(|id| app.line_info(id)).transpose()?;
+    // A unified row shows the old number of the line on its left, which is a removed line
+    // paired with this added one when whitespace is hidden.
+    let old_number = if app.split() {
+        source.old
+    } else {
+        other_info.and_then(|i| i.old).or(source.old)
+    };
     let selected = app.selection.as_ref().is_some_and(|selection| {
         let range = selection.range;
         let range_old = range.side == crate::engine::Side::Old;
-        let number = if range_old { source.old } else { source.new };
+        let number = if range_old { old_number } else { source.new };
         range.file == file
             && (!app.split() || range_old == old)
             && number.is_some_and(|line| range.first <= line && line <= range.last)
     });
-    let other_info = other.map(|id| app.line_info(id)).transpose()?;
     // A unified row shows both of its numbers, so either side's marker applies to it.
     let marker = if app.split() {
         let side = if old {
@@ -757,11 +771,8 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
         app.markers
             .style(file, crate::engine::Side::New, source.new)
             .or_else(|| {
-                app.markers.style(
-                    file,
-                    crate::engine::Side::Old,
-                    other_info.and_then(|i| i.old).or(source.old),
-                )
+                app.markers
+                    .style(file, crate::engine::Side::Old, old_number)
             })
     };
     // The cursor and selection indicators take precedence over a marker in the first cell.
@@ -774,7 +785,17 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
     } else {
         " "
     };
-    let (bg, accent, word, sign) = match source.kind {
+    // A line that differs from its pair only in whitespace is drawn as unchanged.
+    let kind = match id {
+        LineId::Patch(id)
+            if app.whitespace != crate::engine::Whitespace::Show
+                && app.doc.file_for_source(id).whitespace_only(id) =>
+        {
+            Kind::Context
+        }
+        _ => source.kind,
+    };
+    let (bg, accent, word, sign) = match kind {
         Kind::Context => (c.context, c.dim, c.context, " "),
         Kind::Addition => (c.add_bg, c.added, c.add_word, "+"),
         Kind::Deletion => (c.del_bg, c.deleted, c.del_word, "−"),
@@ -806,11 +827,7 @@ fn code(buf: &mut Buffer, app: &App, cell: CodeCell) -> anyhow::Result<()> {
     } else {
         format!(
             "{indicator}{}{}{}{} ",
-            number(if part == 0 {
-                other_info.and_then(|i| i.old).or(source.old)
-            } else {
-                None
-            }),
+            number(if part == 0 { old_number } else { None }),
             if digits > 0 { " " } else { "" },
             number(if part == 0 { source.new } else { None }),
             if part == 0 { sign } else { "↪" }

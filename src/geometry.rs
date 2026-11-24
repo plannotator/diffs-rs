@@ -80,18 +80,20 @@ mod census_tests {
 
 pub struct Line {
     text: Box<str>,
+    /// The cells a tab advances to, as the cache that measured this line was set.
+    tab: usize,
     columns: usize,
     checkpoints: Vec<Boundary>,
     starts: Vec<Boundary>,
 }
 
 impl Line {
-    fn new(text: String, width: Option<usize>) -> Self {
+    fn new(text: String, width: Option<usize>, tab: usize) -> Self {
         let mut checkpoints = Vec::new();
         let mut starts = vec![Boundary::default()];
         let mut used = 0;
         let mut columns = 0;
-        for (index, glyph) in glyphs(&text, 4).enumerate() {
+        for (index, glyph) in glyphs(&text, tab).enumerate() {
             columns = glyph.column + glyph.width;
             let boundary = Boundary {
                 byte: glyph.byte,
@@ -110,6 +112,7 @@ impl Line {
         }
         Self {
             text: text.into_boxed_str(),
+            tab,
             columns,
             checkpoints,
             starts,
@@ -150,7 +153,7 @@ impl Line {
             )
             .copied()
             .unwrap_or_default();
-        glyphs_from(&self.text, 4, checkpoint.byte, checkpoint.column)
+        glyphs_from(&self.text, self.tab, checkpoint.byte, checkpoint.column)
     }
 
     pub fn byte_at_column(&self, column: usize) -> usize {
@@ -169,7 +172,7 @@ impl Line {
             )
             .copied()
             .unwrap_or_default();
-        glyphs_from(&self.text, 4, checkpoint.byte, checkpoint.column)
+        glyphs_from(&self.text, self.tab, checkpoint.byte, checkpoint.column)
             .take_while(|glyph| glyph.byte <= byte)
             .last()
             .map_or((0, 1), |glyph| (glyph.column, glyph.width))
@@ -191,12 +194,36 @@ struct Entries {
     bytes: usize,
 }
 
-#[derive(Default)]
 pub struct Cache {
     entries: RefCell<Entries>,
+    /// The cells a tab advances to in the lines this cache measures.
+    tab: usize,
+}
+
+impl Default for Cache {
+    fn default() -> Self {
+        Self {
+            entries: RefCell::default(),
+            tab: usize::from(crate::engine::TabWidth::DEFAULT.get()),
+        }
+    }
 }
 
 impl Cache {
+    /// The cells a tab advances to.
+    pub(crate) fn tab_width(&self) -> usize {
+        self.tab
+    }
+
+    /// Measures tabs `tab` cells wide from now on. Lines measured with another width are
+    /// dropped.
+    pub(crate) fn set_tab_width(&mut self, tab: usize) {
+        if tab != self.tab {
+            self.tab = tab;
+            *self.entries.get_mut() = Entries::default();
+        }
+    }
+
     #[cfg(feature = "owner-census")]
     pub(crate) fn census(&self) -> anyhow::Result<serde_json::Value> {
         let entries = self.entries.try_borrow()?;
@@ -215,7 +242,7 @@ impl Cache {
     pub fn get(&self, doc: &Document, id: usize, width: Option<usize>) -> anyhow::Result<Rc<Line>> {
         let file = doc.file_for_source(id);
         self.get_or_insert((SourceKey::Patch(file.source_id(id)?), width), || {
-            Ok(Line::new(display_text(&file.bytes(id)?), width))
+            Ok(Line::new(display_text(&file.bytes(id)?), width, self.tab))
         })
     }
 
@@ -226,7 +253,11 @@ impl Cache {
         width: Option<usize>,
     ) -> anyhow::Result<Rc<Line>> {
         self.get_or_insert((SourceKey::Stored(source), width), || {
-            Ok(Line::new(display_text(&store.read_source(source)?), width))
+            Ok(Line::new(
+                display_text(&store.read_source(source)?),
+                width,
+                self.tab,
+            ))
         })
     }
 

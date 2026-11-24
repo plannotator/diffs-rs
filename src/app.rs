@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 
 mod controls;
 pub use controls::{Command, InputEffect};
+mod settings;
 mod sidebar;
 mod source;
 pub use sidebar::SidebarPreference;
@@ -75,6 +76,15 @@ pub struct App {
     /// The theme's text color, which plain syntax tokens carry; drawn as the terminal's own
     /// foreground when `terminal_background` is on.
     pub(crate) plain: ratatui::style::Color,
+    /// How changed text inside a replaced line is emphasized.
+    pub(crate) inline_changes: crate::engine::InlineChanges,
+    /// Whether whitespace-only changes are hidden.
+    pub(crate) whitespace: crate::engine::Whitespace,
+    /// The files as the patch has them while `doc` hides whitespace, so the setting can be
+    /// turned off again and later files checked against the input's order.
+    patch: Option<Document>,
+    /// Reads removed and added lines of arriving files while whitespace is hidden.
+    scan: crate::storage::PatchScan,
     reading_anchor: Option<ReadingAnchor>,
 }
 
@@ -107,6 +117,10 @@ impl App {
             terminal_background: false,
             split_ratio: crate::engine::SplitRatio::EVEN,
             plain,
+            inline_changes: crate::engine::InlineChanges::Word,
+            whitespace: crate::engine::Whitespace::Show,
+            patch: None,
+            scan: crate::storage::PatchScan::default(),
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
@@ -190,10 +204,23 @@ impl App {
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
+        self.reflow_from(layout, width, height, None)
+    }
+
+    /// `reflow`, keeping the cursor on `screen_row` when it has no anchor that says where it
+    /// was, because the rows were just rebuilt.
+    fn reflow_from(
+        &mut self,
+        layout: Layout,
+        width: u16,
+        height: u16,
+        screen_row: Option<usize>,
+    ) -> Result<()> {
         self.remember_position(None)?;
         let anchor = self.reading_anchor;
         let screen_row = anchor
             .and_then(|anchor| anchor.screen_row)
+            .or(screen_row)
             .unwrap_or_else(|| self.screen_row());
         let file = self.row(self.cursor.row).map(|r| r.file);
         let old_split = self.split();
@@ -204,10 +231,7 @@ impl App {
         self.width = width;
         self.height = height;
         if let Some(anchor) = anchor {
-            self.cursor.row = self
-                .view
-                .source_row(&self.doc, anchor.source, self.split())
-                .unwrap_or(self.cursor.row);
+            self.cursor.row = self.shown_row(anchor.source).unwrap_or(self.cursor.row);
             self.old_side = anchor.old_side;
             (self.cursor.part, self.horizontal) = render::anchored_position(
                 self,
@@ -453,10 +477,7 @@ impl App {
         let patch = if end { last } else { 0 };
         let file = self.doc.file_for_source(patch).id;
         let mut id = LineId::Patch(patch);
-        let mut row = self
-            .view
-            .source_row(&self.doc, id, self.split())
-            .context("Patch endpoint is missing")?;
+        let mut row = self.shown_row(id).context("Patch endpoint is missing")?;
         let mut index = if end {
             if file + 1 < self.doc.files.len() {
                 self.view.file_row(&self.doc, file + 1, self.split()) - 1

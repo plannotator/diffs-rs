@@ -26,6 +26,9 @@ pub struct Inset {
     pub file: usize,
     /// Where in the file the inset hangs.
     pub anchor: InsetAnchor,
+    /// Which columns of a split diff the inset takes, and so how it shares rows with the other
+    /// insets under its row. Unified, every inset takes the code column.
+    pub span: InsetSpan,
     /// The number of screen rows to keep free. An inset of height 0 keeps none: it is never
     /// drawn, reported or stopped on, but it is not hidden either.
     pub height: u16,
@@ -43,6 +46,34 @@ pub enum InsetAnchor {
     FileHeading,
 }
 
+/// Which columns of a split diff an [`Inset`] takes, and so how insets under the same row
+/// share its rows.
+///
+/// In the split layout the insets under a row are laid out in the order given, in blocks. A
+/// [`InsetSpan::Full`] inset is a block of its own, across both sides. A run of
+/// [`InsetSpan::Side`] insets with no `Full` one between them is one block: the old side's
+/// insets stack in the left column and the new side's in the right one, both from the block's
+/// first row, and the block is as tall as its taller column. Unified, every inset is a block
+/// of its own, in the order given, whatever its span.
+///
+/// ```text
+/// [Side(Old) a, Side(New) b, Full c, Side(New) d]
+///
+///   a a │ b b     a and b side by side; the block is as tall as a,
+///   a a │         and the cells beside the end of b are blank
+///   c c c c c     c across both sides
+///       │ d d     d in the right column, the left one blank
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum InsetSpan {
+    /// Across the diff, from the old side's code to the right edge. The default.
+    #[default]
+    Full,
+    /// The code column of one side, beside the other side's insets of the same block.
+    Side(Side),
+}
+
 /// Where an [`Inset`] was drawn in the last frame, from [`Engine::inset_areas`]. Only the
 /// rows on screen are reported: a host draws its content's rows from `clipped_top` on, as
 /// many as `area.height`.
@@ -51,14 +82,11 @@ pub enum InsetAnchor {
 pub struct InsetArea {
     /// The [`Inset::id`].
     pub id: u64,
-    /// The rows on screen, from the first column of code to the right edge of the diff.
-    /// Unified, that is the code column; split, it runs from the old side's code across the
-    /// line between the sides and the new side's gutter to the right edge.
+    /// The inset's rows on screen, over the columns it takes. Unified, the code column. Split,
+    /// for [`InsetSpan::Full`], from the old side's code across the line between the sides and
+    /// the new side's gutter to the right edge; for [`InsetSpan::Side`], that side's code
+    /// column. [`Engine::inset_width`] gives the same width before the inset is drawn.
     pub area: Rect,
-    /// The same rows over the old side's code column only. Unified, equal to `area`.
-    pub left: Rect,
-    /// The same rows over the new side's code column only. Unified, equal to `area`.
-    pub right: Rect,
     /// How many of the inset's rows are above the top of the pane, or under the file heading
     /// kept over the top row.
     pub clipped_top: u16,
@@ -74,12 +102,15 @@ struct Group {
     /// Indexes into the set, in the order the host gave them.
     members: Vec<usize>,
     rows: usize,
+    /// Some member takes one side only.
+    sides: bool,
 }
 
 impl Group {
-    fn add(&mut self, index: usize, height: u16) {
+    fn add(&mut self, index: usize, inset: &Inset) {
         self.members.push(index);
-        self.rows += usize::from(height);
+        self.rows += usize::from(inset.height);
+        self.sides |= matches!(inset.span, InsetSpan::Side(_));
     }
 }
 
@@ -93,6 +124,109 @@ pub(crate) enum Keys {
         old: Option<u32>,
         new: Option<u32>,
     },
+}
+
+/// The columns of a row an inset is drawn in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Column {
+    /// The old side's code column, beside the new side's.
+    Old,
+    /// The new side's code column, beside the old side's.
+    New,
+    /// Across the diff, or the code column unified.
+    Full,
+}
+
+impl Column {
+    /// `Some(true)` for the old side's column, `Some(false)` for the new side's.
+    pub(crate) fn old(self) -> Option<bool> {
+        match self {
+            Self::Old => Some(true),
+            Self::New => Some(false),
+            Self::Full => None,
+        }
+    }
+}
+
+/// Where an inset is among the insets under its row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Placed {
+    /// The inset's index in the set.
+    pub(crate) index: usize,
+    pub(crate) column: Column,
+    /// The first screen row of its block, and its own, counted from the first row under the
+    /// row's text.
+    pub(crate) block: usize,
+    pub(crate) start: usize,
+    pub(crate) height: usize,
+}
+
+impl Placed {
+    pub(crate) fn contains(&self, offset: usize) -> bool {
+        (self.start..self.start + self.height).contains(&offset)
+    }
+}
+
+/// Lays out insets given in order, as [`InsetSpan`] describes. Calls `place` with each one's
+/// column and first row, and returns the rows they take.
+fn lay_out(
+    members: impl Iterator<Item = (usize, Inset)>,
+    split: bool,
+    mut place: impl FnMut(Placed),
+) -> usize {
+    // The first row of the current block, and the rows each column of it has taken.
+    let (mut top, mut old, mut new) = (0, 0, 0);
+    for (index, inset) in members {
+        let height = usize::from(inset.height);
+        let column = match inset.span {
+            InsetSpan::Side(Side::Old) if split => Column::Old,
+            InsetSpan::Side(Side::New) if split => Column::New,
+            _ => Column::Full,
+        };
+        let (block, start) = match column {
+            Column::Old => {
+                old += height;
+                (top, top + old - height)
+            }
+            Column::New => {
+                new += height;
+                (top, top + new - height)
+            }
+            Column::Full => {
+                let start = top + old.max(new);
+                (top, old, new) = (start + height, 0, 0);
+                (start, start)
+            }
+        };
+        place(Placed {
+            index,
+            column,
+            block,
+            start,
+            height,
+        });
+    }
+    top + old.max(new)
+}
+
+/// Two ascending lists of indexes merged into one.
+fn merged<'a>(a: &'a [usize], b: &'a [usize]) -> impl Iterator<Item = usize> + 'a {
+    let (mut i, mut j) = (0, 0);
+    std::iter::from_fn(move || {
+        let first = match (a.get(i), b.get(j)) {
+            (Some(x), Some(y)) => x < y,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => return None,
+        };
+        if first {
+            i += 1;
+            Some(a[i - 1])
+        } else {
+            j += 1;
+            Some(b[j - 1])
+        }
+    })
 }
 
 /// The host's insets, grouped by what they hang under, so finding the insets of a drawn row
@@ -121,11 +255,10 @@ impl Insets {
                 InsetAnchor::Line { side, line } => lines
                     .entry((inset.file, side == Side::Old, line))
                     .or_default()
-                    .add(index, inset.height),
-                InsetAnchor::FileHeading => headings
-                    .entry(inset.file)
-                    .or_default()
-                    .add(index, inset.height),
+                    .add(index, inset),
+                InsetAnchor::FileHeading => {
+                    headings.entry(inset.file).or_default().add(index, inset)
+                }
             }
         }
         Self {
@@ -169,32 +302,31 @@ impl Insets {
         }
     }
 
-    /// The rows the insets under a row with `keys` keep.
-    pub(crate) fn rows(&self, keys: Keys) -> usize {
-        self.groups(keys).iter().flatten().map(|g| g.rows).sum()
+    /// The insets under a row with `keys`, in the order given.
+    fn members(&self, keys: Keys) -> impl Iterator<Item = (usize, Inset)> + '_ {
+        let [a, b] = self.groups(keys);
+        let a = a.map_or(&[][..], |g| &g.members[..]);
+        let b = b.map_or(&[][..], |g| &g.members[..]);
+        merged(a, b).map(|index| (index, self.list[index]))
     }
 
-    /// The insets under a row with `keys`, top to bottom: in the order the host gave them.
-    pub(crate) fn members(&self, keys: Keys) -> Vec<usize> {
-        match self.groups(keys) {
-            [Some(a), Some(b)] => {
-                let (mut i, mut j) = (0, 0);
-                let mut merged = Vec::with_capacity(a.members.len() + b.members.len());
-                while i < a.members.len() || j < b.members.len() {
-                    if j == b.members.len() || (i < a.members.len() && a.members[i] < b.members[j])
-                    {
-                        merged.push(a.members[i]);
-                        i += 1;
-                    } else {
-                        merged.push(b.members[j]);
-                        j += 1;
-                    }
-                }
-                merged
-            }
-            [Some(g), None] | [None, Some(g)] => g.members.clone(),
-            [None, None] => Vec::new(),
+    /// The screen rows the insets under a row with `keys` take.
+    pub(crate) fn rows(&self, keys: Keys, split: bool) -> usize {
+        let groups = self.groups(keys);
+        if !split || !groups.iter().flatten().any(|g| g.sides) {
+            return groups.iter().flatten().map(|g| g.rows).sum();
         }
+        lay_out(self.members(keys), split, |_| {})
+    }
+
+    /// The insets under a row with `keys`, laid out, in the order the cursor stops on them:
+    /// block by block, and in a block of side insets the old side's column top to bottom,
+    /// then the new side's.
+    pub(crate) fn layout(&self, keys: Keys, split: bool) -> Vec<Placed> {
+        let mut placed = Vec::new();
+        lay_out(self.members(keys), split, |p| placed.push(p));
+        placed.sort_by_key(|p| (p.block, p.column, p.start));
+        placed
     }
 }
 
@@ -213,16 +345,22 @@ fn validate(review: ReviewId, insets: &[Inset]) -> Result<()> {
 impl Engine {
     /// Replaces every inset: blank rows the engine keeps under a line or a file's heading for
     /// the host to draw into. An empty slice removes them. Several insets under the same row
-    /// stack in the order of the slice; in the split layout that includes insets on the other
-    /// side's line of the row.
+    /// are laid out in the order of the slice, side by side or across as their
+    /// [`Inset::span`] says (see [`InsetSpan`]); in the split layout that includes insets on
+    /// the other side's line of the row.
     ///
     /// The view does not move. The source line on the cursor's screen row stays on that row
     /// and the horizontal scroll is kept; rows below it move. With the cursor on an inset that
     /// is kept, the inset stays on its screen row; with the cursor on an inset that is
     /// removed, the cursor goes to the line the inset was under, which stays where it was.
-    /// When the cursor is off screen, the row at the top stays at the top. The one exception
-    /// is the start of the diff: with too few rows above to keep the cursor's line where it
-    /// was, it moves up.
+    /// When the cursor is off screen, the row at the top stays at the top.
+    ///
+    /// The exception is the start of the diff. When the top row is the diff's first row, the
+    /// top stays: insets added under the first rows push the cursor's line down rather than
+    /// start above the top, and insets removed there pull it up. Only if that would put the
+    /// cursor's line, on screen before, under the pane's last row does the view scroll, just
+    /// enough to show it on the last row. Likewise, with the top a little below the first
+    /// row and too few rows above to keep the cursor's line where it was, it moves up.
     ///
     /// Insets on a line that is not displayed take no rows: a line outside the diff, in an
     /// unrevealed gap, in a hunk drawn as its heading alone because whitespace is hidden, or
@@ -257,16 +395,15 @@ impl Engine {
     /// A host draws into these after [`Engine::draw`], in the same frame.
     ///
     /// ```
-    /// use diffs_rs::engine::{Engine, Side};
-    /// use ratatui::{Frame, layout::Rect, widgets::{Block, Borders, Paragraph, Wrap}};
+    /// use diffs_rs::engine::Engine;
+    /// use ratatui::{Frame, widgets::{Block, Borders, Paragraph, Wrap}};
     ///
-    /// struct Note { id: u64, side: Side, text: String }
+    /// struct Note { id: u64, text: String }
     ///
-    /// /// Draws each note in its inset, boxed, on its side of a split diff.
+    /// /// Draws each note in its inset, boxed.
     /// fn draw_notes(frame: &mut Frame<'_>, engine: &Engine, notes: &[Note]) {
     ///     for found in engine.inset_areas() {
     ///         let Some(note) = notes.iter().find(|note| note.id == found.id) else { continue };
-    ///         let column = if note.side == Side::Old { found.left } else { found.right };
     ///         // Only the rows on screen are drawn: no border where the box is cut.
     ///         let mut borders = Borders::LEFT | Borders::RIGHT;
     ///         if found.clipped_top == 0 {
@@ -279,7 +416,7 @@ impl Engine {
     ///             .wrap(Wrap { trim: false })
     ///             .scroll((found.clipped_top.saturating_sub(1), 0))
     ///             .block(Block::new().borders(borders));
-    ///         frame.render_widget(text, Rect { height: found.area.height, ..column });
+    ///         frame.render_widget(text, found.area);
     ///     }
     /// }
     /// ```
@@ -303,21 +440,29 @@ impl Engine {
             .collect()
     }
 
-    /// The width an inset in `file` has to draw in, for the size of the last frame: the code
-    /// column, as [`InsetArea::area`] reports it unified, and the column of `side` split, as
-    /// [`InsetArea::left`] or [`InsetArea::right`]. Use it to wrap an inset's content before
-    /// setting its height. A pane resize, [`Engine::set_layout`], [`Engine::set_split_ratio`]
-    /// and line numbers change it, and so can checked source arriving for a local review,
-    /// which can widen the line numbers.
+    /// The width an inset in `file` with `span` has to draw in, as [`InsetArea::area`] will
+    /// report it: the settings as they are now (layout, split ratio, line numbers, the file
+    /// tree) in the area last given to [`Engine::draw`]. No frame is needed after a setting
+    /// changes. Use it to wrap an inset's content before setting its height. A pane resize,
+    /// [`Engine::set_layout`], [`Engine::set_split_ratio`] and line numbers change it, and so
+    /// can checked source arriving for a local review, which can widen the line numbers.
     ///
-    /// `None` before the first draw, while the pane is too small to show the diff and for a
-    /// file not in the review.
-    pub fn inset_width(&self, file: usize, side: Side) -> Option<u16> {
+    /// `None` before anything was drawn, while the area is too small to show the diff, and
+    /// for a file not in the review, or not arrived yet.
+    pub fn inset_width(&self, file: usize, span: InsetSpan) -> Option<u16> {
+        self.inset_width_in(self.area, file, span)
+    }
+
+    /// [`Engine::inset_width`] for a frame drawn into `area`, the area the host will give
+    /// [`Engine::draw`]: before the first frame, or for a size to come.
+    pub fn inset_width_in(&self, area: Rect, file: usize, span: InsetSpan) -> Option<u16> {
         let app = self.app.as_ref()?;
-        if app.sidebar.diff.is_empty() || file >= app.doc.files.len() {
+        let (_, diff) = app.panes(area);
+        if diff.is_empty() || file >= app.doc.files.len() {
             return None;
         }
-        u16::try_from(crate::render::inset_width(app, file, side == Side::Old)).ok()
+        let (_, width) = crate::render::inset_columns(app, file, span, diff.width);
+        u16::try_from(width).ok()
     }
 
     /// Whether the cursor stops on insets. On (the default), `Command::Down` from the row an
@@ -353,7 +498,15 @@ mod tests {
             id,
             file: 0,
             anchor: InsetAnchor::Line { side, line },
+            span: InsetSpan::Full,
             height,
+        }
+    }
+
+    fn side(id: u64, side: Side, height: u16) -> Inset {
+        Inset {
+            span: InsetSpan::Side(side),
+            ..inset(id, Side::New, 4, height)
         }
     }
 
@@ -374,26 +527,78 @@ mod tests {
             old: Some(3),
             new: Some(4),
         };
-        assert_eq!(insets.members(row), [0, 1, 2]);
-        assert_eq!(insets.rows(row), 6);
+        let members = |keys| {
+            insets
+                .members(keys)
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(members(row), [0, 1, 2]);
+        assert_eq!(insets.rows(row, false), 6);
+        assert_eq!(insets.rows(row, true), 6);
         let old = Keys::Lines {
             file: 0,
             old: Some(3),
             new: None,
         };
-        assert_eq!(insets.members(old), [1]);
+        assert_eq!(members(old), [1]);
         // Height 0 keeps no row and is no member.
         let zero = Keys::Lines {
             file: 0,
             old: Some(9),
             new: None,
         };
-        assert_eq!((insets.rows(zero), insets.members(zero).len()), (0, 0));
-        assert_eq!(insets.members(Keys::Heading(0)), [4]);
-        assert_eq!(insets.rows(Keys::Heading(1)), 0);
+        assert_eq!((insets.rows(zero, true), members(zero).len()), (0, 0));
+        assert_eq!(members(Keys::Heading(0)), [4]);
+        assert_eq!(insets.rows(Keys::Heading(1), true), 0);
         assert_eq!(insets.index(12), Some(2));
         assert!(!insets.is_empty());
         assert!(Insets::new(&[inset(1, Side::New, 1, 0)]).is_empty());
+    }
+
+    #[test]
+    fn side_insets_stack_in_two_columns_between_full_ones() {
+        // a and b side by side; c across; d and e in the right column, f in the left.
+        let insets = Insets::new(&[
+            side(1, Side::Old, 3),
+            side(2, Side::New, 2),
+            inset(3, Side::New, 4, 1),
+            side(4, Side::New, 1),
+            side(5, Side::New, 2),
+            side(6, Side::Old, 2),
+        ]);
+        let row = Keys::Lines {
+            file: 0,
+            old: None,
+            new: Some(4),
+        };
+        let laid: Vec<_> = insets
+            .layout(row, true)
+            .iter()
+            .map(|p| (insets.get(p.index).id, p.column, p.start, p.height))
+            .collect();
+        // In the order the cursor stops: by block, the left column, then the right one.
+        assert_eq!(
+            laid,
+            [
+                (1, Column::Old, 0, 3),
+                (2, Column::New, 0, 2),
+                (3, Column::Full, 3, 1),
+                (6, Column::Old, 4, 2),
+                (4, Column::New, 4, 1),
+                (5, Column::New, 5, 2),
+            ]
+        );
+        // max(3, 2) + 1 + max(2, 1 + 2)
+        assert_eq!(insets.rows(row, true), 7);
+        // Unified, everything stacks in the order given.
+        assert_eq!(insets.rows(row, false), 11);
+        let unified: Vec<_> = insets
+            .layout(row, false)
+            .iter()
+            .map(|p| (insets.get(p.index).id, p.start))
+            .collect();
+        assert_eq!(unified, [(1, 0), (2, 3), (3, 5), (4, 6), (5, 7), (6, 9)]);
     }
 
     #[test]

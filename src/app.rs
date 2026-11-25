@@ -480,7 +480,7 @@ impl App {
         // cursor stays at or below the top.
         self.restore_inset(cursor_inset)?;
         if let Some((id, offset)) = top_inset
-            && let Some(top) = self.inset_position(id, offset)?
+            && let Some((top, _)) = self.inset_position(id, offset)?
             && top.row == self.top.row
             && top <= self.cursor
         {
@@ -548,6 +548,10 @@ impl App {
         self.cursor = position;
         if self.split() {
             self.old_side = crate::engine::split::old_at(self.width, self.split_ratio, column);
+            // Clicked beside an inset that has none at its side: the one there is.
+            if let Some(old) = self.cursor_inset_side()? {
+                self.old_side = old;
+            }
         }
         self.reading_anchor = None;
         self.remember_position(Some(column))?;
@@ -652,11 +656,20 @@ impl App {
     pub fn move_cursor(&mut self, amount: isize) -> Result<()> {
         let before = self.cursor;
         if amount.unsigned_abs() == 1 && !self.insets.is_empty() {
-            self.cursor = if amount > 0 {
+            let (stop, old) = if amount > 0 {
                 self.next_stop(self.cursor)?
             } else {
                 self.previous_stop(self.cursor)?
             };
+            self.cursor = stop;
+            if let Some(old) = old {
+                self.old_side = old;
+            }
+            if before != self.cursor {
+                self.reading_anchor = None;
+            }
+            // Onto an inset, all of it as far as the pane allows.
+            return self.reveal_inset();
         } else {
             for _ in 0..amount.unsigned_abs() {
                 self.cursor = if amount > 0 {

@@ -10,7 +10,7 @@ use anyhow::Result;
 
 use super::{App, Position};
 use crate::{
-    engine::insets::{InsetAnchor, Insets, Keys},
+    engine::insets::{InsetAnchor, Insets, Keys, Placed},
     model::RowKind,
 };
 
@@ -54,34 +54,61 @@ impl App {
         if self.insets.is_empty() {
             return 0;
         }
-        self.insets.rows(self.inset_keys(index))
+        self.insets.rows(self.inset_keys(index), self.split())
     }
 
-    /// The insets under row `index`, top to bottom, as indexes into the set.
-    pub(crate) fn row_insets(&self, index: usize) -> Vec<usize> {
+    /// The insets under row `index`, laid out, in the order the cursor stops on them.
+    fn row_layout(&self, index: usize) -> Vec<Placed> {
         if self.insets.is_empty() {
             return Vec::new();
         }
-        self.insets.members(self.inset_keys(index))
+        self.insets.layout(self.inset_keys(index), self.split())
     }
 
-    /// The inset `p` is on, as its index in the set, and which of its rows.
-    pub(crate) fn inset_at(&self, p: Position) -> Result<Option<(usize, usize)>> {
+    /// The insets drawn on the screen row `p`, with which of their rows each: one, or two side
+    /// by side, the old side's first. Empty when `p` is a row of text.
+    pub(crate) fn insets_on(&self, p: Position) -> Result<Vec<(Placed, usize)>> {
         if self.insets.is_empty() || p.part == 0 {
-            return Ok(None);
+            return Ok(Vec::new());
         }
         let text = crate::render::text_height(self, p.row)?;
-        let Some(mut offset) = p.part.checked_sub(text) else {
-            return Ok(None);
+        let Some(offset) = p.part.checked_sub(text) else {
+            return Ok(Vec::new());
         };
-        for index in self.row_insets(p.row) {
-            let height = usize::from(self.insets.get(index).height);
-            if offset < height {
-                return Ok(Some((index, offset)));
-            }
-            offset -= height;
+        Ok(self
+            .row_layout(p.row)
+            .into_iter()
+            .filter(|placed| placed.contains(offset))
+            .map(|placed| (placed, offset - placed.start))
+            .collect())
+    }
+
+    /// The inset at `p` and which of its rows: of two side by side, the one on the old side
+    /// when `old` says so, on the new side when it says not, and the first without it.
+    fn placed_at(&self, p: Position, old: Option<bool>) -> Result<Option<(Placed, usize)>> {
+        let mut on = self.insets_on(p)?;
+        if on.len() > 1 && old == Some(false) {
+            return Ok(on.pop());
         }
-        Ok(None)
+        Ok(on.into_iter().next())
+    }
+
+    /// The inset `p` is on, as its index in the set, and which of its rows. At the cursor, of
+    /// two side by side, the one on the cursor's side.
+    pub(crate) fn inset_at(&self, p: Position) -> Result<Option<(usize, usize)>> {
+        let old = (p == self.cursor && self.split()).then_some(self.old_side);
+        self.inset_at_side(p, old)
+    }
+
+    /// `inset_at`, choosing between two side by side by `old` as `placed_at` does.
+    pub(crate) fn inset_at_side(
+        &self,
+        p: Position,
+        old: Option<bool>,
+    ) -> Result<Option<(usize, usize)>> {
+        Ok(self
+            .placed_at(p, old)?
+            .map(|(placed, offset)| (placed.index, offset)))
     }
 
     /// The inset `p` is on, by id, and which of its rows.
@@ -91,9 +118,17 @@ impl App {
             .map(|(index, offset)| (self.insets.get(index).id, offset)))
     }
 
-    /// The row inset `index` hangs under and the position of its first screen row. `None`
-    /// when its line or file is not displayed, or it keeps no rows.
-    pub(crate) fn inset_place(&self, index: usize) -> Result<Option<Position>> {
+    /// The side of the code column the cursor's inset takes, when it takes one.
+    pub(crate) fn cursor_inset_side(&self) -> Result<Option<bool>> {
+        let old = self.split().then_some(self.old_side);
+        Ok(self
+            .placed_at(self.cursor, old)?
+            .and_then(|(placed, _)| placed.column.old()))
+    }
+
+    /// The row inset `index` hangs under, laid out there. `None` when its line or file is not
+    /// displayed, or it keeps no rows.
+    fn inset_place(&self, index: usize) -> Result<Option<(usize, Placed)>> {
         let inset = *self.insets.get(index);
         if inset.height == 0 {
             return Ok(None);
@@ -109,26 +144,29 @@ impl App {
         let Some(row) = row else {
             return Ok(None);
         };
-        let mut part = crate::render::text_height(self, row)?;
-        for member in self.row_insets(row) {
-            if member == index {
-                return Ok(Some(Position { row, part }));
-            }
-            part += usize::from(self.insets.get(member).height);
-        }
-        Ok(None)
+        Ok(self
+            .row_layout(row)
+            .into_iter()
+            .find(|placed| placed.index == index)
+            .map(|placed| (row, placed)))
     }
 
-    /// The position `offset` rows into the inset with `id`, kept within it, if it is shown.
-    pub(crate) fn inset_position(&self, id: u64, offset: usize) -> Result<Option<Position>> {
+    /// The position `offset` rows into the inset with `id`, kept within it, if it is shown,
+    /// and the side of the code column it takes, when it takes one.
+    pub(crate) fn inset_position(
+        &self,
+        id: u64,
+        offset: usize,
+    ) -> Result<Option<(Position, Option<bool>)>> {
         let Some(index) = self.insets.index(id) else {
             return Ok(None);
         };
-        let height = usize::from(self.insets.get(index).height);
-        Ok(self.inset_place(index)?.map(|start| Position {
-            row: start.row,
-            part: start.part + offset.min(height.saturating_sub(1)),
-        }))
+        let Some((row, placed)) = self.inset_place(index)? else {
+            return Ok(None);
+        };
+        let text = crate::render::text_height(self, row)?;
+        let part = text + placed.start + offset.min(placed.height.saturating_sub(1));
+        Ok(Some((Position { row, part }, placed.column.old())))
     }
 
     /// Whether inset `index` hangs under a displayed row. One of height 0 counts as shown when
@@ -143,71 +181,135 @@ impl App {
         }
     }
 
+    /// Puts the cursor on `position`, an inset's row, on the side of the code column the
+    /// inset takes when it takes one, so that the cursor is on that inset of two side by side.
+    fn put_cursor(&mut self, (position, old): (Position, Option<bool>)) {
+        self.cursor = position;
+        if let Some(old) = old {
+            self.old_side = old;
+        }
+    }
+
     /// Puts the cursor back on the inset it was on before the rows changed, when it is still
     /// shown.
     pub(super) fn restore_inset(&mut self, inset: Option<(u64, usize)>) -> Result<()> {
         if let Some((id, offset)) = inset
-            && let Some(position) = self.inset_position(id, offset)?
+            && let Some(place) = self.inset_position(id, offset)?
         {
-            self.cursor = position;
+            self.put_cursor(place);
         }
         Ok(())
     }
 
-    /// The first position of the inset `p` is on, or `p`.
-    fn inset_start(&self, p: Position) -> Result<Position> {
-        Ok(match self.inset_at(p)? {
-            Some((_, offset)) => Position {
-                row: p.row,
-                part: p.part - offset,
-            },
-            None => p,
-        })
-    }
-
-    /// The last position of the inset `p` is on, or `p`.
-    fn inset_end(&self, p: Position) -> Result<Position> {
-        Ok(match self.inset_at(p)? {
-            Some((index, offset)) => Position {
-                row: p.row,
-                part: p.part + usize::from(self.insets.get(index).height) - 1 - offset,
-            },
-            None => p,
-        })
-    }
-
-    /// The next place the cursor stops after `p`: the next screen row, past the rest of the
-    /// inset `p` is on, and past every inset when insets are not stops. `p` when there is none.
-    pub(super) fn next_stop(&self, p: Position) -> Result<Position> {
-        let mut at = p;
-        loop {
-            let end = self.inset_end(at)?;
-            let next = self.next(end)?;
-            if next == end {
-                return Ok(p);
+    /// The next place the cursor stops after `p`, and the side of the inset there when it
+    /// takes one: the next screen row of text, the next inset under the row (one stop
+    /// however tall it is), and past every inset when insets are not stops. `p` when there is
+    /// none.
+    pub(super) fn next_stop(&self, p: Position) -> Result<(Position, Option<bool>)> {
+        let text = crate::render::text_height(self, p.row)?;
+        let layout = self.row_layout(p.row);
+        if self.inset_stops && !layout.is_empty() {
+            let next = if p.part + 1 < text {
+                None
+            } else if p.part < text {
+                Some(0)
+            } else {
+                let index = self.inset_at(p)?.map(|(index, _)| index);
+                layout
+                    .iter()
+                    .position(|placed| Some(placed.index) == index)
+                    .map(|at| at + 1)
+            };
+            if let Some(placed) = next.and_then(|at| layout.get(at)) {
+                let part = text + placed.start;
+                return Ok((Position { row: p.row, part }, placed.column.old()));
             }
-            if self.inset_stops || self.inset_at(next)?.is_none() {
-                return Ok(next);
-            }
-            at = next;
         }
+        let from = if p.part + 1 < text {
+            p
+        } else {
+            Position {
+                row: p.row,
+                part: self.row_height(p.row)? - 1,
+            }
+        };
+        let next = self.next(from)?;
+        Ok((if next == from { p } else { next }, None))
     }
 
     /// The place the cursor stops before `p`, as `next_stop` going up. Coming up onto an
     /// inset it stops on its last row, the nearest.
-    pub(super) fn previous_stop(&self, p: Position) -> Result<Position> {
-        let mut at = p;
-        loop {
-            let start = self.inset_start(at)?;
-            let previous = self.previous(start)?;
-            if previous == start {
-                return Ok(p);
+    pub(super) fn previous_stop(&self, p: Position) -> Result<(Position, Option<bool>)> {
+        let text = crate::render::text_height(self, p.row)?;
+        if p.part >= text {
+            // On an inset: the one before it under the row, or the row's last row of text.
+            if self.inset_stops {
+                let layout = self.row_layout(p.row);
+                let index = self.inset_at(p)?.map(|(index, _)| index);
+                if let Some(at) = layout.iter().position(|placed| Some(placed.index) == index)
+                    && let Some(placed) = at.checked_sub(1).and_then(|at| layout.get(at))
+                {
+                    let part = text + placed.start + placed.height - 1;
+                    return Ok((Position { row: p.row, part }, placed.column.old()));
+                }
             }
-            if self.inset_stops || self.inset_at(previous)?.is_none() {
-                return Ok(previous);
-            }
-            at = previous;
+            let part = text - 1;
+            return Ok((Position { row: p.row, part }, None));
         }
+        if p.part > 0 {
+            let part = p.part - 1;
+            return Ok((Position { row: p.row, part }, None));
+        }
+        let Some(row) = p.row.checked_sub(1) else {
+            return Ok((p, None));
+        };
+        let text = crate::render::text_height(self, row)?;
+        if self.inset_stops
+            && let Some(placed) = self.row_layout(row).last()
+        {
+            let part = text + placed.start + placed.height - 1;
+            return Ok((Position { row, part }, placed.column.old()));
+        }
+        Ok((
+            Position {
+                row,
+                part: text - 1,
+            },
+            None,
+        ))
+    }
+
+    /// After a move of one stop onto an inset: shows all of the inset when it fits in the
+    /// pane, and otherwise as much of it as fits with the cursor's row. Off an inset, `reveal`.
+    pub(super) fn reveal_inset(&mut self) -> Result<()> {
+        let Some((index, offset)) = self.inset_at(self.cursor)? else {
+            return self.reveal();
+        };
+        if self.width < 40 || self.height < 10 {
+            return self.reveal();
+        }
+        let start = Position {
+            row: self.cursor.row,
+            part: self.cursor.part - offset,
+        };
+        let end = Position {
+            row: start.row,
+            part: start.part + usize::from(self.insets.get(index).height) - 1,
+        };
+        let bottom = usize::from(self.height.saturating_sub(2));
+        // Its first row, then its last, then the cursor's, which wins when it does not fit.
+        if start < self.top {
+            self.top = start;
+        }
+        if self.laid_out_row(end)?.is_none() {
+            self.top = self.top_for(end, bottom)?;
+        }
+        if self.cursor < self.top {
+            self.top = self.cursor;
+        } else if self.laid_out_row(self.cursor)?.is_none() {
+            self.top = self.top_for(self.cursor, bottom)?;
+        }
+        Ok(())
     }
 
     /// When insets are not stops and `p` is on one: the nearest row in `from..=to` that is
@@ -222,7 +324,7 @@ impl App {
             return Ok(p);
         }
         for forward in [forward, !forward] {
-            let found = if forward {
+            let (found, _) = if forward {
                 self.next_stop(p)?
             } else {
                 self.previous_stop(p)?
@@ -241,7 +343,7 @@ impl App {
         if on || self.inset_at(self.cursor)?.is_none() {
             return Ok(());
         }
-        let above = self.previous_stop(self.cursor)?;
+        let (above, _) = self.previous_stop(self.cursor)?;
         let shown = self.laid_out_row(above)?.is_some();
         self.cursor = above;
         self.reading_anchor = None;
@@ -273,14 +375,19 @@ impl App {
 
     /// Where the cursor and the top are among the current insets.
     fn inset_view(&self) -> Result<InsetView> {
-        let top_inset = self.inset_at(self.top)?;
-        let below_top = match top_inset {
-            Some((index, _)) => {
-                let members = self.row_insets(self.top.row);
-                let at = members.iter().position(|&m| m == index).unwrap_or(0);
-                members[at + 1..]
-                    .iter()
-                    .map(|&m| self.insets.get(m).id)
+        let top_on = self.insets_on(self.top)?;
+        let below_top = match top_on.first() {
+            Some(&(placed, offset)) => {
+                let at = placed.start + offset;
+                let mut below: Vec<_> = self
+                    .row_layout(self.top.row)
+                    .into_iter()
+                    .filter(|placed| placed.start > at)
+                    .collect();
+                below.sort_by_key(|placed| placed.start);
+                below
+                    .into_iter()
+                    .map(|placed| self.insets.get(placed.index).id)
                     .collect()
             }
             None => Vec::new(),
@@ -289,7 +396,11 @@ impl App {
             screen_row: self.laid_out_row(self.cursor)?,
             cursor_inset: self.inset_id_at(self.cursor)?,
             text: crate::render::text_height(self, self.cursor.row)?,
-            top_inset: top_inset.map(|(index, offset)| (self.insets.get(index).id, offset)),
+            at_start: self.top == Position::default(),
+            top_on: top_on
+                .into_iter()
+                .map(|(placed, offset)| (self.insets.get(placed.index).id, offset))
+                .collect(),
             below_top,
         })
     }
@@ -300,7 +411,7 @@ impl App {
         let mut screen_row = before.screen_row.map(usize::from);
         if let Some((id, offset)) = before.cursor_inset {
             match self.inset_position(id, offset)? {
-                Some(position) if position.row == self.cursor.row => self.cursor = position,
+                Some(place) if place.0.row == self.cursor.row => self.put_cursor(place),
                 _ => {
                     // The inset is gone from under the row: back to the row's last screen row
                     // of text, which stays where it was.
@@ -312,15 +423,34 @@ impl App {
                 }
             }
         }
+        if before.at_start {
+            // The view at the very start stays there, insets under the first rows included,
+            // unless that puts the cursor's row, which was on screen, under the last.
+            self.top = Position::default();
+            if screen_row.is_some() && self.laid_out_row(self.cursor)?.is_none() {
+                let bottom = usize::from(self.height.saturating_sub(2));
+                self.top = self.top_for(self.cursor, bottom)?;
+            }
+            return Ok(());
+        }
         if let Some(y) = screen_row {
             self.top = self.top_for(self.cursor, y)?;
             return Ok(());
         }
         // Off screen: the row at the top stays there.
-        if let Some((id, offset)) = before.top_inset {
-            self.top = match self.inset_position(id, offset)? {
-                Some(position) if position.row == self.top.row => position,
-                _ => self.under_removed(self.top.row, &before.below_top)?,
+        if !before.top_on.is_empty() {
+            let mut kept = None;
+            for &(id, offset) in &before.top_on {
+                if let Some((position, _)) = self.inset_position(id, offset)?
+                    && position.row == self.top.row
+                {
+                    kept = Some(position);
+                    break;
+                }
+            }
+            self.top = match kept {
+                Some(position) => position,
+                None => self.under_removed(self.top.row, &before.below_top)?,
             };
         }
         Ok(())
@@ -329,12 +459,16 @@ impl App {
     /// What follows a removed inset under row `row`: the first of the insets that were below
     /// it that is still there, or the next row.
     fn under_removed(&self, row: usize, below: &[u64]) -> Result<Position> {
+        let mut first: Option<Position> = None;
         for &id in below {
-            if let Some(position) = self.inset_position(id, 0)?
+            if let Some((position, _)) = self.inset_position(id, 0)?
                 && position.row == row
             {
-                return Ok(position);
+                first = Some(first.map_or(position, |first| first.min(position)));
             }
+        }
+        if let Some(position) = first {
+            return Ok(position);
         }
         let last = Position {
             row,
@@ -352,8 +486,10 @@ struct InsetView {
     cursor_inset: Option<(u64, usize)>,
     /// The screen rows of text of the cursor's row.
     text: usize,
-    /// The inset the top is on, by id, and which of its rows.
-    top_inset: Option<(u64, usize)>,
-    /// The insets below the top's under its row, by id.
+    /// The top is the first row of the diff.
+    at_start: bool,
+    /// The insets the top is on, by id, and which of their rows: one, or two side by side.
+    top_on: Vec<(u64, usize)>,
+    /// The insets that started below the top under its row, by id.
     below_top: Vec<u64>,
 }

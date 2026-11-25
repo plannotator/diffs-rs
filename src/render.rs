@@ -12,6 +12,10 @@ mod sidebar;
 
 use crate::{
     app::{App, Position},
+    engine::{
+        InsetAnchor, InsetSpan, Side,
+        insets::{Column, Placed},
+    },
     model::{Kind, RowKind},
     theme::Colors,
     view::LineId,
@@ -154,23 +158,27 @@ pub(crate) fn text_height(app: &App, index: usize) -> anyhow::Result<usize> {
     Ok(height)
 }
 
-/// The width of the column an inset in `file` draws in: the code column unified, and the
-/// code column of the old or the new side split.
-pub(crate) fn inset_width(app: &App, file: usize, old: bool) -> usize {
-    inset_columns(app, file)[usize::from(!old)].1
-}
-
-/// The first cell and width of the code columns an inset in `file` draws over, from the
-/// diff's left edge: the old side's and the new side's, the same column twice unified.
-fn inset_columns(app: &App, file: usize) -> [(usize, usize); 2] {
-    if app.split() {
-        let (left, right) = pane_widths(app);
-        let (old, new) = (code_width(app, file, left), code_width(app, file, right));
-        [(left - old, old), (left + 1 + right - new, new)]
-    } else {
-        let width = app.width as usize;
-        let code = code_width(app, file, width);
-        [(width - code, code); 2]
+/// The first cell and width of the columns an inset in `file` with `span` draws over, from the
+/// diff's left edge, in a diff pane `width` cells wide: the code column unified; split, a
+/// side's code column, or for a full inset from the old side's code to the right edge.
+pub(crate) fn inset_columns(app: &App, file: usize, span: InsetSpan, width: u16) -> (usize, usize) {
+    if !app.split() {
+        let code = code_width(app, file, width as usize);
+        return (width as usize - code, code);
+    }
+    let (left, right) = crate::engine::split::sides(width, app.split_ratio);
+    let old = (
+        left - code_width(app, file, left),
+        code_width(app, file, left),
+    );
+    let new = (
+        left + 1 + right - code_width(app, file, right),
+        code_width(app, file, right),
+    );
+    match span {
+        InsetSpan::Side(Side::Old) => old,
+        InsetSpan::Side(Side::New) => new,
+        _ => (old.0, left + 1 + right - old.0),
     }
 }
 
@@ -541,10 +549,13 @@ fn draw_diff(buf: &mut Buffer, app: &mut App, area: Rect) -> anyhow::Result<()> 
         let Some(row) = app.row(p.row) else {
             break;
         };
-        if let Some((index, offset)) = app.inset_at(p)? {
-            let cursor = cursor_inset == Some(index);
-            inset_row(buf, app, index, (area.x, y), cursor);
-            record_inset(app, index, offset, (area.x, y), row.file, cursor);
+        let on = app.insets_on(p)?;
+        if !on.is_empty() {
+            inset_row(buf, app, &on, (area.x, y), cursor_inset);
+            for (placed, offset) in on {
+                let cursor = cursor_inset == Some(placed.index);
+                record_inset(app, placed, offset, (area.x, y), row.file, cursor);
+            }
         } else {
             draw_row(buf, app, p, (area.x, y), row.file, row.kind)?;
         }
@@ -575,56 +586,73 @@ fn draw_diff(buf: &mut Buffer, app: &mut App, area: Rect) -> anyhow::Result<()> 
     Ok(())
 }
 
-/// A screen row of an inset: the background, the line between the sides of a split diff, and
-/// the cursor's `▎` in the gutter of the inset's side while the cursor is on it. The host
-/// draws the rest.
-fn inset_row(buf: &mut Buffer, app: &App, index: usize, (x, y): (u16, u16), cursor: bool) {
+/// A screen row of the insets `on` it: the background, the line between the sides of a split
+/// diff, and the cursor's `▎` in the gutter of the side of the inset it is on, when one of
+/// them. The host draws the rest.
+fn inset_row(
+    buf: &mut Buffer,
+    app: &App,
+    on: &[(Placed, usize)],
+    (x, y): (u16, u16),
+    cursor: Option<usize>,
+) {
     let c = &app.colors;
     fill(buf, Rect::new(x, y, app.width, 1), c.bg);
-    let new_side = match app.insets.get(index).anchor {
-        crate::engine::InsetAnchor::Line { side, .. } => side == crate::engine::Side::New,
-        _ => false,
-    };
-    let mut gutter = x;
-    if app.split() {
+    let left = if app.split() {
         let (left, _) = pane_widths(app);
         label(buf, x + left as u16, y, 1, "│", c.separator, c.bg, false);
-        if new_side {
-            gutter = x + left as u16 + 1;
-        }
-    }
-    if cursor {
-        label(buf, gutter, y, 1, "▎", c.accent, c.bg, false);
-    }
+        Some(x + left as u16 + 1)
+    } else {
+        None
+    };
+    let Some((placed, _)) = on.iter().find(|(placed, _)| Some(placed.index) == cursor) else {
+        return;
+    };
+    // A full inset's mark goes on the side of the line it hangs under.
+    let new_side = match placed.column {
+        Column::Old => false,
+        Column::New => true,
+        Column::Full => matches!(
+            app.insets.get(placed.index).anchor,
+            InsetAnchor::Line {
+                side: Side::New,
+                ..
+            }
+        ),
+    };
+    let gutter = left.filter(|_| new_side).unwrap_or(x);
+    label(buf, gutter, y, 1, "▎", c.accent, c.bg, false);
 }
 
-/// Adds screen row `offset` of inset `index`, drawn at `(x, y)`, to the frame's inset areas.
+/// Adds screen row `offset` of the inset `placed`, drawn at `(x, y)`, to the frame's inset
+/// areas.
 fn record_inset(
     app: &mut App,
-    index: usize,
+    placed: Placed,
     offset: usize,
     (x, y): (u16, u16),
     file: usize,
     cursor: bool,
 ) {
-    let inset = *app.insets.get(index);
-    if let Some(last) = app.inset_areas.last_mut()
-        && last.id == inset.id
-        && last.area.bottom() == y
+    let inset = *app.insets.get(placed.index);
+    if let Some(area) = app
+        .inset_areas
+        .iter_mut()
+        .rev()
+        .find(|area| area.id == inset.id && area.area.bottom() == y)
     {
-        last.area.height += 1;
-        last.left.height += 1;
-        last.right.height += 1;
+        area.area.height += 1;
         return;
     }
-    let [(old_x, old_width), (new_x, new_width)] = inset_columns(app, file);
-    let rect = |at: usize, width: usize| Rect::new(x + at as u16, y, width as u16, 1);
-    let (left, right) = (rect(old_x, old_width), rect(new_x, new_width));
+    let span = match placed.column {
+        Column::Old => InsetSpan::Side(Side::Old),
+        Column::New => InsetSpan::Side(Side::New),
+        Column::Full => InsetSpan::Full,
+    };
+    let (at, width) = inset_columns(app, file, span, app.width);
     app.inset_areas.push(crate::engine::InsetArea {
         id: inset.id,
-        area: left.union(right),
-        left,
-        right,
+        area: Rect::new(x + at as u16, y, width as u16, 1),
         clipped_top: u16::try_from(offset).unwrap_or(u16::MAX),
         height: inset.height,
         cursor,

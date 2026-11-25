@@ -298,55 +298,74 @@ An inset is a run of blank rows that the engine keeps between the rows of the di
 `set_insets(&[Inset])` replaces every inset with a new set; an empty slice removes them.
 
 ```rust
-use diffs_rs::engine::{Inset, InsetAnchor, Side};
+use diffs_rs::engine::{Inset, InsetAnchor, InsetSpan, Side};
 
 let review = engine.review_id();
+let line = InsetAnchor::Line { side: Side::New, line: 12 };
 engine.set_insets(&[
-    // Three rows under new line 12 of file 0.
-    Inset { review, id: 1, file: 0, anchor: InsetAnchor::Line { side: Side::New, line: 12 }, height: 3 },
+    // Three rows under new line 12 of file 0, across the diff.
+    Inset { review, id: 1, file: 0, anchor: line, span: InsetSpan::Full, height: 3 },
     // Two rows under the heading of file 1.
-    Inset { review, id: 2, file: 1, anchor: InsetAnchor::FileHeading, height: 2 },
+    Inset { review, id: 2, file: 1, anchor: InsetAnchor::FileHeading, span: InsetSpan::Full, height: 2 },
+    // Under the same row as inset 1, side by side in the split layout.
+    Inset { review, id: 3, file: 0, anchor: line, span: InsetSpan::Side(Side::Old), height: 4 },
+    Inset { review, id: 4, file: 0, anchor: line, span: InsetSpan::Side(Side::New), height: 2 },
 ])?;
 ```
 
 - `id` is the host's name for the inset. Each inset in a set needs its own; the engine reports insets by it.
 - `anchor` is `Line { side, line }`, the row that shows original line `line` on `side`, or `FileHeading`. An inset hangs under its row, after the last screen row of a wrapped line. In the split layout a row can show an old and a new line; insets on either hang under that row.
-- Several insets under the same row stack in the order of the slice.
+- `span` says which columns of a split diff the inset takes: `InsetSpan::Full`, from the old side's code to the right edge, or `InsetSpan::Side(side)`, that side's code column only. Unified, every inset takes the code column.
 - `height` is the number of screen rows to keep. An inset of height 0 keeps none.
 
-The engine draws only the background on an inset's rows, the line between the sides in the split layout, and, while the cursor is on the inset, the cursor's `▎` in the gutter of the inset's side. Markers, the selection and search matches never show there.
+The insets under the same row are laid out in the order of the slice, in blocks:
+
+- Unified, every inset is a block of its own: they stack.
+- Split, a `Full` inset is a block of its own, across both sides. A run of `Side` insets with no `Full` one between them is one block: the old side's insets stack in the left column and the new side's in the right one, both from the block's first row. The block is as tall as its taller column; the cells beside the end of the shorter one are blank.
+
+```text
+[Side(Old) a, Side(New) b, Full c, Side(New) d]
+
+  a a │ b b     a and b side by side; the block is as tall as a
+  a a │
+  c c c c c     c across both sides
+      │ d d     d in the right column, the left one blank
+```
+
+The engine draws only the background on an inset's rows, the line between the sides in the split layout, and, while the cursor is on the inset, the cursor's `▎` in the gutter: a side inset's side, or for a full inset the side of the line it hangs under. Markers, the selection and search matches never show there.
 
 #### Drawing into insets
 
 After `draw`, `inset_areas()` lists the insets on screen in the last frame, top to bottom, as `InsetArea`s:
 
-- `area` is the rows on screen, from the first column of code to the right edge of the diff. Unified, that is the code column; split, it runs from the old side's code across the line between the sides to the right edge.
-- `left` and `right` are the same rows over the old and the new side's code column. Unified, both equal `area`. Draw a note about an old line in `left` and one about a new line in `right`, or use `area` for the whole width.
+- `area` is the inset's rows on screen, over the columns it takes. Unified, the code column. Split, for a `Full` inset from the old side's code across the line between the sides to the right edge, and for a `Side` inset that side's code column. Two side insets of a block that share screen rows are reported as two areas, the left one first.
 - `clipped_top` is how many of the inset's rows are above the top of the pane, or under the file heading kept over the top row. `height` is the inset's full height, so `height - clipped_top - area.height` rows are cut at the bottom. Draw the content's rows from `clipped_top` on.
 - `cursor` says the cursor is on the inset.
 
 The list is empty before the first draw, while the help is shown and while the pane is too small to show the diff.
 
-An inset's height usually depends on the width its text wraps to. `inset_width(file, side)` is the width of the column an inset draws in, for the size of the last frame: the code column unified, the column of `side` split. It is `None` before the first draw. A resize, a layout or ratio change and line numbers change it; set the insets again with new heights when it does. That costs one frame with the old heights, and setting insets never moves the view.
+An inset's height usually depends on the width its text wraps to. `inset_width(file, span)` is the width `area` will have for an inset in `file` with `span`: the settings as they are now (layout, split ratio, line numbers, the file tree) in the area last given to `draw`. It needs no frame after a setting changes, so a host can compute new heights right after `set_layout` and set them before the next frame. `inset_width_in(area, file, span)` answers for a frame drawn into `area`, before the first frame or for a size to come. Both are `None` while the area is too small to show the diff and for a file that is not there; `inset_width` is also `None` before anything was drawn. A resize, a layout or ratio change and line numbers change the width; set the insets again with new heights when they do. Setting insets never moves the view.
 
 ```rust
-use diffs_rs::engine::{Engine, Inset, InsetAnchor, InsetArea, Side};
+use diffs_rs::engine::{Engine, Inset, InsetAnchor, InsetSpan, Side};
 use ratatui::{Frame, layout::Rect, widgets::{Block, Borders, Paragraph, Wrap}};
 
 struct Note { id: u64, file: usize, side: Side, line: u32, text: String }
 
-/// The notes' insets, sized for the width they draw in.
-fn insets(engine: &Engine, notes: &[Note]) -> Vec<Inset> {
+/// The notes' insets, each in the column of its side, sized for the width it draws in.
+fn insets(engine: &Engine, screen: Rect, notes: &[Note]) -> Vec<Inset> {
     notes
         .iter()
         .map(|note| {
-            let width = engine.inset_width(note.file, note.side).unwrap_or(80).saturating_sub(2);
-            let lines = note.text.len().div_ceil(usize::from(width.max(1)));
+            let span = InsetSpan::Side(note.side);
+            let width = engine.inset_width_in(screen, note.file, span).unwrap_or(80);
+            let lines = note.text.len().div_ceil(usize::from(width.saturating_sub(2).max(1)));
             Inset {
                 review: engine.review_id(),
                 id: note.id,
                 file: note.file,
                 anchor: InsetAnchor::Line { side: note.side, line: note.line },
+                span,
                 height: lines as u16 + 2,
             }
         })
@@ -357,7 +376,6 @@ fn insets(engine: &Engine, notes: &[Note]) -> Vec<Inset> {
 fn draw_notes(frame: &mut Frame<'_>, engine: &Engine, notes: &[Note]) {
     for found in engine.inset_areas() {
         let Some(note) = notes.iter().find(|note| note.id == found.id) else { continue };
-        let column = if note.side == Side::Old { found.left } else { found.right };
         // Draw the whole box off screen and copy the rows that show; or, as here, draw the
         // visible part and leave the border off where it is cut.
         let mut borders = Borders::LEFT | Borders::RIGHT;
@@ -371,18 +389,20 @@ fn draw_notes(frame: &mut Frame<'_>, engine: &Engine, notes: &[Note]) {
             .wrap(Wrap { trim: false })
             .scroll((found.clipped_top.saturating_sub(1), 0))
             .block(Block::new().borders(borders));
-        frame.render_widget(text, Rect { height: found.area.height, ..column });
+        frame.render_widget(text, found.area);
     }
 }
 ```
 
-Call `set_insets(&insets(&engine, &notes))` when the notes change and after a frame whose `inset_width` differs from the one the heights were computed for. The set is grouped by file, side and line when it is replaced, so a drawn row finds its insets with a hash lookup however many there are.
+Call `set_insets(&insets(&engine, screen, &notes))` when the notes change and whenever a setting or the size changes the widths, with `screen` the area given to `draw`. The set is grouped by file, side and line when it is replaced, so a drawn row finds its insets with a hash lookup however many there are.
 
 #### What does not move
 
-Setting insets never moves what the person is reading. Adding, removing, resizing or replacing insets keeps the source line on the cursor's screen row on that row, and keeps the horizontal scroll. Insets above the cursor grow and shrink upwards, out of the top of the pane; rows below the cursor move. With the cursor on an inset that stays, the inset keeps its screen row. With the cursor on an inset that is removed, the cursor goes to the line the inset was under, and that line does not move. When the cursor is not on screen, the row at the top stays at the top. The only exception is the start of the diff: with too few rows above the cursor to keep its line where it was, the line moves up.
+Setting insets never moves what the person is reading. Adding, removing, resizing or replacing insets keeps the source line on the cursor's screen row on that row, and keeps the horizontal scroll. Insets above the cursor grow and shrink upwards, out of the top of the pane; rows below the cursor move. With the cursor on an inset that stays, the inset keeps its screen row. With the cursor on an inset that is removed, the cursor goes to the line the inset was under, and that line does not move. When the cursor is not on screen, the row at the top stays at the top.
 
-A reflow with insets present works as without: a resize, a layout, ratio, tab-width, line-number or whitespace change and expanding context keep the cursor's line on its screen row, and so does turning wrapping on; turning wrapping off keeps the top row at the top. With the cursor on an inset, the cursor stays on the same row of the same inset. As on any frame, the horizontal scroll is lowered only when none of the lines on screen reach it.
+The exception is the start of the diff. When the top row is the diff's first row, as when the diff has just opened, the top stays: insets set under the first heading or the first lines come in under it and push the cursor's line down, instead of starting above the top, and insets removed there pull it up. Only if that would put the cursor's line, on screen before, under the last row does the view scroll, just enough to show it on the last row. Likewise, with the top a little below the first row and too few rows above the cursor to keep its line where it was, the line moves up.
+
+A reflow with insets present works as without: a resize, a layout, ratio, tab-width, line-number or whitespace change and expanding context keep the cursor's line on its screen row, and so does turning wrapping on; turning wrapping off keeps the top row at the top. With the cursor on an inset, the cursor stays on the same row of the same inset, a side inset included when the layout switches between split and unified. As on any frame, the horizontal scroll is lowered only when none of the lines on screen reach it.
 
 Insets are rows like any other for scrolling: the wheel scrolls through a tall inset row by row, a page counts its rows, `G` shows the insets under the last line, and the end of the diff leaves no empty rows under the last inset when there were none.
 
@@ -394,7 +414,7 @@ Insets can be set before the first file arrives. `set_insets` rejects the whole 
 
 #### The cursor on insets
 
-By default an inset is one stop for the cursor, however tall it is: `Command::Down` from the line it hangs under puts the cursor on it, and the next `Down` goes to the row after it. `Up` coming from below stops on its last row. `cursor_row()` then reports `DiffRowKind::Inset { id }`, with `part` the row of the inset the cursor is on, `old_line` or `new_line` the line it hangs under, on the inset's side, and `hunk` that line's hunk. A host can act on "the note under the cursor" this way. A page move counts every screen row and can end on any row of an inset, and the wheel can leave the cursor on one, as it does on wrapped rows. A click on an inset puts the cursor there. `row_at` reports inset rows the same way.
+By default an inset is one stop for the cursor, however tall it is: `Command::Down` from the line it hangs under puts the cursor on its first row, and the next `Down` goes to the next inset under the line or the row after them. `Up` coming from below stops on its last row. The insets under a row are stops block by block, and in a block of side insets the left column's top to bottom, then the right column's; `Up` goes through them in the reverse order. When such a move lands on an inset cut by the top or the bottom of the pane, the view scrolls to show all of it, or, when it is taller than the pane, as much of it as fits with the cursor's row. On a side inset the cursor is on that side, as `cursor_row().side` reports; `Command::SwitchSide` moves it to the inset beside, at the same screen row, when there is one. `cursor_row()` then reports `DiffRowKind::Inset { id }`, with `part` the row of the inset the cursor is on, `old_line` or `new_line` the line it hangs under, on the inset's side, and `hunk` that line's hunk. A host can act on "the note under the cursor" this way. A page move counts every screen row and can end on any row of an inset, and the wheel can leave the cursor on one, as it does on wrapped rows. A click on an inset puts the cursor there: on the inset under the pointer, or beside the end of a shorter side inset, on the one on that screen row. `row_at` reports inset rows the same way.
 
 `selected_source()` is `None` on an inset, so a selection is neither started nor extended there. A selection that crosses an inset keeps working: moving on to the next line extends it, and it holds only the source lines, so `source_read` copies only code.
 

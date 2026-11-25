@@ -6,7 +6,7 @@ use super::rows::{WIDE, draw, text};
 use super::*;
 use crate::app::Position;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::buffer::Buffer;
+use ratatui::{buffer::Buffer, layout::Rect};
 
 const SIZE: (u16, u16) = (120, 26);
 /// Unified, split evenly and split 30:70.
@@ -99,7 +99,16 @@ fn on_line(engine: &Engine, id: u64, file: usize, side: Side, line: u32, height:
         id,
         file,
         anchor: InsetAnchor::Line { side, line },
+        span: InsetSpan::Full,
         height,
+    }
+}
+
+/// `on_line`, in the column of `side` alone in the split layout.
+fn beside(engine: &Engine, id: u64, file: usize, side: Side, line: u32, height: u16) -> Inset {
+    Inset {
+        span: InsetSpan::Side(side),
+        ..on_line(engine, id, file, side, line, height)
     }
 }
 
@@ -109,6 +118,7 @@ fn on_heading(engine: &Engine, id: u64, file: usize, height: u16) -> Inset {
         id,
         file,
         anchor: InsetAnchor::FileHeading,
+        span: InsetSpan::Full,
         height,
     }
 }
@@ -358,34 +368,17 @@ fn insets_hang_under_the_rows_they_name() {
             // Where the host draws: right of the gutter, to the right edge.
             for found in engine.inset_areas() {
                 assert_eq!(found.area.right(), size.0, "{what}");
-                assert_eq!(found.area, found.left.union(found.right), "{what}");
+                assert!(found.area.x > 0, "{what}: the gutter is the engine's");
+                let file = set.iter().find(|i| i.id == found.id).unwrap().file;
+                assert_eq!(
+                    Some(found.area.width),
+                    engine.inset_width(file, InsetSpan::Full),
+                    "{what}"
+                );
                 if app(&engine).split() {
+                    // From the old side's code, over the line between the sides.
                     let line = engine.split_line().unwrap();
-                    assert_eq!(found.left.right(), line, "{what}");
-                    assert!(found.right.x > line + 1, "{what}");
-                    assert_eq!(found.right.right(), size.0, "{what}");
-                    assert_eq!(
-                        Some(found.left.width),
-                        engine.inset_width(A, Side::Old),
-                        "{what}"
-                    );
-                    assert_eq!(
-                        Some(found.right.width),
-                        engine.inset_width(A, Side::New),
-                        "{what}"
-                    );
-                } else {
-                    assert_eq!((found.left, found.right), (found.area, found.area));
-                    assert!(found.area.x > 0, "{what}: the gutter is the engine's");
-                    assert_eq!(
-                        Some(found.area.width),
-                        engine.inset_width(A, Side::New),
-                        "{what}"
-                    );
-                    assert_eq!(
-                        engine.inset_width(A, Side::Old),
-                        engine.inset_width(A, Side::New)
-                    );
+                    assert!(found.area.x < line, "{what}");
                 }
             }
             // Exactly the inset rows were added: none blank at the end or anywhere else.
@@ -805,6 +798,7 @@ fn setting_insets_never_moves_what_is_read() {
                         side: Side::New,
                         line,
                     },
+                    span: InsetSpan::Full,
                     height,
                 };
                 let heading = on_heading(&engine, 20, C, 2);
@@ -1023,7 +1017,73 @@ fn off_screen_the_top_row_stays_at_the_top() {
 }
 
 #[test]
-fn at_the_start_of_the_diff_the_cursor_moves_up_only_by_what_was_removed() {
+fn at_the_start_of_the_diff_the_top_stays() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let what = format!("{layout:?} wrap {wrap}");
+            let (mut engine, _directory) = open(layout, wrap);
+            draw(&mut engine, SIZE);
+            engine.execute(Command::FirstSource).unwrap();
+            let plain = draw(&mut engine, SIZE);
+            // As the diff opened: its first heading at the top, the cursor on its first line.
+            assert_eq!(app(&engine).top, Position::default(), "{what}");
+            let start = seen(&engine);
+            assert_eq!(start.row.new_line, Some(1), "{what}");
+            // Insets under the heading and the first line come in under the top, which stays:
+            // the cursor's line goes down by the rows above it.
+            let set = [
+                on_heading(&engine, 1, A, 3),
+                on_line(&engine, 2, A, Side::New, 1, 2),
+                on_line(&engine, 3, A, Side::New, 2, 2),
+            ];
+            engine.set_insets(&set).unwrap();
+            let now = seen_now(&mut engine, SIZE);
+            assert_eq!(app(&engine).top, Position::default(), "{what}");
+            assert_eq!(engine.row_at(2, 0).unwrap().kind, DiffRowKind::Header);
+            let heading = area(&engine, 1).unwrap();
+            assert_eq!((heading.area.y, heading.clipped_top), (1, 0), "{what}");
+            assert_eq!(now.row, start.row, "{what}");
+            assert_eq!(now.y, start.y + 3, "{what}");
+            // Changed, still from the top.
+            engine
+                .set_insets(&[on_heading(&engine, 1, A, 5), set[1], set[2]])
+                .unwrap();
+            assert_eq!(seen_now(&mut engine, SIZE).y, start.y + 5, "{what}");
+            assert_eq!(app(&engine).top, Position::default(), "{what}");
+            // On an inset: it moves with the rows above it, and the cursor stays on it.
+            engine.execute(Command::Down).unwrap();
+            let on = seen_now(&mut engine, SIZE);
+            assert_eq!(on.row.kind, DiffRowKind::Inset { id: 2 }, "{what}");
+            engine.set_insets(&set).unwrap();
+            let now = seen_now(&mut engine, SIZE);
+            assert_eq!((now.row.clone(), now.y), (on.row, on.y - 2), "{what}");
+            // Removed, back where it started.
+            engine.execute(Command::Up).unwrap();
+            engine.set_insets(&[]).unwrap();
+            assert_eq!(seen_now(&mut engine, SIZE), start, "{what}");
+            assert_eq!(draw(&mut engine, SIZE), plain, "{what}");
+            // A heading inset taller than the pane: the cursor's line is kept on the last row.
+            engine.set_insets(&[on_heading(&engine, 1, A, 40)]).unwrap();
+            let now = seen_now(&mut engine, SIZE);
+            assert_eq!(now.row, start.row, "{what}");
+            assert_eq!(now.y, SIZE.1, "{what}");
+            // Below the start, the cursor's screen row is kept again.
+            let mut engine = open(layout, wrap).0;
+            draw(&mut engine, SIZE);
+            engine.execute(Command::FirstSource).unwrap();
+            engine.execute(Command::Down).unwrap();
+            mouse(&mut engine, MouseEventKind::ScrollDown, 5, 5);
+            draw(&mut engine, SIZE);
+            assert_ne!(app(&engine).top, Position::default(), "{what}");
+            let set = [
+                on_heading(&engine, 1, A, 3),
+                on_line(&engine, 2, A, Side::New, 2, 2),
+                on_line(&engine, 3, A, Side::New, 3, 2),
+            ];
+            set_keeping(&mut engine, SIZE, &set, &what);
+        }
+    }
+    // Near the start, with too few rows above to keep the cursor's line where it was.
     let (mut engine, _directory) = open(LAYOUTS[0], false);
     draw(&mut engine, SIZE);
     engine
@@ -1038,6 +1098,321 @@ fn at_the_start_of_the_diff_the_cursor_moves_up_only_by_what_was_removed() {
     assert_eq!(cursor_y(&engine), 5);
     assert_eq!(cursor_line(&engine), 3);
     assert_eq!(app(&engine).top, Position::default());
+}
+
+#[test]
+fn side_insets_share_rows_in_split_and_stack_unified() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let what = format!("{layout:?} wrap {wrap}");
+            let (mut engine, _directory) = open(layout, wrap);
+            let size = (120, 200);
+            draw(&mut engine, size);
+            engine.execute(Command::FirstSource).unwrap();
+            let plain = draw(&mut engine, size);
+            // Under line 5 of c: 1 and 2 side by side, 3 across, then 4 on the right alone.
+            let set = [
+                beside(&engine, 1, C, Side::Old, 5, 3),
+                beside(&engine, 2, C, Side::New, 5, 2),
+                on_line(&engine, 3, C, Side::New, 5, 1),
+                beside(&engine, 4, C, Side::New, 5, 2),
+            ];
+            engine.set_insets(&set).unwrap();
+            let buffer = draw(&mut engine, size);
+            let under = *rows_of(&engine, &buffer, C, Side::New, 5).last().unwrap() + 1;
+            let found = |id| area(&engine, id).unwrap();
+            let next_line = rows_of(&engine, &buffer, C, Side::New, 6)[0];
+            let width = |span| engine.inset_width(C, span);
+            for id in 1..=4 {
+                let inset = set[id as usize - 1];
+                assert_eq!(Some(found(id).area.width), width(inset.span), "{what}");
+                assert_eq!(found(id).area.height, inset.height, "{what}");
+            }
+            let full = width(InsetSpan::Full);
+            if app(&engine).split() {
+                let line = engine.split_line().unwrap();
+                // Side by side from the same row, the block as tall as the taller.
+                assert_eq!((found(1).area.y, found(2).area.y), (under, under));
+                assert!(found(1).area.right() <= line, "{what}");
+                assert!(found(2).area.x > line, "{what}");
+                assert_eq!(found(2).area.right(), size.0, "{what}");
+                assert_eq!(found(3).area.y, under + 3, "{what}");
+                assert_eq!(found(3).area.x, found(1).area.x, "{what}");
+                assert_eq!(found(3).area.right(), size.0, "{what}");
+                assert_eq!(found(4).area.y, under + 4, "{what}");
+                assert_eq!(
+                    found(4).area,
+                    Rect {
+                        y: under + 4,
+                        ..found(2).area
+                    }
+                );
+                assert_eq!(next_line, under + 6, "{what}");
+                assert!(width(InsetSpan::Side(Side::Old)) < full, "{what}");
+                assert!(width(InsetSpan::Side(Side::New)) < full, "{what}");
+                // The engine draws only the line between the sides there.
+                for y in under..next_line {
+                    assert_eq!(text(&buffer, y).trim(), "│", "{what}: row {y}");
+                }
+                // The rows report the inset under the pointer, and beside the end of the
+                // shorter one, the only one there.
+                let (left, right) = (found(1).area.x + 1, found(2).area.x + 1);
+                let at = |engine: &Engine, x, y| engine.row_at(x, y).unwrap();
+                assert_eq!(at(&engine, left, under).kind, DiffRowKind::Inset { id: 1 });
+                assert_eq!(at(&engine, right, under).kind, DiffRowKind::Inset { id: 2 });
+                assert_eq!(at(&engine, right, under).side, Side::New, "{what}");
+                assert_eq!(at(&engine, left, under).side, Side::Old, "{what}");
+                let beside_end = at(&engine, right, under + 2);
+                assert_eq!(
+                    (beside_end.kind, beside_end.part),
+                    (DiffRowKind::Inset { id: 1 }, 2)
+                );
+                assert_eq!(
+                    at(&engine, left, under + 4).kind,
+                    DiffRowKind::Inset { id: 4 }
+                );
+                // A click picks the one under the pointer.
+                let click = MouseEventKind::Down(MouseButton::Left);
+                mouse(&mut engine, click, right, under + 1);
+                let row = engine.cursor_row().unwrap();
+                assert_eq!((row.kind, row.part), (DiffRowKind::Inset { id: 2 }, 1));
+                mouse(&mut engine, click, left, under + 1);
+                let row = engine.cursor_row().unwrap();
+                assert_eq!((row.kind, row.part), (DiffRowKind::Inset { id: 1 }, 1));
+            } else {
+                // Stacked in the order given, each across the code column.
+                let mut y = under;
+                for id in 1..=4 {
+                    assert_eq!(found(id).area.y, y, "{what}");
+                    assert_eq!(Some(found(id).area.width), full, "{what}");
+                    y += set[id as usize - 1].height;
+                }
+                assert_eq!(next_line, y, "{what}");
+                assert_eq!(width(InsetSpan::Side(Side::Old)), full, "{what}");
+                assert_eq!(width(InsetSpan::Side(Side::New)), full, "{what}");
+            }
+            // The cursor stops once on each: block by block, left column then right.
+            engine.reveal(C, Side::New, 5).unwrap();
+            down_to(&mut engine, 1, &what);
+            let mut stops = vec![(DiffRowKind::Inset { id: 1 }, 0)];
+            for _ in 0..4 {
+                engine.execute(Command::Down).unwrap();
+                let row = engine.cursor_row().unwrap();
+                stops.push((row.kind, row.part));
+            }
+            let inset = |id, part| (DiffRowKind::Inset { id }, part);
+            let line_6 = engine.cursor_row().unwrap();
+            assert_eq!(line_6.new_line, Some(6), "{what}");
+            assert_eq!(
+                stops[..4],
+                [inset(1, 0), inset(2, 0), inset(3, 0), inset(4, 0)],
+                "{what}"
+            );
+            // Up stops on each one's last row, in the reverse order.
+            let mut stops = Vec::new();
+            for _ in 0..5 {
+                engine.execute(Command::Up).unwrap();
+                let row = engine.cursor_row().unwrap();
+                stops.push((row.kind, row.part));
+            }
+            assert_eq!(
+                stops[..4],
+                [inset(4, 1), inset(3, 0), inset(2, 1), inset(1, 2)],
+                "{what}"
+            );
+            assert_eq!(engine.cursor_row().unwrap().new_line, Some(5), "{what}");
+            // The cursor's mark goes in the gutter of the side of the inset it is on.
+            engine.execute(Command::Down).unwrap();
+            engine.execute(Command::Down).unwrap();
+            let buffer = draw(&mut engine, size);
+            let found = |id| area(&engine, id).unwrap();
+            assert!(found(2).cursor && !found(1).cursor, "{what}");
+            let gutters = match engine.split_line() {
+                Some(line) => (0, line + 1),
+                None => (0, 0),
+            };
+            for y in found(2).area.top()..found(2).area.bottom() {
+                assert_eq!(buffer[(gutters.1, y)].symbol(), "▎", "{what}: row {y}");
+                if app(&engine).split() {
+                    assert_ne!(buffer[(gutters.0, y)].symbol(), "▎", "{what}: row {y}");
+                }
+            }
+            // Switching sides moves to the inset beside, where there is one.
+            if app(&engine).split() {
+                engine.execute(Command::SwitchSide).unwrap();
+                assert_eq!(
+                    engine.cursor_row().unwrap().kind,
+                    DiffRowKind::Inset { id: 1 }
+                );
+            }
+            engine.set_insets(&[]).unwrap();
+            engine.execute(Command::FirstSource).unwrap();
+            assert_eq!(draw(&mut engine, size), plain, "{what}");
+        }
+    }
+}
+
+#[test]
+fn a_line_move_onto_an_inset_shows_all_of_it() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let what = format!("{layout:?} wrap {wrap}");
+            let (mut engine, _directory) = open(layout, wrap);
+            let size = (120, 16);
+            draw(&mut engine, size);
+            let set = [
+                on_line(&engine, 1, C, Side::New, 20, 5),
+                on_line(&engine, 2, C, Side::New, 30, 40),
+                beside(&engine, 3, C, Side::Old, 40, 2),
+                beside(&engine, 4, C, Side::New, 40, 6),
+            ];
+            engine.set_insets(&set).unwrap();
+            let whole = |engine: &Engine, id: u64| {
+                area(engine, id).is_some_and(|a| a.clipped_top == 0 && a.area.height == a.height)
+            };
+            // Down onto an inset cut at the bottom.
+            engine.reveal(C, Side::New, 12).unwrap();
+            draw(&mut engine, size);
+            while engine
+                .cursor_row()
+                .unwrap()
+                .new_line
+                .is_none_or(|line| line < 20)
+            {
+                engine.execute(Command::Down).unwrap();
+                draw(&mut engine, size);
+            }
+            while engine.cursor_row().unwrap().part > 0 {
+                engine.execute(Command::Up).unwrap();
+            }
+            for _ in 0..30 {
+                if whole(&engine, 1) {
+                    mouse(&mut engine, MouseEventKind::ScrollUp, 5, 5);
+                    draw(&mut engine, size);
+                }
+            }
+            assert!(!whole(&engine, 1), "{what}: cut before");
+            down_to(&mut engine, 1, &what);
+            draw(&mut engine, size);
+            assert!(whole(&engine, 1), "{what}: {:?}", area(&engine, 1));
+            assert_eq!(engine.cursor_row().unwrap().part, 0, "{what}");
+            // Up onto an inset above the top.
+            engine.execute(Command::Down).unwrap();
+            for _ in 0..30 {
+                draw(&mut engine, size);
+                if top_row(&engine).new_line.is_some_and(|line| line >= 21)
+                    && top_row(&engine).kind == DiffRowKind::Code
+                {
+                    break;
+                }
+                mouse(&mut engine, MouseEventKind::ScrollDown, 5, 5);
+            }
+            while cursor_line(&engine) > 21 || engine.cursor_row().unwrap().part > 0 {
+                engine.execute(Command::Up).unwrap();
+                draw(&mut engine, size);
+            }
+            assert!(area(&engine, 1).is_none(), "{what}: above the top before");
+            engine.execute(Command::Up).unwrap();
+            draw(&mut engine, size);
+            let row = engine.cursor_row().unwrap();
+            assert_eq!((row.kind, row.part), (DiffRowKind::Inset { id: 1 }, 4));
+            assert!(whole(&engine, 1), "{what}: {:?}", area(&engine, 1));
+            // Taller than the pane: from its first row down, or up to its last.
+            engine.reveal(C, Side::New, 30).unwrap();
+            down_to(&mut engine, 2, &what);
+            draw(&mut engine, size);
+            let found = area(&engine, 2).unwrap();
+            assert_eq!(found.clipped_top, 0, "{what}");
+            assert_eq!(found.area.bottom(), size.1, "{what}");
+            assert_eq!(cursor_y(&engine), found.area.y + 1, "{what}");
+            engine.execute(Command::Down).unwrap();
+            engine.execute(Command::Up).unwrap();
+            draw(&mut engine, size);
+            let found = area(&engine, 2).unwrap();
+            assert_eq!(found.clipped_top + found.area.height, 40, "{what}");
+            assert_eq!(cursor_y(&engine), found.area.bottom(), "{what}");
+            // Side by side, the one the cursor lands on.
+            engine.reveal(C, Side::New, 40).unwrap();
+            draw(&mut engine, size);
+            for _ in 0..30 {
+                let bottom = engine.row_at(2, size.1 - 1).unwrap();
+                if bottom.new_line == Some(40) && bottom.kind == DiffRowKind::Code {
+                    break;
+                }
+                mouse(&mut engine, MouseEventKind::ScrollUp, 5, 5);
+                draw(&mut engine, size);
+            }
+            down_to(&mut engine, 4, &what);
+            draw(&mut engine, size);
+            assert!(whole(&engine, 4), "{what}: {:?}", area(&engine, 4));
+        }
+    }
+}
+
+#[test]
+fn inset_widths_are_known_without_a_frame() {
+    // Widths do not depend on the height: tall enough to show every inset.
+    const TALL: (u16, u16) = (120, 200);
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let what = format!("{layout:?} wrap {wrap}");
+            let (mut engine, _directory) = open(layout, wrap);
+            let spans = [
+                InsetSpan::Full,
+                InsetSpan::Side(Side::Old),
+                InsetSpan::Side(Side::New),
+            ];
+            let screen = Rect::new(0, 0, TALL.0, TALL.1);
+            // Nothing drawn yet: only for a given area.
+            assert_eq!(engine.inset_width(C, InsetSpan::Full), None, "{what}");
+            let early = spans.map(|span| engine.inset_width_in(screen, C, span).unwrap());
+            assert_eq!(engine.inset_width_in(screen, 9, InsetSpan::Full), None);
+            assert_eq!(
+                engine.inset_width_in(Rect::new(0, 0, 30, 5), C, InsetSpan::Full),
+                None
+            );
+            let set = [
+                on_line(&engine, 1, C, Side::New, 3, 1),
+                beside(&engine, 2, C, Side::Old, 3, 1),
+                beside(&engine, 3, C, Side::New, 3, 1),
+            ];
+            engine.set_insets(&set).unwrap();
+            draw(&mut engine, TALL);
+            engine.reveal(C, Side::New, 3).unwrap();
+            let drawn = |engine: &mut Engine| {
+                draw(engine, TALL);
+                [1, 2, 3].map(|id| area(engine, id).unwrap().area.width)
+            };
+            assert_eq!(drawn(&mut engine), early, "{what}");
+            // After each change, before the frame that shows it.
+            for (change, apply) in [
+                ("the other layout", Command::ToggleLayout),
+                ("no line numbers", Command::ToggleNumbers),
+                ("the layout back", Command::ToggleLayout),
+                ("line numbers", Command::ToggleNumbers),
+            ] {
+                engine.execute(apply).unwrap();
+                let before = spans.map(|span| engine.inset_width(C, span).unwrap());
+                assert_eq!(drawn(&mut engine), before, "{what}: {change}");
+            }
+            engine
+                .set_split_ratio(SplitRatio::from_permille(700))
+                .unwrap();
+            let before = spans.map(|span| engine.inset_width(C, span).unwrap());
+            assert_eq!(drawn(&mut engine), before, "{what}: a ratio");
+            let wider = Rect::new(0, 0, 160, TALL.1);
+            let ahead = spans.map(|span| engine.inset_width_in(wider, C, span).unwrap());
+            draw(&mut engine, (160, TALL.1));
+            let now = [1, 2, 3].map(|id| area(&engine, id).unwrap().area.width);
+            assert_eq!(now, ahead, "{what}: a wider pane");
+            if app(&engine).split() {
+                // The full width runs from the old side's code to the right edge.
+                assert!(now[0] > now[1] + now[2], "{what}");
+            } else {
+                assert!(now.iter().all(|&w| w == now[0]), "{what}");
+            }
+        }
+    }
 }
 
 type Reflow = (&'static str, fn(&mut Engine, &mut (u16, u16)));
@@ -1087,8 +1462,10 @@ fn every_reflow_with_insets_keeps_what_is_read() {
     for layout in LAYOUTS {
         for wrap in [false, true] {
             for at in [Where::NearTop, Where::Middle] {
-                for on_inset in [false, true] {
-                    let what = format!("{layout:?} wrap {wrap} {at:?} on an inset {on_inset}");
+                // Off insets, on one across, and on each of two side by side.
+                for on in [None, Some(3), Some(6), Some(7)] {
+                    let on_inset = on.is_some();
+                    let what = format!("{layout:?} wrap {wrap} {at:?} on inset {on:?}");
                     let (mut engine, _directory) = open(layout, wrap);
                     let mut size = SIZE;
                     draw(&mut engine, size);
@@ -1100,10 +1477,12 @@ fn every_reflow_with_insets_keeps_what_is_read() {
                         on_line(&engine, 3, C, Side::New, line, 2),
                         on_heading(&engine, 4, B, 2),
                         on_line(&engine, 5, A, Side::New, 3, 2),
+                        beside(&engine, 6, C, Side::Old, line, 3),
+                        beside(&engine, 7, C, Side::New, line, 2),
                     ];
                     set_keeping(&mut engine, size, &set, &what);
-                    if on_inset {
-                        down_to(&mut engine, 3, &what);
+                    if let Some(id) = on {
+                        down_to(&mut engine, id, &what);
                         draw(&mut engine, size);
                     }
                     if !engine.options().wrap {
@@ -1360,7 +1739,7 @@ fn insets_set_early_wait_for_their_files_and_go_with_the_review() {
     engine.set_insets(&early).unwrap();
     engine.set_inset_stops(false).unwrap();
     assert_eq!(engine.hidden_insets(), [1]);
-    assert_eq!(engine.inset_width(A, Side::New), None);
+    assert_eq!(engine.inset_width(A, InsetSpan::Full), None);
     let other = Inset {
         review: ReviewId(u64::MAX),
         ..early[0]
@@ -1379,7 +1758,7 @@ fn insets_set_early_wait_for_their_files_and_go_with_the_review() {
     assert!(engine.hidden_insets().is_empty());
     let found = area(&engine, 1).unwrap();
     assert_eq!((found.area.y, found.area.height), (3, 2));
-    assert!(engine.inset_width(A, Side::New).is_some());
+    assert!(engine.inset_width(A, InsetSpan::Full).is_some());
     engine.replace(Input::Patch(path)).unwrap();
     assert!(engine.insets().is_empty());
     assert!(!engine.inset_stops(), "the setting stays");

@@ -191,7 +191,7 @@ fn describe(
         return Ok(None);
     };
     if shown == RowShown::Row
-        && let Some((index, offset)) = app.inset_at(at)?
+        && let Some((index, offset)) = app.inset_at_side(at, app.split().then_some(old))?
     {
         let inset = app.insets.get(index);
         let (old_line, new_line) = match inset.anchor {
@@ -220,7 +220,12 @@ fn describe(
             old_line,
             new_line,
             whitespace_only: false,
-            side: if old { Side::Old } else { Side::New },
+            // A side inset is on its side of a split diff.
+            side: match inset.span {
+                super::InsetSpan::Side(side) if app.split() => side,
+                _ if old => Side::Old,
+                _ => Side::New,
+            },
         }));
     }
     let line = |id: Option<LineId>, old: bool| -> Result<Option<u32>> {

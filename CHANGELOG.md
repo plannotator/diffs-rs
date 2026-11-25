@@ -9,22 +9,24 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 
 - Insets: `Engine::set_insets` keeps blank rows under a line (`InsetAnchor::Line`) or a file's
   heading (`InsetAnchor::FileHeading`) for the host to draw into, such as review comments shown
-  inline. Several insets under one row stack in the order given. The engine draws only the
+  inline. `Inset::span` (`InsetSpan::Full` or `InsetSpan::Side(side)`) places an inset across
+  a split diff or in one side's column: side insets under the same row stack side by side, in
+  blocks between full ones; unified, every inset stacks in the order given. The engine draws only the
   background, the line between the sides and the cursor's mark there; markers, the selection
   and search matches never show on them.
-- `Engine::inset_areas` reports where each visible inset was drawn in the last frame: the rows
-  on screen from the first column of code to the right edge, the old and new side's code
-  columns, how many rows are cut above the pane, and whether the cursor is on it.
-  `Engine::inset_width` gives the width to wrap an inset's content to before setting its
-  height. `Engine::insets` returns the set and `Engine::hidden_insets` the insets whose line is
+- `Engine::inset_areas` reports where each visible inset was drawn in the last frame: its rows
+  on screen over the columns it takes, how many are cut above the pane, and whether the cursor
+  is on it. `Engine::inset_width` and `Engine::inset_width_in` give that width for any span,
+  with no frame needed, to wrap an inset's content to before setting its height. `Engine::insets` returns the set and `Engine::hidden_insets` the insets whose line is
   not displayed: outside the diff, in an unrevealed gap or in a hunk hidden as whitespace only.
 - Setting insets never moves what is read: the source line on the cursor's screen row stays on
   that row and the horizontal scroll is kept, while insets above grow and shrink out of the
-  top of the pane. Every reflow keeps working as before with insets present, the cursor on an
+  top of the pane. At the very start of the diff the top stays instead, so insets under the
+  first heading come in under it. Every reflow keeps working as before with insets present, the cursor on an
   inset included. Scrolling, paging, `G`, the last page and the sticky heading count inset rows.
 - `DiffRowKind::Inset { id }` from `Engine::cursor_row` and `Engine::row_at`. By default the
-  cursor stops once on each inset; `Engine::set_inset_stops(false)` makes line moves pass over
-  them. A selection across an inset holds only its source lines.
+  cursor stops once on each inset, and a line move onto one shows all of it that fits;
+  `Engine::set_inset_stops(false)` makes line moves pass over them. A selection across an inset holds only its source lines.
 - `Side` implements `Hash`.
 
 With no insets set, every frame is drawn as before.

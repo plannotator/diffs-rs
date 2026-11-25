@@ -35,7 +35,7 @@ use crate::{
     theme::Appearance,
 };
 pub use file_marks::{Badge, BadgeColor, FileMark};
-pub use insets::{Inset, InsetAnchor, InsetArea};
+pub use insets::{Inset, InsetAnchor, InsetArea, InsetSpan};
 pub use markers::Marker;
 pub use rows::{DiffRow, DiffRowKind};
 pub use settings::{InlineChanges, TabWidth, Whitespace};

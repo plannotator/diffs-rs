@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 
 mod controls;
+mod insets;
 pub use controls::{Command, InputEffect};
+use insets::InsetSpot;
 mod settings;
 mod sidebar;
 mod source;
@@ -35,9 +37,36 @@ struct ReadingAnchor {
     source: LineId,
     display_byte: usize,
     old_side: bool,
+    /// The screen row the person had the cursor on, which reflows and `set_insets` keep it on
+    /// and never change: only moving the cursor or the view drops it. It can be out of
+    /// reach for a while (too few rows above, a pane too short) and is met again when it is not.
     screen_row: Option<usize>,
+    /// `screen_row` is the row of the last screen row of the cursor's row's own text, not of
+    /// the cursor: the line the inset the cursor is on hangs under, so that the inset's height
+    /// does not change what is kept.
+    line: bool,
+    /// The view had the first row of the diff at the top: `screen_row` leaves out the rows
+    /// of insets above, so that insets there push the line down and the top stays.
+    start: bool,
+    /// The inset the cursor is on, and how many rows into it, which it goes back to
+    /// whenever that inset is under its line again, as far down as the inset is tall.
+    inset: Option<InsetSpot>,
     /// The cursor is on the "No newline at end of file" mark under `source`, not on its row.
     mark: bool,
+}
+
+/// For tests: the screen row the view keeps, what is on it in the last frame and the cursor.
+#[cfg(test)]
+#[derive(Debug)]
+pub(crate) struct Kept {
+    /// The screen row kept.
+    pub y: usize,
+    /// The top is kept at the start of the diff instead.
+    pub start: bool,
+    /// The screen row of what is kept there in the last frame.
+    pub row: Option<u16>,
+    /// The cursor's rows below what is kept: its rows into the inset it is on.
+    pub below: usize,
 }
 
 pub struct App {
@@ -54,6 +83,9 @@ pub struct App {
     pub top: Position,
     pub cursor: Position,
     pub old_side: bool,
+    /// Of two side insets beside each other on the cursor's screen row, the one the cursor is
+    /// on: the old side's when true. The side of the code, `old_side`, stays as it was.
+    pub(crate) inset_side: Option<bool>,
     pub horizontal: usize,
     pub wrap: bool,
     pub numbers: bool,
@@ -71,6 +103,12 @@ pub struct App {
     pub(crate) search_match: Option<crate::reading::SearchMatch>,
     pub(crate) selection: Option<crate::reading::LineSelection>,
     pub(crate) markers: crate::engine::markers::Markers,
+    /// The host's insets: rows kept free under rows of the diff.
+    pub(crate) insets: crate::engine::insets::Insets,
+    /// The cursor stops on insets.
+    pub(crate) inset_stops: bool,
+    /// Where the insets on screen were drawn in the last frame.
+    pub(crate) inset_areas: Vec<crate::engine::InsetArea>,
     /// Draws the base surfaces and plain text in the terminal's own colors.
     pub(crate) terminal_background: bool,
     /// How a split row is shared between the old and the new side.
@@ -122,6 +160,9 @@ impl App {
             search_match: None,
             selection: None,
             markers: Default::default(),
+            insets: Default::default(),
+            inset_stops: true,
+            inset_areas: Vec::new(),
             terminal_background: false,
             split_ratio: crate::engine::SplitRatio::EVEN,
             plain,
@@ -134,6 +175,7 @@ impl App {
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
+            inset_side: None,
             horizontal: 0,
             wrap: false,
             numbers: true,
@@ -151,7 +193,12 @@ impl App {
     }
 
     pub fn split(&self) -> bool {
-        self.layout == Layout::Split || (self.layout == Layout::Auto && self.width >= 120)
+        self.split_at(self.width)
+    }
+
+    /// Whether a diff pane `width` cells wide shows the split layout.
+    pub(crate) fn split_at(&self, width: u16) -> bool {
+        self.layout == Layout::Split || (self.layout == Layout::Auto && width >= 120)
     }
     pub fn row(&self, index: usize) -> Option<Row<LineId>> {
         self.view.row(&self.doc, index, self.split())
@@ -209,9 +256,7 @@ impl App {
         if position < top || self.width < 40 || self.height < 10 {
             return Ok(None);
         }
-        let sticky = self
-            .row(top.row)
-            .is_some_and(|row| row.kind != RowKind::Header);
+        let sticky = self.sticky(top);
         let first = 1 + u16::from(sticky);
         let rows = self.height.saturating_sub(2 + u16::from(sticky));
         let mut p = top;
@@ -229,6 +274,29 @@ impl App {
             p = next;
         }
         Ok(None)
+    }
+
+    /// Whether the file heading is drawn over the top row with `top` as the top row: the top
+    /// row is not the heading itself, nor is it an inset under a heading.
+    pub(crate) fn sticky(&self, top: Position) -> bool {
+        self.row(top.row)
+            .is_some_and(|row| row.kind != RowKind::Header || top.part > 0)
+    }
+
+    /// The top row that draws `position` on one-based screen row `screen_row`, or as near as
+    /// the start of the diff allows.
+    fn top_for(&self, position: Position, screen_row: usize) -> Result<Position> {
+        let mut top = position;
+        for _ in 0..screen_row
+            .min(self.height.saturating_sub(2) as usize)
+            .saturating_sub(1)
+        {
+            top = self.previous(top)?;
+        }
+        if top < position && self.sticky(top) {
+            top = self.next(top)?;
+        }
+        Ok(top)
     }
 
     /// The lowest top row that leaves no screen row empty below the last row: the top of
@@ -254,7 +322,7 @@ impl App {
 
     /// Whether no screen row is empty under the last row: the top is no lower than the last
     /// full page. A view scrolled past it, by the wheel or a jump to a short last file, is not.
-    fn page_full(&self) -> Result<bool> {
+    pub(crate) fn page_full(&self) -> Result<bool> {
         Ok(self.width < 40 || self.height < 10 || self.top <= self.last_page_top()?)
     }
 
@@ -263,7 +331,7 @@ impl App {
     /// no empty rows under the last one. Everything from that top down is on screen, so the
     /// cursor, which was at or below the top, still is. The standalone viewer, which keeps
     /// the text in view, keeps the cursor's screen row as it always has.
-    fn keep_page_full(&mut self, full: bool) -> Result<()> {
+    pub(crate) fn keep_page_full(&mut self, full: bool) -> Result<()> {
         if full && !self.keep_text_in_view && self.width >= 40 && self.height >= 10 {
             self.top = self.top.min(self.last_page_top()?);
         }
@@ -283,17 +351,29 @@ impl App {
                     Kind::Context => self.old_side,
                 }
             };
+            // On an inset the line it hangs under is the anchor, read from its first column
+            // shown; reflows put the cursor back on the inset itself.
+            let on_inset = self.inset_at(self.cursor)?.is_some();
+            let (part, clicked_column) = if on_inset {
+                (0, None)
+            } else {
+                (self.cursor.part, clicked_column)
+            };
+            let (screen_row, line, start) = self.wanted_here()?;
             self.reading_anchor = Some(ReadingAnchor {
                 source,
                 display_byte: render::source_anchor_byte(
                     self,
                     source,
-                    self.cursor.part,
+                    part,
                     old_side,
                     clicked_column,
                 )?,
                 old_side,
-                screen_row: Some(self.screen_row()),
+                screen_row: Some(screen_row),
+                line,
+                start,
+                inset: self.inset_spot()?,
                 mark: self
                     .row(self.cursor.row)
                     .is_some_and(|row| matches!(row.kind, RowKind::NoNewline { .. })),
@@ -302,13 +382,35 @@ impl App {
         Ok(())
     }
 
+    /// For tests: turning wrapping on now returns to the wrapped view it left.
+    #[cfg(test)]
+    pub(crate) fn wrapped_view_saved(&self) -> bool {
+        self.unwrapped.is_some()
+    }
+
+    /// For tests: the row the view keeps and where it is in the last frame.
+    #[cfg(test)]
+    pub(crate) fn kept(&self) -> Option<Kept> {
+        let anchor = self.reading_anchor?;
+        let y = anchor.screen_row?;
+        let at = self.wanted_at(anchor.line).ok()?;
+        Some(Kept {
+            y,
+            start: anchor.start,
+            row: self.visible.iter().find(|(p, _)| *p == at).map(|(_, y)| *y),
+            below: self.cursor.part - at.part,
+        })
+    }
+
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
-        self.reflow_from(layout, width, height, None, None)
+        let inset = self.inset_spot()?;
+        self.reflow_from(layout, width, height, None, None, inset)
     }
 
     /// `reflow`, keeping the cursor on `screen_row` when it has no anchor that says where it
     /// was, because the rows were just rebuilt, and taking `full` for whether the view had no
-    /// empty rows under the last one before they were.
+    /// empty rows under the last one before they were. With the cursor on `inset` (an id and
+    /// one of its rows) before, it goes back onto it when it is still shown.
     fn reflow_from(
         &mut self,
         layout: Layout,
@@ -316,17 +418,23 @@ impl App {
         height: u16,
         screen_row: Option<usize>,
         full: Option<bool>,
+        inset: Option<InsetSpot>,
     ) -> Result<()> {
         self.remember_position(None)?;
+        self.capture_wanted()?;
         let full = match full {
             Some(full) => full,
             None => self.page_full()?,
         };
         let anchor = self.reading_anchor;
-        let screen_row = anchor
-            .and_then(|anchor| anchor.screen_row)
-            .or(screen_row)
-            .unwrap_or_else(|| self.screen_row());
+        let (screen_row, line, start) = anchor
+            .and_then(|anchor| {
+                anchor
+                    .screen_row
+                    .map(|row| (row, anchor.line, anchor.start))
+            })
+            .or(screen_row.map(|row| (row, false, false)))
+            .unwrap_or_else(|| (self.screen_row(), false, false));
         let file = self.row(self.cursor.row).map(|r| r.file);
         let old_split = self.split();
         if width < 40 || height < 10 {
@@ -374,25 +482,14 @@ impl App {
             .cursor
             .part
             .min(self.row_height(self.cursor.row)?.saturating_sub(1));
-        self.top = self.cursor;
-        for _ in 0..screen_row
-            .min(height.saturating_sub(2) as usize)
-            .saturating_sub(1)
-        {
-            self.top = self.previous(self.top)?;
-        }
-        if self.top < self.cursor
-            && self
-                .row(self.top.row)
-                .is_some_and(|row| row.kind != RowKind::Header)
-        {
-            self.top = self.next(self.top)?;
-        }
+        self.restore_inset(inset)?;
+        self.place_view(screen_row, line, start)?;
         self.keep_page_full(full)?;
-        // The screen row asked for, not the one the end of the diff left: a later reflow
-        // with room below puts the cursor back on it.
+        // The row kept, as it was read, not the one the end of the diff or a short pane
+        // left: a later reflow with room puts the cursor back on it.
         if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = Some(screen_row);
+            anchor.line = line;
         }
         self.unwrapped = None;
         self.visible.clear();
@@ -411,10 +508,18 @@ impl App {
     pub fn toggle_wrap(&mut self) -> Result<()> {
         self.remember_position(None)?;
         let full = self.page_full()?;
+        let (cursor_inset, top_inset) = (self.inset_spot()?, self.inset_id_at(self.top)?);
         self.wrap = !self.wrap;
         if self.wrap || self.keep_text_in_view || self.width < 40 || self.height < 10 {
             let unwrapped = self.unwrapped.take();
-            self.reflow(self.layout, self.width, self.height)?;
+            self.reflow_from(
+                self.layout,
+                self.width,
+                self.height,
+                None,
+                None,
+                cursor_inset,
+            )?;
             // Wrapping back on with nothing done since it went off: the wrapped view it left.
             if self.wrap
                 && let Some((top, cursor, anchor)) = unwrapped
@@ -424,10 +529,7 @@ impl App {
                 && cursor.row == self.cursor.row
             {
                 (self.top, self.cursor) = (top, cursor);
-                let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
-                if let Some(anchor) = &mut self.reading_anchor {
-                    anchor.screen_row = screen_row;
-                }
+                self.set_wanted_here()?;
             }
             return Ok(());
         }
@@ -437,12 +539,21 @@ impl App {
             row: self.top.row.min(self.cursor.row),
             part: 0,
         };
+        // The same row of the same inset, for the cursor and for the top, as long as the
+        // cursor stays at or below the top.
+        self.restore_inset(cursor_inset)?;
+        if let Some((id, offset)) = top_inset
+            && let Some((top, _)) = self.inset_position(id, offset)?
+            && top.row == self.top.row
+            && top <= self.cursor
+        {
+            self.top = top;
+        }
         self.keep_page_full(full)?;
         self.visible.clear();
-        let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
-        if let Some(anchor) = &mut self.reading_anchor {
-            anchor.screen_row = screen_row;
-        }
+        // Turning wrapping off keeps the top row instead: the row kept from now on is the one
+        // the cursor is on now.
+        self.set_wanted_here()?;
         self.unwrapped = self
             .reading_anchor
             .map(|anchor| (wrapped.0, wrapped.1, anchor));
@@ -451,8 +562,9 @@ impl App {
 
     pub fn toggle_numbers(&mut self) -> Result<()> {
         self.remember_position(None)?;
+        let inset = self.inset_spot()?;
         self.numbers = !self.numbers;
-        self.reflow(self.layout, self.width, self.height)
+        self.reflow_from(self.layout, self.width, self.height, None, None, inset)
     }
 
     /// Shares split rows between the sides by `ratio`. True when it changed. The source line
@@ -467,8 +579,9 @@ impl App {
             return Ok(true);
         }
         self.remember_position(None)?;
+        let inset = self.inset_spot()?;
         self.split_ratio = ratio;
-        self.reflow(self.layout, self.width, self.height)?;
+        self.reflow_from(self.layout, self.width, self.height, None, None, inset)?;
         Ok(true)
     }
 
@@ -489,7 +602,10 @@ impl App {
 
     pub fn switch_side(&mut self) {
         self.selection = None;
-        self.old_side = !self.old_side;
+        // On a side inset, the side across from it, and the inset beside it there if any.
+        let from = self.cursor_inset_column().unwrap_or(self.old_side);
+        self.old_side = !from;
+        self.inset_side = Some(self.old_side);
         self.reading_anchor = None;
     }
 
@@ -497,6 +613,8 @@ impl App {
         self.cursor = position;
         if self.split() {
             self.old_side = crate::engine::split::old_at(self.width, self.split_ratio, column);
+            // On an inset, the one under the pointer, or the one there is.
+            self.inset_side = Some(self.old_side);
         }
         self.reading_anchor = None;
         self.remember_position(Some(column))?;
@@ -550,6 +668,9 @@ impl App {
             display_byte,
             old_side,
             screen_row: None,
+            line: false,
+            start: false,
+            inset: None,
             mark: false,
         });
         // Whether a later reveal moves the view is worked out from the top, not from this
@@ -594,14 +715,44 @@ impl App {
         })
     }
 
+    /// Moves `amount` screen rows. A move of one row moves between stops: an inset is one
+    /// stop however tall it is, and none when insets are not stops. A longer move counts
+    /// every screen row, and when insets are not stops, one that ends on an inset goes on to
+    /// the next row that is not.
     pub fn move_cursor(&mut self, amount: isize) -> Result<()> {
         let before = self.cursor;
-        for _ in 0..amount.unsigned_abs() {
-            self.cursor = if amount > 0 {
-                self.next(self.cursor)?
+        if amount.unsigned_abs() == 1 && !self.insets.is_empty() {
+            let (stop, old) = if amount > 0 {
+                self.next_stop(self.cursor)?
             } else {
-                self.previous(self.cursor)?
+                self.previous_stop(self.cursor)?
             };
+            self.cursor = stop;
+            self.inset_side = old;
+            if before != self.cursor {
+                self.reading_anchor = None;
+            }
+            // Onto an inset, all of it as far as the pane allows.
+            return self.reveal_inset();
+        } else {
+            self.inset_side = None;
+            for _ in 0..amount.unsigned_abs() {
+                self.cursor = if amount > 0 {
+                    self.next(self.cursor)?
+                } else {
+                    self.previous(self.cursor)?
+                };
+            }
+            if !self.insets.is_empty() {
+                let everywhere = (
+                    Position::default(),
+                    Position {
+                        row: usize::MAX,
+                        part: usize::MAX,
+                    },
+                );
+                self.cursor = self.off_inset(self.cursor, amount > 0, everywhere)?;
+            }
         }
         if before != self.cursor {
             self.reading_anchor = None;
@@ -618,19 +769,21 @@ impl App {
                 self.previous(self.top)?
             };
         }
-        let sticky_header = self
-            .row(self.top.row)
-            .is_some_and(|row| row.kind != RowKind::Header);
+        let sticky_header = self.sticky(self.top);
         let visible_rows = self.height.saturating_sub(2 + u16::from(sticky_header));
         let mut bottom = self.top;
         for _ in 1..visible_rows {
             bottom = self.next(bottom)?;
         }
         self.cursor = self.cursor.clamp(self.top, bottom);
+        if !self.insets.is_empty() {
+            self.cursor = self.off_inset(self.cursor, amount > 0, (self.top, bottom))?;
+        }
         if self.cursor != before {
             self.reading_anchor = None;
         } else if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = None;
+            anchor.start = false;
         }
         Ok(())
     }
@@ -683,8 +836,16 @@ impl App {
             }
         }
         self.reading_anchor = None;
-        self.cursor = Position { row, part: 0 };
         self.old_side = self.line_info(id)?.new.is_none();
+        // The insets under the last line are shown with it, as far as the pane allows.
+        if end && self.inset_rows(row) > 0 {
+            self.cursor = Position {
+                row,
+                part: self.row_height(row)? - 1,
+            };
+            self.reveal()?;
+        }
+        self.cursor = Position { row, part: 0 };
         self.reveal()
     }
 
@@ -699,6 +860,9 @@ impl App {
             display_byte: 0,
             old_side: self.old_side,
             screen_row: Some(screen_row),
+            line: false,
+            start: false,
+            inset: None,
             mark: false,
         });
         self.reflow(self.layout, self.width, self.height)?;

@@ -50,7 +50,7 @@
 //!
 //! The [embedding guide](https://github.com/plannotator/diffs-rs/blob/main/docs/embedding.md)
 //! covers the host loop, focus, source coordinates, chrome, the terminal background, markers,
-//! file marks, reading tools, and shutdown.
+//! file marks, insets, reading tools, and shutdown.
 
 pub mod app;
 mod cleanup;

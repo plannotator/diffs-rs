@@ -147,6 +147,7 @@ impl App {
                 if Arc::ptr_eq(previous, next)
         );
         let split = self.split();
+        let inset = self.inset_spot()?;
         let cursor_file = self.row(self.cursor.row).map(|row| row.file);
         let digits = cursor_file.map(|file| self.line_digits(file));
         let cursor_source = self.anchor();
@@ -205,6 +206,7 @@ impl App {
             .top
             .part
             .min(self.row_height(self.top.row)?.saturating_sub(1));
+        self.restore_inset(inset)?;
         if self.reading_anchor.is_some() || digits != cursor_file.map(|file| self.line_digits(file))
         {
             self.reflow(self.layout, self.width, self.height)?;

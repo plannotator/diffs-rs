@@ -142,6 +142,26 @@ impl App {
         }
     }
 
+    /// Whether a frame drawn into `screen` shows the file tree, and the diff's pane there:
+    /// empty when the screen is too small for the diff.
+    pub(crate) fn panes(&self, screen: Rect) -> (bool, Rect) {
+        let wants_tree = match self.sidebar.preference {
+            SidebarPreference::Auto => self.doc.files.len() >= 2,
+            SidebarPreference::Show => true,
+            SidebarPreference::Hide => false,
+        };
+        let height = self.layout_height(screen.height);
+        let top = screen.y + u16::from(self.chrome);
+        let shown = wants_tree && screen.width >= MIN_WIDTH && height >= 10;
+        let inset = if shown { TREE_WIDTH + 1 } else { 0 };
+        let diff = if screen.width >= 40 && height >= 10 {
+            Rect::new(screen.x + inset, top, screen.width - inset, height - 2)
+        } else {
+            Rect::default()
+        };
+        (shown, diff)
+    }
+
     pub(crate) fn prepare_view(&mut self, screen: Rect) -> anyhow::Result<()> {
         for file in &self.doc.files[self.sidebar.tree.len()..] {
             self.sidebar
@@ -162,29 +182,18 @@ impl App {
         if self.sidebar.cursor.is_none() {
             self.sidebar.cursor = self.sidebar.tree.rows().first().map(|r| r.node);
         }
-        let wants_tree = match self.sidebar.preference {
-            SidebarPreference::Auto => self.doc.files.len() >= 2,
-            SidebarPreference::Show => true,
-            SidebarPreference::Hide => false,
-        };
         let height = self.layout_height(screen.height);
-        let top = screen.y + u16::from(self.chrome);
-        let shown = wants_tree && screen.width >= MIN_WIDTH && height >= 10;
+        let (shown, diff) = self.panes(screen);
         if shown {
             self.sidebar.notice = None;
         }
         self.sidebar.screen = screen;
         self.sidebar.area = if shown {
-            Rect::new(screen.x, top, TREE_WIDTH, height - 2)
+            Rect::new(screen.x, diff.y, TREE_WIDTH, diff.height)
         } else {
             Rect::default()
         };
-        let inset = if shown { TREE_WIDTH + 1 } else { 0 };
-        self.sidebar.diff = if screen.width >= 40 && height >= 10 {
-            Rect::new(screen.x + inset, top, screen.width - inset, height - 2)
-        } else {
-            Rect::default()
-        };
+        self.sidebar.diff = diff;
         if !shown {
             self.sidebar.focus = Focus::Diff;
         }

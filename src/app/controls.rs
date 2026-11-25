@@ -115,6 +115,11 @@ impl App {
                             if let Some((position, _)) =
                                 self.visible.iter().find(|(_, row)| *row == y)
                             {
+                                // An inset is no place for the cursor when insets are not
+                                // stops: the host owns clicks there.
+                                if !self.inset_stops && self.inset_at(*position)?.is_some() {
+                                    return Ok(InputEffect::Ignored);
+                                }
                                 self.select(*position, mouse.column - self.sidebar.diff.x)?;
                                 self.expand_context()?;
                             }

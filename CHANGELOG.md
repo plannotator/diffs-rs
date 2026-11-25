@@ -3,7 +3,7 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
-## Unreleased
+## 0.2.6 - 2026-11-25
 
 ### Added
 

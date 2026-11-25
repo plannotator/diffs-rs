@@ -1657,6 +1657,127 @@ fn on_an_inset_the_line_above_it_stays_whatever_its_height() {
     }
 }
 
+/// A reflow and a new height for the inset the cursor is on, one right after the other with
+/// no frame between, in either order, as a host that sizes its insets for the width does.
+#[test]
+fn a_reflow_and_a_new_height_together_keep_the_line_still() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let (mut engine, _directory) = open(layout, wrap);
+            let mut size = SIZE;
+            draw(&mut engine, size);
+            place(&mut engine, size, Where::Middle);
+            let line = cursor_line(&engine);
+            let set = |engine: &Engine, height: u16| {
+                [
+                    on_line(engine, 1, C, Side::New, line - 2, 2),
+                    on_line(engine, 3, C, Side::New, line, height),
+                ]
+            };
+            for row in [0, 3, 5] {
+                for reflow_first in [true, false] {
+                    for height in [3, 9] {
+                        for (name, apply) in REFLOWS {
+                            let what = format!(
+                                "{layout:?} wrap {wrap} row {row} reflow first {reflow_first} \
+                                 height {height}: {name}"
+                            );
+                            // On row `row` of a six-row inset, by a click.
+                            engine.set_insets(&set(&engine, 6)).unwrap();
+                            draw(&mut engine, size);
+                            let found = area(&engine, 3).expect("inset 3 on screen");
+                            let column = new_column(&engine, size);
+                            let click = MouseEventKind::Down(MouseButton::Left);
+                            mouse(&mut engine, click, column, found.area.y + row);
+                            let before = line_row(&mut engine, size, C, line);
+                            let wrapping_off =
+                                name.starts_with("wrapping") && engine.options().wrap;
+                            if reflow_first {
+                                apply(&mut engine, &mut size);
+                                engine.set_insets(&set(&engine, height)).unwrap();
+                            } else {
+                                engine.set_insets(&set(&engine, height)).unwrap();
+                                apply(&mut engine, &mut size);
+                            }
+                            let now = line_row(&mut engine, size, C, line);
+                            if !wrapping_off {
+                                assert_eq!(now, before, "{what}");
+                            }
+                            let at = engine.cursor_row().unwrap();
+                            let part = usize::from(row.min(height - 1));
+                            assert_eq!(
+                                (at.kind, at.part),
+                                (DiffRowKind::Inset { id: 3 }, part),
+                                "{what}"
+                            );
+                            // And a pane resize after the new height, with no new height.
+                            let before = now;
+                            size.0 = if size.0 == 120 { 130 } else { 120 };
+                            let now = line_row(&mut engine, size, C, line);
+                            assert_eq!(now, before, "{what}: then a resize");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The host's case: unified, 80 by 45, an inset of six rows under a line, the cursor on its
+/// last row; a new height, then a resize. Line 20 of a.txt is the host's own (the top at the
+/// start of the diff, the width changed by two columns); a.txt's wide line above it unwraps at
+/// 160 columns, with no rows above the top to keep it, so that width is tried in c.txt.
+#[test]
+fn a_shorter_inset_then_a_resize_keep_the_line_still() {
+    for (file, line, width, height) in [
+        (A, 20, 82, 5),
+        (A, 20, 82, 9),
+        (C, 40, 160, 4),
+        (C, 40, 82, 5),
+    ] {
+        for set_first in [true, false] {
+            let what = format!("line {line} to {width} at height {height}, set first {set_first}");
+            let (mut engine, _directory) = open(LAYOUTS[0], true);
+            let mut size = (80, 45);
+            draw(&mut engine, size);
+            let inset =
+                |engine: &Engine, height| [on_line(engine, 1, file, Side::New, line, height)];
+            engine.set_insets(&inset(&engine, 6)).unwrap();
+            engine.reveal(file, Side::New, line).unwrap();
+            // Onto it, which shows all of it, and then onto its last row by a click.
+            down_to(&mut engine, 1, &what);
+            draw(&mut engine, size);
+            let found = area(&engine, 1).unwrap();
+            mouse(
+                &mut engine,
+                MouseEventKind::Down(MouseButton::Left),
+                40,
+                found.area.bottom() - 1,
+            );
+            let at = line_row(&mut engine, size, file, line);
+            // A new height first, drawn, then a resize with that height.
+            engine.set_insets(&inset(&engine, 5)).unwrap();
+            assert_eq!(line_row(&mut engine, size, file, line), at, "{what}");
+            size.0 = width;
+            assert_eq!(line_row(&mut engine, size, file, line), at, "{what}");
+            // A resize and the height for it, in either order, with no frame between.
+            size.0 = 80;
+            let at = line_row(&mut engine, size, file, line);
+            size.0 = width;
+            if set_first {
+                engine.set_insets(&inset(&engine, height)).unwrap();
+            } else {
+                draw(&mut engine, size);
+                engine.set_insets(&inset(&engine, height)).unwrap();
+            }
+            assert_eq!(line_row(&mut engine, size, file, line), at, "{what}");
+            let row = engine.cursor_row().unwrap();
+            assert_eq!(row.kind, DiffRowKind::Inset { id: 1 }, "{what}");
+            assert_eq!(row.part, usize::from(height.min(5) - 1), "{what}");
+        }
+    }
+}
+
 #[test]
 fn passing_through_insets_keeps_the_side_of_the_code() {
     for layout in LAYOUTS {

@@ -398,6 +398,13 @@ impl App {
             (self.cursor, self.top, self.reading_anchor, self.unwrapped) = saved;
             return Err(error);
         }
+        // The screen row a reflow keeps the cursor on is where it is now: the old one can be
+        // a row of an inset that has since got shorter, and the line above it would move.
+        if let Some(y) = self.laid_out_row(self.cursor).ok().flatten()
+            && let Some(anchor) = &mut self.reading_anchor
+        {
+            anchor.screen_row = Some(usize::from(y));
+        }
         // The wrapped view that turning wrapping back on would return to had the old rows.
         self.unwrapped = None;
         self.visible.clear();

@@ -65,10 +65,18 @@ const A: usize = 0;
 const B: usize = 1;
 const C: usize = 2;
 
-fn open((layout, ratio): (Layout, u16), wrap: bool) -> (Engine, tempfile::TempDir) {
+fn open(layout: (Layout, u16), wrap: bool) -> (Engine, tempfile::TempDir) {
+    open_with(&patch(), layout, wrap)
+}
+
+fn open_with(
+    text: &str,
+    (layout, ratio): (Layout, u16),
+    wrap: bool,
+) -> (Engine, tempfile::TempDir) {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("review.patch");
-    fs::write(&path, patch()).unwrap();
+    fs::write(&path, text).unwrap();
     let (wake, ready) = mpsc::sync_channel(1);
     let options = Options {
         layout,
@@ -1773,7 +1781,9 @@ fn a_shorter_inset_then_a_resize_keep_the_line_still() {
             assert_eq!(line_row(&mut engine, size, file, line), at, "{what}");
             let row = engine.cursor_row().unwrap();
             assert_eq!(row.kind, DiffRowKind::Inset { id: 1 }, "{what}");
-            assert_eq!(row.part, usize::from(height.min(5) - 1), "{what}");
+            // The row clicked, as far down as the inset is tall: clamped while it is shorter,
+            // back on it when it is tall again.
+            assert_eq!(row.part, usize::from(height.min(6) - 1), "{what}");
         }
     }
 }
@@ -2276,5 +2286,410 @@ fn revealed_context_shows_its_insets_and_keeps_the_cursor_row() {
             assert_eq!(found.area.y, line + 1);
         }
         engine.close().unwrap();
+    }
+}
+
+/// R1: a pane too short for the row the line was on, the insets cleared and set again while
+/// it is short, then the pane as tall as before: the line is back on its row.
+#[test]
+fn a_short_pane_and_insets_set_in_it_give_the_row_back() {
+    let (mut engine, _directory) = open(LAYOUTS[0], false);
+    let size = (160, 45);
+    engine.reveal(C, Side::New, 55).unwrap();
+    draw(&mut engine, size);
+    mouse(&mut engine, MouseEventKind::Down(MouseButton::Left), 80, 30);
+    let line = cursor_line(&engine);
+    let inset = [on_line(&engine, 1, C, Side::New, line, 4)];
+    engine.set_insets(&inset).unwrap();
+    assert_eq!(line_row(&mut engine, size, C, line), 30);
+    draw(&mut engine, (160, 11));
+    engine.set_insets(&[]).unwrap();
+    draw(&mut engine, (160, 11));
+    draw(&mut engine, size);
+    engine.set_insets(&inset).unwrap();
+    assert_eq!(line_row(&mut engine, size, C, line), 30);
+}
+
+/// R2: at the very start, the other layout and back, insets set after each: the first row
+/// stays at the top and the cursor's line on its row.
+#[test]
+fn the_layout_and_back_at_the_start_keeps_the_first_row() {
+    let one =
+        "diff --git a/one.txt b/one.txt\n--- a/one.txt\n+++ b/one.txt\n@@ -1 +1 @@\n-old\n+new\n";
+    let (mut engine, _directory) = open_with(one, LAYOUTS[0], false);
+    let size = (120, 26);
+    draw(&mut engine, size);
+    while engine.cursor_row().unwrap().new_line != Some(1) {
+        engine.execute(Command::Down).unwrap();
+    }
+    let inset = |engine: &Engine| [on_line(engine, 1, 0, Side::New, 1, 3)];
+    engine.set_insets(&inset(&engine)).unwrap();
+    draw(&mut engine, size);
+    let (top, y) = (top_row(&engine), cursor_y(&engine));
+    for layout in [Layout::Split, Layout::Unified] {
+        engine.set_layout(layout).unwrap();
+        draw(&mut engine, size);
+        engine.set_insets(&inset(&engine)).unwrap();
+        draw(&mut engine, size);
+    }
+    assert_eq!(top_row(&engine), top);
+    assert_eq!(cursor_y(&engine), y);
+}
+
+/// A small deterministic generator for the walks.
+struct Walker(u64);
+
+impl Walker {
+    fn below(&mut self, n: usize) -> usize {
+        // splitmix64
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((z ^ (z >> 31)) % n as u64) as usize
+    }
+}
+
+/// What a walk does between frames: never a move of the cursor or of the view.
+#[derive(Clone, Copy, Debug)]
+enum Op {
+    Add(u64),
+    Remove(u64),
+    Height(u64, u16),
+    Clear,
+    /// An inset set the walk had before, by its place in the walk's list of them.
+    Restore(usize),
+    Size(u16, u16),
+    Layout(Layout),
+    Ratio(u16),
+    Wrap,
+    Whitespace(usize),
+    Numbers,
+    Tab(u8),
+}
+
+/// The insets walks pick from: `(id, file, anchor, span, height)`, with line 0 for the
+/// file's heading. Near the start, in the middle, under a wide line, two sides of one block,
+/// taller than small panes, and at the end of the diff.
+const POOL: [(u64, usize, Side, u32, Option<Side>, u16); 10] = [
+    (1, A, Side::New, 15, None, 3),
+    (2, A, Side::New, 20, None, 6),
+    (3, A, Side::Old, 9, Some(Side::Old), 2),
+    (4, A, Side::New, 10, Some(Side::New), 4),
+    (5, C, Side::New, 40, None, 8),
+    (6, C, Side::Old, 15, Some(Side::Old), 3),
+    (7, B, Side::New, 0, None, 2),
+    (8, A, Side::New, 1, None, 2),
+    (9, C, Side::New, 60, None, 3),
+    (10, A, Side::New, 50, None, 2),
+];
+
+/// `patch()` and a file with tabs, which tab widths change.
+fn walk_patch() -> String {
+    let mut p = patch();
+    p.push_str("diff --git a/d.txt b/d.txt\n--- a/d.txt\n+++ b/d.txt\n@@ -1,6 +1,6 @@\n");
+    p.push_str(" \tone\n-\t\ttwo\n+\t\tTWO\n \tthree\tfour\n \t\t\tfive\n \tsix\n \tseven\n");
+    p
+}
+
+fn walk_insets(engine: &Engine, set: &std::collections::BTreeMap<u64, u16>) -> Vec<Inset> {
+    set.iter()
+        .map(|(&id, &height)| {
+            let &(_, file, side, line, span, _) = POOL.iter().find(|p| p.0 == id).unwrap();
+            let inset = if line == 0 {
+                on_heading(engine, id, file, height)
+            } else {
+                on_line(engine, id, file, side, line, height)
+            };
+            Inset {
+                span: span.map_or(InsetSpan::Full, InsetSpan::Side),
+                ..inset
+            }
+        })
+        .collect()
+}
+
+/// Where a walk starts: the place the person put the cursor, the last thing they did.
+#[derive(Clone, Copy, Debug)]
+enum WalkStart {
+    Top,
+    Code(usize, u32),
+    End,
+    /// On inset `id`, on its first row, its middle one or its last.
+    Inset(u64, u32, Part),
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Part {
+    First,
+    Middle,
+    Last,
+}
+
+const WALK_STARTS: [WalkStart; 9] = [
+    WalkStart::Top,
+    WalkStart::Code(A, 17),
+    WalkStart::Code(C, 30),
+    WalkStart::End,
+    WalkStart::Inset(2, 20, Part::First),
+    WalkStart::Inset(5, 40, Part::Middle),
+    WalkStart::Inset(5, 40, Part::Last),
+    WalkStart::Inset(4, 10, Part::Last),
+    WalkStart::Inset(9, 60, Part::Middle),
+];
+
+/// The row the view keeps and where it is: `None` when the person's row is not met, or the
+/// view is at either end of the diff, so a single step may move it.
+fn kept_line(engine: &Engine) -> Option<u16> {
+    let app = app(engine);
+    let crate::app::Kept { y, start, row, .. } = app.kept()?;
+    let last = app.row_len().checked_sub(1)?;
+    let at_end = app.visible.iter().any(|(p, _)| p.row == last);
+    (!start && !at_end && app.top != Position::default() && row == Some(y as u16))
+        .then_some(y as u16)
+}
+
+/// The steps of a walk, from its seed.
+fn walk_ops(seed: u64, steps: usize) -> Vec<Op> {
+    const SIZES: [(u16, u16); 8] = [
+        (120, 30),
+        (80, 45),
+        (160, 45),
+        (82, 11),
+        (100, 9),
+        (35, 20),
+        (120, 5),
+        (70, 16),
+    ];
+    let mut rng = Walker(seed);
+    let id = |rng: &mut Walker| POOL[rng.below(POOL.len())].0;
+    (0..steps)
+        .map(|_| match rng.below(14) {
+            0 | 1 => Op::Add(id(&mut rng)),
+            2 | 3 => Op::Remove(id(&mut rng)),
+            4 | 5 => Op::Height(id(&mut rng), rng.below(12) as u16),
+            6 if rng.below(3) == 0 => Op::Clear,
+            6 => Op::Restore(rng.below(64)),
+            7 | 8 => {
+                let (w, h) = SIZES[rng.below(SIZES.len())];
+                Op::Size(w, h)
+            }
+            9 => Op::Layout([Layout::Unified, Layout::Split, Layout::Auto][rng.below(3)]),
+            10 => Op::Ratio([300, 500, 700][rng.below(3)]),
+            11 => Op::Wrap,
+            12 if rng.below(2) == 0 => Op::Whitespace(rng.below(3)),
+            12 => Op::Numbers,
+            _ => Op::Tab([2, 4, 8][rng.below(3)]),
+        })
+        .collect()
+}
+
+/// How a walk begins: the layout, wrapping, where the person put the cursor and whether
+/// the host keeps the anchor's text in view.
+#[derive(Clone, Copy, Debug)]
+struct Begin {
+    layout: (Layout, u16),
+    wrap: bool,
+    start: WalkStart,
+    keep_text: bool,
+}
+
+/// Runs `ops` from `begin` with no move of the cursor or the view. Checks that every state
+/// seen again draws the frame it drew before, and that a single step from a view that keeps
+/// the person's row, away from either end of the diff and in a pane no shorter, keeps what
+/// it keeps on that row. The first step that breaks either, and how.
+fn run_walk(begin: Begin, ops: &[Op], trace: &mut Vec<String>) -> Result<(), (usize, String)> {
+    use std::collections::{BTreeMap, HashMap};
+    let (mut engine, _directory) = open_with(&walk_patch(), begin.layout, begin.wrap);
+    engine.set_keep_text_in_view(begin.keep_text);
+    let mut size = (120, 30);
+    let mut set: BTreeMap<u64, u16> = POOL.iter().map(|p| (p.0, p.5)).collect();
+    draw(&mut engine, size);
+    engine.set_insets(&walk_insets(&engine, &set)).unwrap();
+    draw(&mut engine, size);
+    match begin.start {
+        WalkStart::Top => {}
+        WalkStart::Code(file, line) => engine.reveal(file, Side::New, line).unwrap(),
+        WalkStart::End => {
+            engine.execute(Command::LastSource).unwrap();
+        }
+        WalkStart::Inset(id, line, part) => {
+            let file = POOL.iter().find(|p| p.0 == id).unwrap().1;
+            engine.reveal(file, Side::New, line).unwrap();
+            down_to(&mut engine, id, "the start");
+            draw(&mut engine, size);
+            let found = area(&engine, id).unwrap();
+            let y = match part {
+                Part::First => found.area.y,
+                Part::Middle => found.area.y + found.area.height / 2,
+                Part::Last => found.area.bottom() - 1,
+            };
+            let x = found.area.x + 2;
+            mouse(&mut engine, MouseEventKind::Down(MouseButton::Left), x, y);
+        }
+    }
+    let mut sets = vec![set.clone()];
+    let mut frames: HashMap<String, Buffer> = HashMap::new();
+    draw(&mut engine, size);
+    for (step, &op) in ops.iter().enumerate() {
+        let kept = kept_line(&engine);
+        let before = size;
+        // Turning wrapping straight back on returns to the wrapped view it left.
+        let back = app(&engine).wrapped_view_saved() && matches!(op, Op::Wrap);
+        let mut forget = false;
+        match op {
+            Op::Add(id) => {
+                set.insert(id, POOL.iter().find(|p| p.0 == id).unwrap().5);
+            }
+            Op::Remove(id) => {
+                set.remove(&id);
+            }
+            Op::Height(id, height) => {
+                if let Some(h) = set.get_mut(&id) {
+                    *h = height;
+                }
+            }
+            Op::Clear => set.clear(),
+            Op::Restore(n) => set = sets[n % sets.len()].clone(),
+            Op::Size(w, h) => size = (w, h),
+            Op::Layout(l) => engine.set_layout(l).unwrap(),
+            Op::Ratio(r) => engine
+                .set_split_ratio(SplitRatio::from_permille(r))
+                .unwrap(),
+            Op::Wrap => {
+                let wrap = app(&engine).wrap;
+                engine.execute(Command::ToggleWrap).unwrap();
+                // Turning wrapping off keeps the top row, not the cursor's: a new start.
+                forget = wrap && !app(&engine).wrap && !begin.keep_text;
+            }
+            Op::Whitespace(n) => {
+                let w = [
+                    Whitespace::Show,
+                    Whitespace::IgnoreChange,
+                    Whitespace::IgnoreAll,
+                ][n];
+                engine.set_whitespace(w).unwrap();
+            }
+            Op::Numbers => {
+                engine.execute(Command::ToggleNumbers).unwrap();
+            }
+            Op::Tab(n) => engine.set_tab_width(TabWidth::new(n)).unwrap(),
+        }
+        if matches!(
+            op,
+            Op::Add(_) | Op::Remove(_) | Op::Height(..) | Op::Clear | Op::Restore(_)
+        ) {
+            engine.set_insets(&walk_insets(&engine, &set)).unwrap();
+            if !sets.contains(&set) {
+                sets.push(set.clone());
+            }
+        }
+        let frame = draw(&mut engine, size);
+        let app = app(&engine);
+        trace.push(format!(
+            "{op:?}: wrap {} size {:?} kept {:?} top {:?} cursor {:?}",
+            app.wrap,
+            (app.width, app.height),
+            app.kept(),
+            app.top,
+            app.cursor
+        ));
+        if forget {
+            frames.clear();
+        }
+        let key = format!(
+            "{size:?} {:?} {:?} wrap {} {:?} numbers {} tab {} {set:?}",
+            app.layout,
+            app.split_ratio,
+            app.wrap,
+            app.whitespace,
+            app.numbers,
+            app.geometry.tab_width()
+        );
+        match frames.get(&key) {
+            Some(earlier) if *earlier != frame => {
+                return Err((step, format!("the same state drew another frame: {key}")));
+            }
+            Some(_) => {}
+            None => {
+                frames.insert(key, frame);
+            }
+        }
+        let tiny = |(w, h): (u16, u16)| w < 40 || h < 10;
+        if let Some(y) = kept
+            && !forget
+            && !back
+            && !tiny(before)
+            && !tiny(size)
+            && size.1 >= before.1
+            && !matches!(op, Op::Whitespace(_))
+            && let Some(now) = kept_line_any(&engine, y)
+            && now != Some(y)
+        {
+            return Err((
+                step,
+                format!("a single step moved the row kept from {y} to {now:?}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// One walk of `steps` steps from its seed. On a failure, the seed, the steps, and the
+/// fewest of them that still fail.
+fn walk(seed: u64, begin: Begin, steps: usize) {
+    let ops = walk_ops(seed, steps);
+    let Err((step, why)) = run_walk(begin, &ops, &mut Vec::new()) else {
+        return;
+    };
+    let mut fewest: Vec<Op> = ops[..=step].to_vec();
+    let mut i = 0;
+    while i < fewest.len() {
+        let mut fewer = fewest.clone();
+        fewer.remove(i);
+        match run_walk(begin, &fewer, &mut Vec::new()) {
+            Err((step, _)) => fewest = fewer[..=step].to_vec(),
+            Ok(()) => i += 1,
+        }
+    }
+    let mut trace = Vec::new();
+    let last = run_walk(begin, &fewest, &mut trace)
+        .err()
+        .map(|(_, why)| why);
+    panic!(
+        "seed {seed}, {begin:?}: step {step}: {why}\nops: {ops:?}\nfewest: {fewest:?}: {last:?}\n{}",
+        trace.join("\n")
+    );
+}
+
+/// The row of what the view keeps, when the view is away from both ends of the diff and the
+/// pane is tall enough for the cursor below row `y`.
+fn kept_line_any(engine: &Engine, y: u16) -> Option<Option<u16>> {
+    let app = app(engine);
+    let crate::app::Kept { row, below, .. } = app.kept()?;
+    let last = app.row_len().checked_sub(1)?;
+    let at_end = app.visible.iter().any(|(p, _)| p.row == last);
+    let bottom = app.visible.iter().map(|&(_, y)| y).max()?;
+    let fits = usize::from(y) + below <= usize::from(bottom);
+    (!at_end && fits && app.top != Position::default()).then_some(row)
+}
+
+#[test]
+fn walks_through_settings_sizes_and_insets_keep_what_is_read() {
+    let mut seed = 0;
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            for start in WALK_STARTS {
+                seed += 1;
+                let keep_text = seed % 2 == 1;
+                let begin = Begin {
+                    layout,
+                    wrap,
+                    start,
+                    keep_text,
+                };
+                walk(seed, begin, 60);
+            }
+        }
     }
 }

@@ -37,9 +37,36 @@ struct ReadingAnchor {
     source: LineId,
     display_byte: usize,
     old_side: bool,
+    /// The screen row the person had the cursor on, which reflows and `set_insets` keep it on
+    /// and never change: only moving the cursor or the view drops it. It can be out of
+    /// reach for a while (too few rows above, a pane too short) and is met again when it is not.
     screen_row: Option<usize>,
+    /// `screen_row` is the row of the last screen row of the cursor's row's own text, not of
+    /// the cursor: the line the inset the cursor is on hangs under, so that the inset's height
+    /// does not change what is kept.
+    line: bool,
+    /// The view had the first row of the diff at the top: `screen_row` leaves out the rows
+    /// of insets above, so that insets there push the line down and the top stays.
+    start: bool,
+    /// The inset the cursor is on, and how many rows into it, which it goes back to
+    /// whenever that inset is under its line again, as far down as the inset is tall.
+    inset: Option<InsetSpot>,
     /// The cursor is on the "No newline at end of file" mark under `source`, not on its row.
     mark: bool,
+}
+
+/// For tests: the screen row the view keeps, what is on it in the last frame and the cursor.
+#[cfg(test)]
+#[derive(Debug)]
+pub(crate) struct Kept {
+    /// The screen row kept.
+    pub y: usize,
+    /// The top is kept at the start of the diff instead.
+    pub start: bool,
+    /// The screen row of what is kept there in the last frame.
+    pub row: Option<u16>,
+    /// The cursor's rows below what is kept: its rows into the inset it is on.
+    pub below: usize,
 }
 
 pub struct App {
@@ -59,9 +86,6 @@ pub struct App {
     /// Of two side insets beside each other on the cursor's screen row, the one the cursor is
     /// on: the old side's when true. The side of the code, `old_side`, stays as it was.
     pub(crate) inset_side: Option<bool>,
-    /// The screen row `set_insets` could not keep for lack of rows above, with the cursor and
-    /// the top it left: the next call aims for it again while nothing else moved.
-    pub(crate) inset_wish: Option<(Position, Position, usize)>,
     pub horizontal: usize,
     pub wrap: bool,
     pub numbers: bool,
@@ -152,7 +176,6 @@ impl App {
             cursor: Position::default(),
             old_side: false,
             inset_side: None,
-            inset_wish: None,
             horizontal: 0,
             wrap: false,
             numbers: true,
@@ -299,7 +322,7 @@ impl App {
 
     /// Whether no screen row is empty under the last row: the top is no lower than the last
     /// full page. A view scrolled past it, by the wheel or a jump to a short last file, is not.
-    fn page_full(&self) -> Result<bool> {
+    pub(crate) fn page_full(&self) -> Result<bool> {
         Ok(self.width < 40 || self.height < 10 || self.top <= self.last_page_top()?)
     }
 
@@ -308,7 +331,7 @@ impl App {
     /// no empty rows under the last one. Everything from that top down is on screen, so the
     /// cursor, which was at or below the top, still is. The standalone viewer, which keeps
     /// the text in view, keeps the cursor's screen row as it always has.
-    fn keep_page_full(&mut self, full: bool) -> Result<()> {
+    pub(crate) fn keep_page_full(&mut self, full: bool) -> Result<()> {
         if full && !self.keep_text_in_view && self.width >= 40 && self.height >= 10 {
             self.top = self.top.min(self.last_page_top()?);
         }
@@ -336,6 +359,7 @@ impl App {
             } else {
                 (self.cursor.part, clicked_column)
             };
+            let (screen_row, line, start) = self.wanted_here()?;
             self.reading_anchor = Some(ReadingAnchor {
                 source,
                 display_byte: render::source_anchor_byte(
@@ -346,13 +370,36 @@ impl App {
                     clicked_column,
                 )?,
                 old_side,
-                screen_row: Some(self.screen_row()),
+                screen_row: Some(screen_row),
+                line,
+                start,
+                inset: self.inset_spot()?,
                 mark: self
                     .row(self.cursor.row)
                     .is_some_and(|row| matches!(row.kind, RowKind::NoNewline { .. })),
             });
         }
         Ok(())
+    }
+
+    /// For tests: turning wrapping on now returns to the wrapped view it left.
+    #[cfg(test)]
+    pub(crate) fn wrapped_view_saved(&self) -> bool {
+        self.unwrapped.is_some()
+    }
+
+    /// For tests: the row the view keeps and where it is in the last frame.
+    #[cfg(test)]
+    pub(crate) fn kept(&self) -> Option<Kept> {
+        let anchor = self.reading_anchor?;
+        let y = anchor.screen_row?;
+        let at = self.wanted_at(anchor.line).ok()?;
+        Some(Kept {
+            y,
+            start: anchor.start,
+            row: self.visible.iter().find(|(p, _)| *p == at).map(|(_, y)| *y),
+            below: self.cursor.part - at.part,
+        })
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
@@ -374,15 +421,20 @@ impl App {
         inset: Option<InsetSpot>,
     ) -> Result<()> {
         self.remember_position(None)?;
+        self.capture_wanted()?;
         let full = match full {
             Some(full) => full,
             None => self.page_full()?,
         };
         let anchor = self.reading_anchor;
-        let screen_row = anchor
-            .and_then(|anchor| anchor.screen_row)
-            .or(screen_row)
-            .unwrap_or_else(|| self.screen_row());
+        let (screen_row, line, start) = anchor
+            .and_then(|anchor| {
+                anchor
+                    .screen_row
+                    .map(|row| (row, anchor.line, anchor.start))
+            })
+            .or(screen_row.map(|row| (row, false, false)))
+            .unwrap_or_else(|| (self.screen_row(), false, false));
         let file = self.row(self.cursor.row).map(|r| r.file);
         let old_split = self.split();
         if width < 40 || height < 10 {
@@ -430,24 +482,14 @@ impl App {
             .cursor
             .part
             .min(self.row_height(self.cursor.row)?.saturating_sub(1));
-        // On an inset whose first row was on screen, that row stays on its screen row, so
-        // the line above does not move whatever the inset's height now.
-        let mut screen_row = screen_row;
-        self.top = match self.restore_inset(inset)? {
-            Some((line, up)) => {
-                let y = screen_row.saturating_sub(up).max(1);
-                // The cursor's row asked for is now its row on the inset under that line.
-                screen_row = y + (self.cursor.part - line.part);
-                self.top_for(line, y)?
-            }
-            None => self.top_for(self.cursor, screen_row)?,
-        };
-        self.inset_wish = None;
+        self.restore_inset(inset)?;
+        self.place_view(screen_row, line, start)?;
         self.keep_page_full(full)?;
-        // The screen row asked for, not the one the end of the diff left: a later reflow
-        // with room below puts the cursor back on it.
+        // The row kept, as it was read, not the one the end of the diff or a short pane
+        // left: a later reflow with room puts the cursor back on it.
         if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = Some(screen_row);
+            anchor.line = line;
         }
         self.unwrapped = None;
         self.visible.clear();
@@ -487,10 +529,7 @@ impl App {
                 && cursor.row == self.cursor.row
             {
                 (self.top, self.cursor) = (top, cursor);
-                let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
-                if let Some(anchor) = &mut self.reading_anchor {
-                    anchor.screen_row = screen_row;
-                }
+                self.set_wanted_here()?;
             }
             return Ok(());
         }
@@ -512,10 +551,9 @@ impl App {
         }
         self.keep_page_full(full)?;
         self.visible.clear();
-        let screen_row = self.laid_out_row(self.cursor)?.map(usize::from);
-        if let Some(anchor) = &mut self.reading_anchor {
-            anchor.screen_row = screen_row;
-        }
+        // Turning wrapping off keeps the top row instead: the row kept from now on is the one
+        // the cursor is on now.
+        self.set_wanted_here()?;
         self.unwrapped = self
             .reading_anchor
             .map(|anchor| (wrapped.0, wrapped.1, anchor));
@@ -630,6 +668,9 @@ impl App {
             display_byte,
             old_side,
             screen_row: None,
+            line: false,
+            start: false,
+            inset: None,
             mark: false,
         });
         // Whether a later reveal moves the view is worked out from the top, not from this
@@ -742,6 +783,7 @@ impl App {
             self.reading_anchor = None;
         } else if let Some(anchor) = &mut self.reading_anchor {
             anchor.screen_row = None;
+            anchor.start = false;
         }
         Ok(())
     }
@@ -818,6 +860,9 @@ impl App {
             display_byte: 0,
             old_side: self.old_side,
             screen_row: Some(screen_row),
+            line: false,
+            start: false,
+            inset: None,
             mark: false,
         });
         self.reflow(self.layout, self.width, self.height)?;

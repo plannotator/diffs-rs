@@ -383,23 +383,26 @@ impl Engine {
     /// [`Inset::span`] says (see [`InsetSpan`]); in the split layout that includes insets on
     /// the other side's line of the row.
     ///
-    /// The view does not move. The source line on the cursor's screen row stays on that row
-    /// and the horizontal scroll is kept; rows below it move. With the cursor on an inset, the
-    /// line the inset hangs under stays on its screen row: the inset keeps its first row and
-    /// grows or shrinks at the bottom, and the cursor stays on the same row of it, or its last
-    /// row when it got shorter than that. When the inset is removed, the cursor goes to that
-    /// line. When the line is above the pane, the cursor's own row is kept instead. When the
-    /// cursor is off screen, the row at the top stays at the top.
+    /// The view does not move. What the person last put on screen, by moving the cursor or
+    /// the view, is kept, and only they change it: this call and every reflow read it and
+    /// never rewrite it. That is the screen row of the source line under the cursor, the
+    /// horizontal scroll, and with the cursor on an inset, which inset and which of its rows.
+    /// So the line keeps its screen row and rows below it move; insets above it grow and
+    /// shrink out of the top of the pane. An inset under the line keeps its first row and
+    /// changes at the bottom. The cursor stays on its row of the inset, on the last row while
+    /// the inset is shorter than that, back on its row when it is tall again, on the line
+    /// while the inset is gone and back on the inset when it returns. When the line is above
+    /// the pane (the cursor in an inset taller than the pane), the cursor's own row is kept
+    /// instead. When the cursor is off screen, the row at the top stays at the top.
     ///
-    /// The exception is the start of the diff. When the top row is the diff's first row, the
-    /// top stays: insets added under the first rows push the cursor's line down rather than
-    /// start above the top, and insets removed there pull it up. Only if that would put the
-    /// cursor's line, on screen before, under the pane's last row does the view scroll, just
-    /// enough to show it on the last row. Likewise, with the top a little below the first
-    /// row and too few rows above to keep the cursor's line where it was, it moves up. The
-    /// next call puts it back on the row it had, as soon as there are rows enough above and
-    /// while nothing else moved the view, so setting and removing the same insets is an exact
-    /// round trip.
+    /// When the top is the diff's first row, as when it has just opened, the line's row counts
+    /// no inset rows above it: insets under the first rows come in under the top, pushing the
+    /// cursor's line down, and pull it back up when they go.
+    /// When a row cannot be kept, for too few rows above, a pane too short, or the cursor
+    /// that would end under the last row, the view comes as near as it can and the cursor
+    /// stays on screen, and the row is still the one kept: the next call or reflow that has
+    /// room puts it back. At the end of the diff, a page that was full stays full. So the
+    /// same insets, size and settings always draw the same view, whatever came in between.
     ///
     /// Insets on a line that is not displayed take no rows: a line outside the diff, in an
     /// unrevealed gap, in a hunk drawn as its heading alone because whitespace is hidden, or

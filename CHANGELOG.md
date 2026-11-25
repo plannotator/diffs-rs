@@ -22,9 +22,10 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 - Setting insets never moves what is read: the source line on the cursor's screen row stays on
   that row and the horizontal scroll is kept, while insets above grow and shrink out of the
   top of the pane. With the cursor on an inset, the line it hangs under stays put while the
-  inset grows, shrinks or goes. At the very start of the diff the top stays instead, so insets
-  under the first heading come in under it; setting and removing the same insets is an exact
-  round trip. Every reflow keeps working as before with insets present, the cursor on an
+  inset grows, shrinks or goes, and the cursor goes back to its row of the inset when the inset
+  is tall again. At the very start of the diff the top stays instead, so insets under the first
+  heading come in under it. Only moving the cursor or the view changes what is kept, so the same
+  insets, size and settings always draw the same view, whatever came in between. Every reflow keeps working as before with insets present, the cursor on an
   inset included. Scrolling, paging, `G`, the last page and the sticky heading count inset rows.
 - `DiffRowKind::Inset { id }` from `Engine::cursor_row` and `Engine::row_at`. By default the
   cursor stops once on each inset, a line move onto one shows all of it that fits, and passing

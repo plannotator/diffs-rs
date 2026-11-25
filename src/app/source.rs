@@ -147,7 +147,7 @@ impl App {
                 if Arc::ptr_eq(previous, next)
         );
         let split = self.split();
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         let cursor_file = self.row(self.cursor.row).map(|row| row.file);
         let digits = cursor_file.map(|file| self.line_digits(file));
         let cursor_source = self.anchor();

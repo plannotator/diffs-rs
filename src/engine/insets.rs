@@ -14,7 +14,19 @@ use super::{Engine, InputEffect, ReviewId, Side};
 /// The engine draws only the background there, the line between the sides of a split diff,
 /// and the cursor's `▎` in the gutter while the cursor is on the inset. After each
 /// [`Engine::draw`], [`Engine::inset_areas`] says where every visible inset landed.
+///
+/// Built with [`Inset::new`], which takes the whole width, and [`Inset::with_span`]:
+///
+/// ```
+/// use diffs_rs::engine::{Engine, Inset, InsetAnchor, InsetSpan, Side};
+///
+/// fn note_under(engine: &Engine, file: usize, line: u32) -> Inset {
+///     let anchor = InsetAnchor::Line { side: Side::New, line };
+///     Inset::new(engine.review_id(), 7, file, anchor, 3).with_span(InsetSpan::Side(Side::New))
+/// }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Inset {
     /// The review the inset is for, as [`Engine::review_id`] reports it.
     pub review: ReviewId,
@@ -32,6 +44,28 @@ pub struct Inset {
     /// The number of screen rows to keep free. An inset of height 0 keeps none: it is never
     /// drawn, reported or stopped on, but it is not hidden either.
     pub height: u16,
+}
+
+impl Inset {
+    /// An inset of `height` rows for `review`, named `id`, hanging at `anchor` in `file`,
+    /// across the diff ([`InsetSpan::Full`]).
+    #[must_use]
+    pub fn new(review: ReviewId, id: u64, file: usize, anchor: InsetAnchor, height: u16) -> Self {
+        Self {
+            review,
+            id,
+            file,
+            anchor,
+            span: InsetSpan::Full,
+            height,
+        }
+    }
+
+    /// The same inset in the columns of `span`.
+    #[must_use]
+    pub fn with_span(self, span: InsetSpan) -> Self {
+        Self { span, ..self }
+    }
 }
 
 /// Where an [`Inset`] hangs.
@@ -350,17 +384,22 @@ impl Engine {
     /// the other side's line of the row.
     ///
     /// The view does not move. The source line on the cursor's screen row stays on that row
-    /// and the horizontal scroll is kept; rows below it move. With the cursor on an inset that
-    /// is kept, the inset stays on its screen row; with the cursor on an inset that is
-    /// removed, the cursor goes to the line the inset was under, which stays where it was.
-    /// When the cursor is off screen, the row at the top stays at the top.
+    /// and the horizontal scroll is kept; rows below it move. With the cursor on an inset, the
+    /// line the inset hangs under stays on its screen row: the inset keeps its first row and
+    /// grows or shrinks at the bottom, and the cursor stays on the same row of it, or its last
+    /// row when it got shorter than that. When the inset is removed, the cursor goes to that
+    /// line. When the line is above the pane, the cursor's own row is kept instead. When the
+    /// cursor is off screen, the row at the top stays at the top.
     ///
     /// The exception is the start of the diff. When the top row is the diff's first row, the
     /// top stays: insets added under the first rows push the cursor's line down rather than
     /// start above the top, and insets removed there pull it up. Only if that would put the
     /// cursor's line, on screen before, under the pane's last row does the view scroll, just
     /// enough to show it on the last row. Likewise, with the top a little below the first
-    /// row and too few rows above to keep the cursor's line where it was, it moves up.
+    /// row and too few rows above to keep the cursor's line where it was, it moves up. The
+    /// next call puts it back on the row it had, as soon as there are rows enough above and
+    /// while nothing else moved the view, so setting and removing the same insets is an exact
+    /// round trip.
     ///
     /// Insets on a line that is not displayed take no rows: a line outside the diff, in an
     /// unrevealed gap, in a hunk drawn as its heading alone because whitespace is hidden, or

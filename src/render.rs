@@ -22,12 +22,17 @@ use crate::{
 };
 
 fn code_width(app: &App, file: usize, pane: usize) -> usize {
+    code_width_in(app, file, pane, app.split())
+}
+
+/// `code_width` in the split layout or not.
+fn code_width_in(app: &App, file: usize, pane: usize, split: bool) -> usize {
     let digits = if app.numbers {
         app.line_digits(file)
     } else {
         0
     };
-    pane.saturating_sub(if app.split() {
+    pane.saturating_sub(if split {
         digits + 3
     } else {
         digits * 2 + usize::from(app.numbers) + 3
@@ -160,21 +165,18 @@ pub(crate) fn text_height(app: &App, index: usize) -> anyhow::Result<usize> {
 
 /// The first cell and width of the columns an inset in `file` with `span` draws over, from the
 /// diff's left edge, in a diff pane `width` cells wide: the code column unified; split, a
-/// side's code column, or for a full inset from the old side's code to the right edge.
+/// side's code column, or for a full inset from the old side's code to the right edge. The
+/// layout is the one a pane that wide shows.
 pub(crate) fn inset_columns(app: &App, file: usize, span: InsetSpan, width: u16) -> (usize, usize) {
-    if !app.split() {
-        let code = code_width(app, file, width as usize);
+    let split = app.split_at(width);
+    let code = |pane| code_width_in(app, file, pane, split);
+    if !split {
+        let code = code(width as usize);
         return (width as usize - code, code);
     }
     let (left, right) = crate::engine::split::sides(width, app.split_ratio);
-    let old = (
-        left - code_width(app, file, left),
-        code_width(app, file, left),
-    );
-    let new = (
-        left + 1 + right - code_width(app, file, right),
-        code_width(app, file, right),
-    );
+    let old = (left - code(left), code(left));
+    let new = (left + 1 + right - code(right), code(right));
     match span {
         InsetSpan::Side(Side::Old) => old,
         InsetSpan::Side(Side::New) => new,

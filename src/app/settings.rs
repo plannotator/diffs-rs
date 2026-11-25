@@ -93,7 +93,7 @@ impl App {
             return Ok(false);
         }
         let place = self.place();
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         self.geometry.set_tab_width(cells);
         if let Err(error) =
             self.reflow_from(self.layout, self.width, self.height, None, None, inset)
@@ -182,7 +182,7 @@ impl App {
         let place = self.place();
         let screen_row = self.screen_row();
         let full = self.page_full()?;
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         // Everything that can fail before anything changes: the new files, and the rows that
         // show them with the context each gap reveals.
         let hidden = if whitespace == Whitespace::Show {

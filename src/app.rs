@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 mod controls;
 mod insets;
 pub use controls::{Command, InputEffect};
+use insets::InsetSpot;
 mod settings;
 mod sidebar;
 mod source;
@@ -55,6 +56,12 @@ pub struct App {
     pub top: Position,
     pub cursor: Position,
     pub old_side: bool,
+    /// Of two side insets beside each other on the cursor's screen row, the one the cursor is
+    /// on: the old side's when true. The side of the code, `old_side`, stays as it was.
+    pub(crate) inset_side: Option<bool>,
+    /// The screen row `set_insets` could not keep for lack of rows above, with the cursor and
+    /// the top it left: the next call aims for it again while nothing else moved.
+    pub(crate) inset_wish: Option<(Position, Position, usize)>,
     pub horizontal: usize,
     pub wrap: bool,
     pub numbers: bool,
@@ -144,6 +151,8 @@ impl App {
             top: Position::default(),
             cursor: Position::default(),
             old_side: false,
+            inset_side: None,
+            inset_wish: None,
             horizontal: 0,
             wrap: false,
             numbers: true,
@@ -161,7 +170,12 @@ impl App {
     }
 
     pub fn split(&self) -> bool {
-        self.layout == Layout::Split || (self.layout == Layout::Auto && self.width >= 120)
+        self.split_at(self.width)
+    }
+
+    /// Whether a diff pane `width` cells wide shows the split layout.
+    pub(crate) fn split_at(&self, width: u16) -> bool {
+        self.layout == Layout::Split || (self.layout == Layout::Auto && width >= 120)
     }
     pub fn row(&self, index: usize) -> Option<Row<LineId>> {
         self.view.row(&self.doc, index, self.split())
@@ -342,7 +356,7 @@ impl App {
     }
 
     pub fn reflow(&mut self, layout: Layout, width: u16, height: u16) -> Result<()> {
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         self.reflow_from(layout, width, height, None, None, inset)
     }
 
@@ -357,7 +371,7 @@ impl App {
         height: u16,
         screen_row: Option<usize>,
         full: Option<bool>,
-        inset: Option<(u64, usize)>,
+        inset: Option<InsetSpot>,
     ) -> Result<()> {
         self.remember_position(None)?;
         let full = match full {
@@ -416,8 +430,19 @@ impl App {
             .cursor
             .part
             .min(self.row_height(self.cursor.row)?.saturating_sub(1));
-        self.restore_inset(inset)?;
-        self.top = self.top_for(self.cursor, screen_row)?;
+        // On an inset whose first row was on screen, that row stays on its screen row, so
+        // the line above does not move whatever the inset's height now.
+        let mut screen_row = screen_row;
+        self.top = match self.restore_inset(inset)? {
+            Some((line, up)) => {
+                let y = screen_row.saturating_sub(up).max(1);
+                // The cursor's row asked for is now its row on the inset under that line.
+                screen_row = y + (self.cursor.part - line.part);
+                self.top_for(line, y)?
+            }
+            None => self.top_for(self.cursor, screen_row)?,
+        };
+        self.inset_wish = None;
         self.keep_page_full(full)?;
         // The screen row asked for, not the one the end of the diff left: a later reflow
         // with room below puts the cursor back on it.
@@ -441,8 +466,7 @@ impl App {
     pub fn toggle_wrap(&mut self) -> Result<()> {
         self.remember_position(None)?;
         let full = self.page_full()?;
-        let (cursor_inset, top_inset) =
-            (self.inset_id_at(self.cursor)?, self.inset_id_at(self.top)?);
+        let (cursor_inset, top_inset) = (self.inset_spot()?, self.inset_id_at(self.top)?);
         self.wrap = !self.wrap;
         if self.wrap || self.keep_text_in_view || self.width < 40 || self.height < 10 {
             let unwrapped = self.unwrapped.take();
@@ -500,7 +524,7 @@ impl App {
 
     pub fn toggle_numbers(&mut self) -> Result<()> {
         self.remember_position(None)?;
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         self.numbers = !self.numbers;
         self.reflow_from(self.layout, self.width, self.height, None, None, inset)
     }
@@ -517,7 +541,7 @@ impl App {
             return Ok(true);
         }
         self.remember_position(None)?;
-        let inset = self.inset_id_at(self.cursor)?;
+        let inset = self.inset_spot()?;
         self.split_ratio = ratio;
         self.reflow_from(self.layout, self.width, self.height, None, None, inset)?;
         Ok(true)
@@ -540,7 +564,10 @@ impl App {
 
     pub fn switch_side(&mut self) {
         self.selection = None;
-        self.old_side = !self.old_side;
+        // On a side inset, the side across from it, and the inset beside it there if any.
+        let from = self.cursor_inset_column().unwrap_or(self.old_side);
+        self.old_side = !from;
+        self.inset_side = Some(self.old_side);
         self.reading_anchor = None;
     }
 
@@ -548,10 +575,8 @@ impl App {
         self.cursor = position;
         if self.split() {
             self.old_side = crate::engine::split::old_at(self.width, self.split_ratio, column);
-            // Clicked beside an inset that has none at its side: the one there is.
-            if let Some(old) = self.cursor_inset_side()? {
-                self.old_side = old;
-            }
+            // On an inset, the one under the pointer, or the one there is.
+            self.inset_side = Some(self.old_side);
         }
         self.reading_anchor = None;
         self.remember_position(Some(column))?;
@@ -662,15 +687,14 @@ impl App {
                 self.previous_stop(self.cursor)?
             };
             self.cursor = stop;
-            if let Some(old) = old {
-                self.old_side = old;
-            }
+            self.inset_side = old;
             if before != self.cursor {
                 self.reading_anchor = None;
             }
             // Onto an inset, all of it as far as the pane allows.
             return self.reveal_inset();
         } else {
+            self.inset_side = None;
             for _ in 0..amount.unsigned_abs() {
                 self.cursor = if amount > 0 {
                     self.next(self.cursor)?

@@ -162,6 +162,14 @@ fn rows_of(engine: &Engine, buffer: &Buffer, file: usize, side: Side, line: u32)
         .collect()
 }
 
+/// The last screen row of new line `line` of `file` in a frame drawn now.
+fn line_row(engine: &mut Engine, size: (u16, u16), file: usize, line: u32) -> u16 {
+    let buffer = draw(engine, size);
+    *rows_of(engine, &buffer, file, Side::New, line)
+        .last()
+        .expect("the line is on screen")
+}
+
 fn area(engine: &Engine, id: u64) -> Option<InsetArea> {
     engine.inset_areas().iter().copied().find(|a| a.id == id)
 }
@@ -869,8 +877,8 @@ fn setting_insets_never_moves_what_is_read() {
                     set_keeping(&mut engine, SIZE, set, &format!("{what}: {step}"));
                 }
 
-                // On an inset: it keeps its screen row while it stays, and when it goes the
-                // line it was under keeps its own.
+                // On an inset: the line it hangs under keeps its screen row while the insets
+                // under it change, and the cursor its row of the inset, as far as it is tall.
                 engine.set_insets(&[i(1, above, 2), i(4, line, 4)]).unwrap();
                 draw(&mut engine, SIZE);
                 let found = area(&engine, 4).unwrap();
@@ -894,50 +902,41 @@ fn setting_insets_never_moves_what_is_read() {
                     (DiffRowKind::Inset { id: 4 }, 1),
                     "{what}"
                 );
-                let steps: Vec<(&str, Vec<Inset>)> = vec![
-                    ("taller", vec![i(1, above, 2), i(4, line, 7)]),
-                    ("above taller", vec![i(1, above, 6), i(4, line, 7)]),
+                let line_y = line_row(&mut engine, SIZE, C, line);
+                let horizontal = app(&engine).horizontal;
+                let steps: Vec<(&str, Vec<Inset>, usize)> = vec![
+                    ("taller", vec![i(1, above, 2), i(4, line, 7)], 1),
+                    ("above taller", vec![i(1, above, 6), i(4, line, 7)], 1),
                     (
                         "another under the line, before it",
                         vec![i(5, line, 2), i(1, above, 6), i(4, line, 7)],
+                        1,
+                    ),
+                    // Cut to one row, the cursor is on that row.
+                    (
+                        "cut to one row",
+                        vec![i(5, line, 2), i(1, above, 6), i(4, line, 1)],
+                        0,
                     ),
                 ];
-                for (step, set) in &steps {
-                    set_keeping(
-                        &mut engine,
-                        SIZE,
-                        set,
-                        &format!("{what}: on an inset, {step}"),
-                    );
+                for (step, set, part) in &steps {
+                    let what = format!("{what}: on an inset, {step}");
+                    engine.set_insets(set).unwrap();
+                    assert_eq!(line_row(&mut engine, SIZE, C, line), line_y, "{what}");
+                    let row = engine.cursor_row().unwrap();
+                    assert_eq!((row.kind, row.part), (DiffRowKind::Inset { id: 4 }, *part));
+                    assert_eq!(app(&engine).horizontal, horizontal, "{what}");
+                    cursor_y(&engine);
                 }
-                // Cut to one row, the cursor is on that row, on the same screen row.
                 let before = seen(&engine);
-                engine
-                    .set_insets(&[i(5, line, 2), i(1, above, 6), i(4, line, 1)])
-                    .unwrap();
-                let now = seen_now(&mut engine, SIZE);
-                assert_eq!(
-                    (now.y, now.horizontal),
-                    (before.y, before.horizontal),
-                    "{what}"
-                );
-                assert_eq!(
-                    (now.row.kind, now.row.part),
-                    (DiffRowKind::Inset { id: 4 }, 0),
-                    "{what}"
-                );
                 // Removed: back to the line, which does not move.
-                let buffer = draw(&mut engine, SIZE);
-                let line_y = *rows_of(&engine, &buffer, C, Side::New, line)
-                    .last()
-                    .unwrap();
                 engine.set_insets(&[i(1, above, 6)]).unwrap();
                 let now = seen_now(&mut engine, SIZE);
                 assert_eq!(cursor_line(&engine), line, "{what}");
                 assert_eq!(
                     (now.y, now.horizontal),
                     (line_y + 1, before.horizontal),
-                    "{what}"
+                    "{what}: the line's last row, under the sticky heading's"
                 );
             }
         }
@@ -1490,29 +1489,34 @@ fn every_reflow_with_insets_keeps_what_is_read() {
                         draw(&mut engine, size);
                     }
                     // The view before wrapping went off, which turning it back on returns to.
-                    let mut wrapped: Option<Seen> = None;
+                    let mut wrapped: Option<(Seen, u16)> = None;
                     for (reflow, apply) in REFLOWS {
                         let what = format!("{what}: {reflow}");
                         let wrapping = reflow.starts_with("wrapping");
                         let wrapping_off = wrapping && engine.options().wrap;
                         let mut before = seen(&engine);
+                        // On an inset, what stays is the line it hangs under.
+                        let mut before_line = line_row(&mut engine, size, C, line);
                         let top = top_row(&engine);
                         apply(&mut engine, &mut size);
                         let now = seen_now(&mut engine, size);
+                        let now_line = line_row(&mut engine, size, C, line);
                         if wrapping
                             && !wrapping_off
                             && let Some(wrapped) = wrapped.take()
                         {
-                            before = wrapped;
+                            (before, before_line) = wrapped;
                         }
                         if wrapping_off {
-                            wrapped = Some(before.clone());
+                            wrapped = Some((before.clone(), before_line));
                             // Turning wrapping off keeps the top row at the top instead.
                             let mut expected = top.clone();
                             if expected.kind == DiffRowKind::Code {
                                 expected.part = 0;
                             }
                             assert_eq!(top_row(&engine), expected, "{what}");
+                        } else if on_inset {
+                            assert_eq!(now_line, before_line, "{what}");
                         } else {
                             assert_eq!(now.y, before.y, "{what}");
                         }
@@ -1529,6 +1533,315 @@ fn every_reflow_with_insets_keeps_what_is_read() {
             }
         }
     }
+}
+
+#[test]
+fn on_an_inset_the_line_above_it_stays_whatever_its_height() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            let (mut engine, _directory) = open(layout, wrap);
+            let mut size = SIZE;
+            draw(&mut engine, size);
+            place(&mut engine, size, Where::Middle);
+            let line = cursor_line(&engine);
+            let set = |engine: &Engine, height: Option<u16>| {
+                let mut set = vec![
+                    on_line(engine, 1, C, Side::New, line - 2, 2),
+                    // After the inset, beside nothing, so a block in the split layout.
+                    beside(engine, 6, C, Side::Old, line, 2),
+                ];
+                if let Some(height) = height {
+                    set.insert(1, on_line(engine, 3, C, Side::New, line, height));
+                }
+                set
+            };
+            for row in [0, 2, 4] {
+                for (change, height) in [("shrunk", Some(2)), ("grown", Some(8)), ("removed", None)]
+                {
+                    for reflow in std::iter::once(None).chain(REFLOWS.iter().map(Some)) {
+                        let name = reflow.map_or("none", |r| r.0);
+                        let what = format!(
+                            "{layout:?} wrap {wrap} row {row} {change} after reflow {name}"
+                        );
+                        // On row `row` of a five-row inset, by a click.
+                        engine.set_insets(&set(&engine, Some(5))).unwrap();
+                        draw(&mut engine, size);
+                        let Some(found) = area(&engine, 3) else {
+                            panic!("{what}: inset 3 not on screen");
+                        };
+                        assert_eq!(found.area.height, 5, "{what}");
+                        let column = new_column(&engine, size);
+                        let click = MouseEventKind::Down(MouseButton::Left);
+                        mouse(&mut engine, click, column, found.area.y + row);
+                        let at = engine.cursor_row().unwrap();
+                        assert_eq!(
+                            (at.kind, at.part),
+                            (DiffRowKind::Inset { id: 3 }, usize::from(row))
+                        );
+                        // The reflow, which keeps the line where it was, but for turning
+                        // wrapping off, which keeps the top row.
+                        let before = line_row(&mut engine, size, C, line);
+                        if let Some((_, apply)) = reflow {
+                            let wrapping_off =
+                                name.starts_with("wrapping") && engine.options().wrap;
+                            apply(&mut engine, &mut size);
+                            let now = line_row(&mut engine, size, C, line);
+                            if !wrapping_off {
+                                assert_eq!(now, before, "{what}: the reflow");
+                            }
+                            let at = engine.cursor_row().unwrap();
+                            assert_eq!(
+                                (at.kind, at.part),
+                                (DiffRowKind::Inset { id: 3 }, usize::from(row)),
+                                "{what}"
+                            );
+                        }
+                        // The height changes: the line does not move.
+                        let before = line_row(&mut engine, size, C, line);
+                        engine.set_insets(&set(&engine, height)).unwrap();
+                        assert_eq!(line_row(&mut engine, size, C, line), before, "{what}");
+                        let at = engine.cursor_row().unwrap();
+                        match height {
+                            Some(height) => assert_eq!(
+                                (at.kind, at.part),
+                                (
+                                    DiffRowKind::Inset { id: 3 },
+                                    usize::from(row.min(height - 1))
+                                ),
+                                "{what}"
+                            ),
+                            None => assert_eq!(at.kind, DiffRowKind::Code, "{what}"),
+                        }
+                        // Its first row is right under the line.
+                        if let Some(found) = area(&engine, 3) {
+                            assert_eq!(found.area.y, before + 1, "{what}");
+                        }
+                    }
+                }
+            }
+            // An inset scrolled into, its line above the top: the cursor's row is kept.
+            let what = format!("{layout:?} wrap {wrap} tall");
+            engine
+                .set_insets(&[on_line(&engine, 3, C, Side::New, line, 40)])
+                .unwrap();
+            draw(&mut engine, size);
+            for _ in 0..4 {
+                mouse(&mut engine, MouseEventKind::ScrollDown, 5, 5);
+            }
+            draw(&mut engine, size);
+            let found = area(&engine, 3).unwrap();
+            assert!(found.clipped_top > 0, "{what}");
+            let column = new_column(&engine, size);
+            mouse(
+                &mut engine,
+                MouseEventKind::Down(MouseButton::Left),
+                column,
+                found.area.y + 3,
+            );
+            let before = seen_now(&mut engine, size);
+            assert_eq!(before.row.kind, DiffRowKind::Inset { id: 3 }, "{what}");
+            engine
+                .set_insets(&[on_line(&engine, 3, C, Side::New, line, 30)])
+                .unwrap();
+            let now = seen_now(&mut engine, size);
+            assert_eq!(
+                (now.row.clone(), now.y),
+                (before.row.clone(), before.y),
+                "{what}"
+            );
+            engine
+                .set_insets(&[on_line(&engine, 3, C, Side::New, line, 50)])
+                .unwrap();
+            assert_eq!(seen_now(&mut engine, size), now, "{what}");
+        }
+    }
+}
+
+#[test]
+fn passing_through_insets_keeps_the_side_of_the_code() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            for old in [false, true] {
+                let what = format!("{layout:?} wrap {wrap} old side {old}");
+                let (mut engine, _directory) = open(layout, wrap);
+                draw(&mut engine, SIZE);
+                engine
+                    .set_insets(&[
+                        // Only on the old side of line 32.
+                        beside(&engine, 1, C, Side::Old, 32, 2),
+                        // A block of both sides under line 34, and one across.
+                        beside(&engine, 2, C, Side::Old, 34, 3),
+                        beside(&engine, 3, C, Side::New, 34, 1),
+                        on_line(&engine, 4, C, Side::New, 34, 1),
+                    ])
+                    .unwrap();
+                engine.reveal(C, Side::New, 32).unwrap();
+                if app(&engine).split() && (engine.cursor_row().unwrap().side == Side::Old) != old {
+                    engine.execute(Command::SwitchSide).unwrap();
+                }
+                draw(&mut engine, SIZE);
+                let start = engine.cursor_row().unwrap();
+                let side = start.side;
+                // Down to line 35, every row of code on the side it started on.
+                let mut moves = 0;
+                while engine.cursor_row().unwrap().new_line != Some(35)
+                    || engine.cursor_row().unwrap().kind != DiffRowKind::Code
+                {
+                    engine.execute(Command::Down).unwrap();
+                    moves += 1;
+                    let row = engine.cursor_row().unwrap();
+                    if row.kind == DiffRowKind::Code {
+                        assert_eq!(row.side, side, "{what}: line {:?}", row.new_line);
+                    }
+                    assert!(moves < 40, "{what}");
+                }
+                // And back up the same way, to where it started.
+                for _ in 0..moves {
+                    engine.execute(Command::Up).unwrap();
+                    let row = engine.cursor_row().unwrap();
+                    if row.kind == DiffRowKind::Code {
+                        assert_eq!(row.side, side, "{what}: line {:?}", row.new_line);
+                    }
+                }
+                let back = engine.cursor_row().unwrap();
+                assert_eq!(
+                    (back.new_line, back.side),
+                    (start.new_line, start.side),
+                    "{what}"
+                );
+                // On a side inset the row reports its side; switching sides there moves to
+                // the inset beside and is the code's side from then on.
+                if app(&engine).split() {
+                    down_to(&mut engine, 2, &what);
+                    assert_eq!(engine.cursor_row().unwrap().side, Side::Old, "{what}");
+                    engine.execute(Command::SwitchSide).unwrap();
+                    assert_eq!(
+                        engine.cursor_row().unwrap().kind,
+                        DiffRowKind::Inset { id: 3 }
+                    );
+                    while engine.cursor_row().unwrap().kind != DiffRowKind::Code {
+                        engine.execute(Command::Down).unwrap();
+                    }
+                    // From the old side's inset to the new side's: the new side from then on.
+                    assert_eq!(engine.cursor_row().unwrap().side, Side::New, "{what}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn setting_and_removing_the_same_insets_is_a_round_trip() {
+    for layout in LAYOUTS {
+        for wrap in [false, true] {
+            // From the very start, and from a little below it.
+            for scrolled in [false, true] {
+                let what = format!("{layout:?} wrap {wrap} scrolled {scrolled}");
+                let (mut engine, _directory) = open(layout, wrap);
+                draw(&mut engine, SIZE);
+                engine.execute(Command::FirstSource).unwrap();
+                for _ in 0..4 {
+                    engine.execute(Command::Down).unwrap();
+                }
+                if scrolled {
+                    mouse(&mut engine, MouseEventKind::ScrollDown, 5, 5);
+                }
+                let start = seen_now(&mut engine, SIZE);
+                assert_eq!(start.row.kind, DiffRowKind::Code, "{what}");
+                let all = [
+                    on_heading(&engine, 1, A, 5),
+                    on_line(&engine, 2, A, Side::New, 1, 4),
+                    on_line(&engine, 3, A, Side::New, 2, 3),
+                ];
+                let mut rows = vec![start.y];
+                for step in 0..5 {
+                    let set: &[Inset] = if step % 2 == 0 { &all } else { &[] };
+                    engine.set_insets(set).unwrap();
+                    let now = seen_now(&mut engine, SIZE);
+                    assert_eq!(now.row, start.row, "{what}: step {step}");
+                    rows.push(now.y);
+                }
+                // all, none, all, none, all: two rows that alternate, the first none back
+                // where it started.
+                let (with, without) = (rows[1], rows[2]);
+                assert_eq!(
+                    rows,
+                    [start.y, with, without, with, without, with],
+                    "{what}"
+                );
+                assert_eq!(without, start.y, "{what}");
+                if scrolled {
+                    // A little below the start, adding keeps the row.
+                    assert_eq!(with, start.y, "{what}");
+                }
+                // From the state with insets, removing and adding them again comes back.
+                let mut engine = open(layout, wrap).0;
+                draw(&mut engine, SIZE);
+                engine.execute(Command::FirstSource).unwrap();
+                let all = [
+                    on_heading(&engine, 1, A, 5),
+                    on_line(&engine, 2, A, Side::New, 1, 4),
+                    on_line(&engine, 3, A, Side::New, 2, 3),
+                ];
+                engine.set_insets(&all).unwrap();
+                draw(&mut engine, SIZE);
+                for _ in 0..4 {
+                    engine.execute(Command::Down).unwrap();
+                }
+                if scrolled {
+                    mouse(&mut engine, MouseEventKind::ScrollDown, 5, 5);
+                }
+                let with = seen_now(&mut engine, SIZE);
+                let mut rows = Vec::new();
+                for step in 0..5 {
+                    let set: &[Inset] = if step % 2 == 0 { &[] } else { &all };
+                    engine.set_insets(set).unwrap();
+                    rows.push(seen_now(&mut engine, SIZE).y);
+                }
+                let without = rows[0];
+                assert_eq!(
+                    rows,
+                    [without, with.y, without, with.y, without],
+                    "{what}: from with"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn inset_widths_follow_the_layout_of_the_area_given() {
+    let (mut engine, _directory) = open((Layout::Auto, 500), false);
+    let spans = [
+        InsetSpan::Full,
+        InsetSpan::Side(Side::Old),
+        InsetSpan::Side(Side::New),
+    ];
+    let set = [
+        on_line(&engine, 1, C, Side::New, 3, 1),
+        beside(&engine, 2, C, Side::Old, 3, 1),
+        beside(&engine, 3, C, Side::New, 3, 1),
+    ];
+    engine.set_insets(&set).unwrap();
+    // Unified under 120 columns, split from 120 on.
+    let sizes = [(100, 200), (119, 200), (120, 200), (160, 200)];
+    for from in sizes {
+        draw(&mut engine, from);
+        engine.reveal(C, Side::New, 3).unwrap();
+        for to in sizes {
+            let area = Rect::new(0, 0, to.0, to.1);
+            let ahead = spans.map(|span| engine.inset_width_in(area, C, span).unwrap());
+            draw(&mut engine, to);
+            let drawn = [1, 2, 3].map(|id| area_of(&engine, id));
+            assert_eq!(drawn, ahead, "{from:?} to {to:?}");
+            assert_eq!(app(&engine).split(), to.0 >= 120);
+            draw(&mut engine, from);
+        }
+    }
+}
+
+fn area_of(engine: &Engine, id: u64) -> u16 {
+    area(engine, id).unwrap().area.width
 }
 
 #[test]

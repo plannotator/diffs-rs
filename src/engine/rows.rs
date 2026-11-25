@@ -114,7 +114,7 @@ impl Engine {
         } else {
             unified_old(app, app.cursor.row)
         };
-        describe(self.id, app, app.cursor, RowShown::Row, old)
+        describe(self.id, app, app.cursor, RowShown::Row, old, app.inset_side)
             .ok()
             .flatten()
     }
@@ -145,16 +145,23 @@ impl Engine {
             } else {
                 unified_old(app, position.row)
             };
-            return describe(self.id, app, *position, RowShown::Row, old)
-                .ok()
-                .flatten();
+            return describe(
+                self.id,
+                app,
+                *position,
+                RowShown::Row,
+                old,
+                split_old(app, old),
+            )
+            .ok()
+            .flatten();
         }
         // The top row holds the sticky heading of the file the first row drawn is in.
         let (first, at) = app.visible.first()?;
         if y == 1 && *at == 2 {
             let old =
                 app.split() && super::split::old_at(app.width, app.split_ratio, column - area.x);
-            return describe(self.id, app, *first, RowShown::Sticky, old)
+            return describe(self.id, app, *first, RowShown::Sticky, old, None)
                 .ok()
                 .flatten();
         }
@@ -177,12 +184,20 @@ fn unified_old(app: &App, index: usize) -> bool {
     }
 }
 
+/// `old` in the split layout, where it picks one of two insets side by side.
+fn split_old(app: &App, old: bool) -> Option<bool> {
+    app.split().then_some(old)
+}
+
+/// The row at `at`, for `old`'s side. Of two side insets beside each other there, the one on
+/// the old side when `inset` says so, the new side's when it says not, the first without it.
 fn describe(
     review: ReviewId,
     app: &App,
     at: Position,
     shown: RowShown,
     old: bool,
+    inset: Option<bool>,
 ) -> Result<Option<DiffRow>> {
     let Some(row) = app.row(at.row) else {
         return Ok(None);
@@ -191,7 +206,7 @@ fn describe(
         return Ok(None);
     };
     if shown == RowShown::Row
-        && let Some((index, offset)) = app.inset_at_side(at, app.split().then_some(old))?
+        && let Some((index, offset)) = app.inset_at_side(at, inset)?
     {
         let inset = app.insets.get(index);
         let (old_line, new_line) = match inset.anchor {
@@ -207,7 +222,9 @@ fn describe(
             part: 0,
         };
         let hunk = match row.kind {
-            RowKind::Code { .. } => describe(review, app, line, shown, old)?.and_then(|r| r.hunk),
+            RowKind::Code { .. } => {
+                describe(review, app, line, shown, old, None)?.and_then(|r| r.hunk)
+            }
             _ => None,
         };
         return Ok(Some(DiffRow {

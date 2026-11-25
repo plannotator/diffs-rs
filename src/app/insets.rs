@@ -96,7 +96,11 @@ impl App {
     /// The inset `p` is on, as its index in the set, and which of its rows. At the cursor, of
     /// two side by side, the one on the cursor's side.
     pub(crate) fn inset_at(&self, p: Position) -> Result<Option<(usize, usize)>> {
-        let old = (p == self.cursor && self.split()).then_some(self.old_side);
+        let old = if p == self.cursor {
+            self.inset_side
+        } else {
+            None
+        };
         self.inset_at_side(p, old)
     }
 
@@ -118,12 +122,10 @@ impl App {
             .map(|(index, offset)| (self.insets.get(index).id, offset)))
     }
 
-    /// The side of the code column the cursor's inset takes, when it takes one.
-    pub(crate) fn cursor_inset_side(&self) -> Result<Option<bool>> {
-        let old = self.split().then_some(self.old_side);
-        Ok(self
-            .placed_at(self.cursor, old)?
-            .and_then(|(placed, _)| placed.column.old()))
+    /// The side whose column the cursor's inset takes, when it takes one.
+    pub(crate) fn cursor_inset_column(&self) -> Option<bool> {
+        let (placed, _) = self.placed_at(self.cursor, self.inset_side).ok()??;
+        placed.column.old()
     }
 
     /// The row inset `index` hangs under, laid out there. `None` when its line or file is not
@@ -181,24 +183,53 @@ impl App {
         }
     }
 
-    /// Puts the cursor on `position`, an inset's row, on the side of the code column the
-    /// inset takes when it takes one, so that the cursor is on that inset of two side by side.
+    /// Puts the cursor on `position`, an inset's row, and on the inset of two side by side
+    /// that takes the column of `old`'s side. The code's side does not change.
     fn put_cursor(&mut self, (position, old): (Position, Option<bool>)) {
         self.cursor = position;
-        if let Some(old) = old {
-            self.old_side = old;
-        }
+        self.inset_side = old;
     }
 
-    /// Puts the cursor back on the inset it was on before the rows changed, when it is still
-    /// shown.
-    pub(super) fn restore_inset(&mut self, inset: Option<(u64, usize)>) -> Result<()> {
-        if let Some((id, offset)) = inset
-            && let Some(place) = self.inset_position(id, offset)?
-        {
-            self.put_cursor(place);
+    /// The inset the cursor is on, to put it back there after the rows change.
+    pub(crate) fn inset_spot(&self) -> Result<Option<InsetSpot>> {
+        let Some((index, offset)) = self.inset_at(self.cursor)? else {
+            return Ok(None);
+        };
+        let line = self.line_above(self.cursor.row)?;
+        Ok(Some(InsetSpot {
+            id: self.insets.get(index).id,
+            offset,
+            up: self.cursor.part - line.part,
+            line_shown: self.laid_out_row(line)?.is_some(),
+        }))
+    }
+
+    /// The last screen row of row `row`'s own text, which its insets hang under.
+    fn line_above(&self, row: usize) -> Result<Position> {
+        let part = crate::render::text_height(self, row)? - 1;
+        Ok(Position { row, part })
+    }
+
+    /// Puts the cursor back on the inset it was on before the rows changed, `offset` rows
+    /// into it as far as it is still tall, when it is still shown. Returns the last screen
+    /// row of the line the inset hangs under and how far above the cursor's row it was, when
+    /// it was on screen: the row to keep where it was, so that the code above the inset does
+    /// not move whatever the insets' heights now.
+    pub(super) fn restore_inset(
+        &mut self,
+        spot: Option<InsetSpot>,
+    ) -> Result<Option<(Position, usize)>> {
+        let Some(spot) = spot else {
+            return Ok(None);
+        };
+        let Some(place) = self.inset_position(spot.id, spot.offset)? else {
+            return Ok(None);
+        };
+        self.put_cursor(place);
+        if !spot.line_shown {
+            return Ok(None);
         }
-        Ok(())
+        Ok(Some((self.line_above(place.0.row)?, spot.up)))
     }
 
     /// The next place the cursor stops after `p`, and the side of the inset there when it
@@ -393,9 +424,10 @@ impl App {
             None => Vec::new(),
         };
         Ok(InsetView {
+            cursor: self.cursor,
+            top: self.top,
             screen_row: self.laid_out_row(self.cursor)?,
-            cursor_inset: self.inset_id_at(self.cursor)?,
-            text: crate::render::text_height(self, self.cursor.row)?,
+            cursor_inset: self.inset_spot()?,
             at_start: self.top == Position::default(),
             top_on: top_on
                 .into_iter()
@@ -408,33 +440,54 @@ impl App {
     /// With the new insets in place, puts the cursor and the top where `before` says the
     /// person was reading.
     fn keep_view(&mut self, before: InsetView) -> Result<()> {
-        let mut screen_row = before.screen_row.map(usize::from);
-        if let Some((id, offset)) = before.cursor_inset {
-            match self.inset_position(id, offset)? {
+        // The screen row a call just before could not keep, while nothing has moved since.
+        let wish = self
+            .inset_wish
+            .take()
+            .filter(|&(cursor, top, _)| (cursor, top) == (before.cursor, before.top))
+            .map(|(_, _, y)| y);
+        // What stays on its screen row: the cursor's row, or the first row of the inset the
+        // cursor is on when that was on screen.
+        let mut kept = before.screen_row.map(|y| (self.cursor, usize::from(y)));
+        if let Some(spot) = before.cursor_inset {
+            let line = self.line_above(self.cursor.row)?;
+            match self.inset_position(spot.id, spot.offset)? {
                 Some(place) if place.0.row == self.cursor.row => self.put_cursor(place),
                 _ => {
-                    // The inset is gone from under the row: back to the row's last screen row
-                    // of text, which stays where it was.
-                    let last = before.text - 1;
-                    let up = self.cursor.part - last;
-                    screen_row = screen_row.map(|y| y.saturating_sub(up).max(1));
-                    self.cursor.part = last;
+                    // The inset is gone from under the row: back to the line it hung under.
+                    self.cursor = line;
+                    self.inset_side = None;
                     self.reading_anchor = None;
                 }
             }
+            // The line keeps its screen row when it was on screen or the cursor is back on it;
+            // otherwise the cursor's row on the inset is kept.
+            let on_line = spot.line_shown || self.cursor == line;
+            kept = kept.map(|(_, y)| match on_line {
+                true => (line, y.saturating_sub(spot.up).max(1)),
+                false => (self.cursor, y),
+            });
         }
-        if before.at_start {
+        if before.at_start && wish.is_none() {
             // The view at the very start stays there, insets under the first rows included,
             // unless that puts the cursor's row, which was on screen, under the last.
             self.top = Position::default();
-            if screen_row.is_some() && self.laid_out_row(self.cursor)?.is_none() {
+            if let Some((_, y)) = kept
+                && self.laid_out_row(self.cursor)?.is_none()
+            {
                 let bottom = usize::from(self.height.saturating_sub(2));
                 self.top = self.top_for(self.cursor, bottom)?;
+                self.inset_wish = Some((self.cursor, self.top, y));
             }
             return Ok(());
         }
-        if let Some(y) = screen_row {
-            self.top = self.top_for(self.cursor, y)?;
+        if let Some((at, y)) = kept {
+            let y = wish.unwrap_or(y);
+            self.top = self.top_for(at, y)?;
+            // Too few rows above to keep it there: the next call tries again.
+            if self.laid_out_row(at)? != u16::try_from(y).ok() {
+                self.inset_wish = Some((self.cursor, self.top, y));
+            }
             return Ok(());
         }
         // Off screen: the row at the top stays there.
@@ -478,14 +531,24 @@ impl App {
     }
 }
 
+/// The inset the cursor is on, by id, which of its rows, how far below the last screen row
+/// of the line it hangs under, and whether that row was on screen.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct InsetSpot {
+    id: u64,
+    offset: usize,
+    up: usize,
+    line_shown: bool,
+}
+
 /// Where the cursor and the top were among the insets before they changed.
 struct InsetView {
+    cursor: Position,
+    top: Position,
     /// The cursor's screen row, when it is on screen.
     screen_row: Option<u16>,
-    /// The inset the cursor is on, by id, and which of its rows.
-    cursor_inset: Option<(u64, usize)>,
-    /// The screen rows of text of the cursor's row.
-    text: usize,
+    /// The inset the cursor is on.
+    cursor_inset: Option<InsetSpot>,
     /// The top is the first row of the diff.
     at_start: bool,
     /// The insets the top is on, by id, and which of their rows: one, or two side by side.

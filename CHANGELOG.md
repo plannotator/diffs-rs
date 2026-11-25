@@ -9,7 +9,7 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 
 - Insets: `Engine::set_insets` keeps blank rows under a line (`InsetAnchor::Line`) or a file's
   heading (`InsetAnchor::FileHeading`) for the host to draw into, such as review comments shown
-  inline. `Inset::span` (`InsetSpan::Full` or `InsetSpan::Side(side)`) places an inset across
+  inline. An `Inset` is built with `Inset::new` and `Inset::with_span`. `Inset::span` (`InsetSpan::Full` or `InsetSpan::Side(side)`) places an inset across
   a split diff or in one side's column: side insets under the same row stack side by side, in
   blocks between full ones; unified, every inset stacks in the order given. The engine draws only the
   background, the line between the sides and the cursor's mark there; markers, the selection
@@ -21,11 +21,14 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
   not displayed: outside the diff, in an unrevealed gap or in a hunk hidden as whitespace only.
 - Setting insets never moves what is read: the source line on the cursor's screen row stays on
   that row and the horizontal scroll is kept, while insets above grow and shrink out of the
-  top of the pane. At the very start of the diff the top stays instead, so insets under the
-  first heading come in under it. Every reflow keeps working as before with insets present, the cursor on an
+  top of the pane. With the cursor on an inset, the line it hangs under stays put while the
+  inset grows, shrinks or goes. At the very start of the diff the top stays instead, so insets
+  under the first heading come in under it; setting and removing the same insets is an exact
+  round trip. Every reflow keeps working as before with insets present, the cursor on an
   inset included. Scrolling, paging, `G`, the last page and the sticky heading count inset rows.
 - `DiffRowKind::Inset { id }` from `Engine::cursor_row` and `Engine::row_at`. By default the
-  cursor stops once on each inset, and a line move onto one shows all of it that fits;
+  cursor stops once on each inset, a line move onto one shows all of it that fits, and passing
+  through insets never changes the side the cursor has on code;
   `Engine::set_inset_stops(false)` makes line moves pass over them. A selection across an inset holds only its source lines.
 - `Side` implements `Hash`.
 

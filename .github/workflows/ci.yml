@@ -56,6 +56,23 @@ jobs:
           NATIVE_DIFF_HOST_BINARY="$PWD/target/release/examples/embedded_viewer" \
             cargo test --release --locked --test process engine_host_contract -- --ignored --test-threads=1
 
+  windows:
+    name: windows (library)
+    # The library only: the viewer and the tests need a PTY, /dev/tty and Unix signals.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy, library
+        run: cargo clippy --locked --lib -- -D warnings
+      - name: Clippy, library without default features
+        run: cargo clippy --locked --lib --no-default-features -- -D warnings
+
   msrv:
     name: minimum Rust (1.88)
     runs-on: ubuntu-latest

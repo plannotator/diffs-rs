@@ -1,6 +1,6 @@
 use std::{
     fs::{self, OpenOptions},
-    os::unix::fs::OpenOptionsExt,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     sync::mpsc::{Receiver, RecvTimeoutError},
     time::Instant,
 };

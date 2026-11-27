@@ -1,6 +1,5 @@
 use std::{
     io::{BufRead, BufReader, Read},
-    os::unix::ffi::{OsStrExt, OsStringExt},
     path::PathBuf,
     sync::{
         Arc,
@@ -202,10 +201,12 @@ impl Review {
                         let index = Arc::get_mut(&mut file)
                             .context("File entry was shared before binding")?;
                         index.meta.old_path =
-                            crate::text::safe_label(old.as_os_str().as_bytes()).into_boxed_str();
+                            crate::text::safe_label(old.as_os_str().as_encoded_bytes())
+                                .into_boxed_str();
                         index.meta.path =
-                            crate::text::safe_label(new.as_os_str().as_bytes()).into_boxed_str();
-                        index.meta.raw_path = new.as_os_str().as_bytes().into();
+                            crate::text::safe_label(new.as_os_str().as_encoded_bytes())
+                                .into_boxed_str();
+                        index.meta.raw_path = new.as_os_str().as_encoded_bytes().into();
                         doc.append(file.clone())?;
                         publish(file)
                     },
@@ -225,12 +226,12 @@ impl Review {
                     "Only SHA-1 Git repositories are supported"
                 );
                 let directory = git.small(&["rev-parse", "--absolute-git-dir"], cancel)?;
-                let repository = PathBuf::from(std::ffi::OsString::from_vec(
+                let repository = path_from_git(
                     directory
                         .strip_suffix(b"\n")
                         .context("Invalid repository identity")?
                         .to_vec(),
-                ));
+                )?;
                 let base = git.pin(&base, cancel)?.to_string();
                 let head = git.pin(&head, cancel)?.to_string();
                 let mut args: Vec<&std::ffi::OsStr> =
@@ -433,4 +434,18 @@ impl<R: Read> Read for Cancellable<'_, R> {
         self.cancel.check().map_err(std::io::Error::other)?;
         self.input.read(bytes)
     }
+}
+
+/// A path Git printed. On Unix its bytes are the path; on Windows Git prints UTF-8.
+#[cfg(unix)]
+fn path_from_git(bytes: Vec<u8>) -> Result<PathBuf> {
+    use std::os::unix::ffi::OsStringExt;
+    Ok(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
+}
+
+#[cfg(not(unix))]
+fn path_from_git(bytes: Vec<u8>) -> Result<PathBuf> {
+    Ok(PathBuf::from(
+        String::from_utf8(bytes).context("Git printed a path that is not UTF-8")?,
+    ))
 }

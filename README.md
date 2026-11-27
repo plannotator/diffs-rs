@@ -136,8 +136,14 @@ host with its own pane beside the viewer.
 
 ## Platform support
 
-Unix only: the viewer needs a PTY, `/dev/tty`, and Unix signals. macOS on Apple silicon is the
-most tested platform. Linux runs the full test suite in CI. Windows is not supported.
+The viewer is Unix only: it needs a PTY, `/dev/tty`, and Unix signals. macOS on Apple silicon is
+the most tested platform. Linux runs the full test suite in CI.
+
+The library also builds on Windows, for hosts that embed the engine or use the model and
+highlighting directly. CI checks that it compiles there; the test suite runs on Unix only. On
+Windows a patch reader blocks until bytes arrive, so cancelling a read of an idle pipe waits for
+its next bytes or its end, and the two-file input checks a file's length and last write time for
+changes instead of its device, inode and change time.
 `diffs files` and `diffs git` need Git 2.50 or newer.
 
 ## Forked dependencies

@@ -2,7 +2,6 @@ use std::{
     env,
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::mpsc,
@@ -27,14 +26,28 @@ impl Drop for Running {
     }
 }
 
+/// Git's executable, as it is named in a directory of `PATH`.
+const GIT: &str = if cfg!(windows) { "git.exe" } else { "git" };
+
+/// Whether a file found on `PATH` can be run: a regular file with an execute bit on Unix; on
+/// Windows a regular file (its `.exe` name is what makes it a program).
+fn executable(metadata: &std::fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        metadata.is_file()
+    }
+}
+
 impl Git {
     pub fn new(directory: &Path, cancel: &Cancellation) -> Result<Self> {
         let executable = env::split_paths(&env::var_os("PATH").context("Git is not on PATH")?)
-            .map(|dir| dir.join("git"))
-            .find(|path| {
-                path.metadata()
-                    .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-            })
+            .map(|dir| dir.join(GIT))
+            .find(|path| path.metadata().is_ok_and(|m| executable(&m)))
             .context("Git is required for local source inputs")?
             .canonicalize()?;
         let git = Self {

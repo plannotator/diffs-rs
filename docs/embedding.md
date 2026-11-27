@@ -41,6 +41,8 @@ The patch reader temporarily enables nonblocking input and restores the original
 It supports cancellation while waiting for a FIFO writer, an idle stream, or an incomplete line.
 The safe descriptor-set implementation rejects descriptors at or above `FD_SETSIZE` before changing flags.
 This is a Unix implementation. macOS arm64 is the most tested system; Linux runs in CI.
+On Windows the library builds and the reader reads without changing any flags: a read blocks until
+bytes arrive or the input ends, and cancellation is checked between reads.
 
 ## Host loop
 

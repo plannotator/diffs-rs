@@ -19,7 +19,8 @@ static NEXT_STORE: AtomicU64 = AtomicU64::new(1);
 /// On Linux, `tempfile()` uses `O_TMPFILE`, which applies the process umask to mode 0666
 /// (usually 0644) because the file has no name. Setting the mode keeps private data
 /// owner-only on every Unix, including through `/proc/<pid>/fd`. On Windows the file is in the
-/// user's own temporary directory, whose access list already admits only that user.
+/// temporary directory, whose access list usually admits only that user when `TMP` or `TEMP`
+/// points into the user's profile.
 pub(crate) fn private_tempfile() -> std::io::Result<File> {
     let file = tempfile::tempfile()?;
     #[cfg(unix)]
@@ -50,7 +51,7 @@ mod positional {
     }
 }
 
-#[cfg(windows)]
+#[cfg(not(unix))]
 mod positional {
     use std::{fs::File, io, os::windows::fs::FileExt};
 

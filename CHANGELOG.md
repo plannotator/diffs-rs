@@ -7,11 +7,10 @@ All notable changes to `diffs-rs` are recorded here. The forked crates in
 
 ### Added
 
-- The library builds on Windows. The byte store reads and writes at offsets with
-  `seek_read`/`seek_write`; the patch reader, the two-file input and the Git lookup have Windows
-  versions (a blocking reader with cancellation between reads, a length and last-write-time
-  stability check, `git.exe` on `PATH`). `libc` and `nix` are Unix-only dependencies. The viewer
-  stays Unix only. CI checks the library on Windows.
+- The library builds on Windows: the model, highlighting and the engine with its inputs. The
+  viewer stays Unix only. On Windows a patch reader blocks until bytes arrive, so if a stream's
+  writer is idle, cancelling, `Engine::close` and dropping the engine wait until it sends bytes
+  or closes the stream.
 
 ## 0.2.6 - 2026-11-25
 

@@ -161,11 +161,10 @@ impl Read for Reader {
         loop {
             self.cancel.check().map_err(io::Error::other)?;
             match self.file.read(bytes) {
+                // std reads a pipe whose writer closed as 0 bytes.
                 Ok(0) => {}
                 Ok(count) => return Ok(count),
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-                // A pipe whose writer closed ends with ERROR_BROKEN_PIPE, not a read of 0.
-                Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
                 Err(error) => return Err(error),
             }
             self.eof = true;

@@ -43,6 +43,7 @@ The safe descriptor-set implementation rejects descriptors at or above `FD_SETSI
 This is a Unix implementation. macOS arm64 is the most tested system; Linux runs in CI.
 On Windows the library builds and the reader reads without changing any flags: a read blocks until
 bytes arrive or the input ends, and cancellation is checked between reads.
+So if a stream's writer is idle, cancelling, `Engine::close`, and dropping the engine all wait until that writer sends bytes or closes the stream.
 
 ## Host loop
 

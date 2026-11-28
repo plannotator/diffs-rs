@@ -27,7 +27,7 @@ impl Drop for Running {
 }
 
 /// Git's executable, as it is named in a directory of `PATH`.
-const GIT: &str = if cfg!(windows) { "git.exe" } else { "git" };
+const GIT: &str = if cfg!(unix) { "git" } else { "git.exe" };
 
 /// Whether a file found on `PATH` can be run: a regular file with an execute bit on Unix; on
 /// Windows a regular file (its `.exe` name is what makes it a program).

@@ -3,6 +3,15 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+### Added
+
+- The library builds on Windows: the model, highlighting and the engine with its inputs. The
+  viewer stays Unix only. On Windows a patch reader blocks until bytes arrive, so if a stream's
+  writer is idle, cancelling, `Engine::close` and dropping the engine wait until it sends bytes
+  or closes the stream.
+
 ## 0.2.6 - 2026-11-25
 
 ### Added

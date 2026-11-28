@@ -2,7 +2,6 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::File,
     io::{self, Read, Write},
-    os::unix::fs::{FileExt, PermissionsExt},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -19,11 +18,80 @@ static NEXT_STORE: AtomicU64 = AtomicU64::new(1);
 ///
 /// On Linux, `tempfile()` uses `O_TMPFILE`, which applies the process umask to mode 0666
 /// (usually 0644) because the file has no name. Setting the mode keeps private data
-/// owner-only on every platform, including through `/proc/<pid>/fd`.
+/// owner-only on every Unix, including through `/proc/<pid>/fd`. On Windows the file is in the
+/// temporary directory, whose access list usually admits only that user when `TMP` or `TEMP`
+/// points into the user's profile.
 pub(crate) fn private_tempfile() -> std::io::Result<File> {
     let file = tempfile::tempfile()?;
-    file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    }
     Ok(file)
+}
+
+/// Positional reads and writes: `pread`/`pwrite` on Unix, `ReadFile`/`WriteFile` at an offset
+/// on Windows. Every access to a store goes through these, so the Windows calls moving the
+/// file's cursor never matters.
+#[cfg(unix)]
+mod positional {
+    use std::{fs::File, io, os::unix::fs::FileExt};
+
+    pub(super) fn read_at(file: &File, bytes: &mut [u8], offset: u64) -> io::Result<usize> {
+        file.read_at(bytes, offset)
+    }
+
+    pub(super) fn read_exact_at(file: &File, bytes: &mut [u8], offset: u64) -> io::Result<()> {
+        file.read_exact_at(bytes, offset)
+    }
+
+    pub(super) fn write_all_at(file: &File, bytes: &[u8], offset: u64) -> io::Result<()> {
+        file.write_all_at(bytes, offset)
+    }
+}
+
+#[cfg(not(unix))]
+mod positional {
+    use std::{fs::File, io, os::windows::fs::FileExt};
+
+    pub(super) fn read_at(file: &File, bytes: &mut [u8], offset: u64) -> io::Result<usize> {
+        file.seek_read(bytes, offset)
+    }
+
+    pub(super) fn read_exact_at(
+        file: &File,
+        mut bytes: &mut [u8],
+        mut offset: u64,
+    ) -> io::Result<()> {
+        while !bytes.is_empty() {
+            match file.seek_read(bytes, offset) {
+                Ok(0) => return Err(io::ErrorKind::UnexpectedEof.into()),
+                Ok(count) => {
+                    bytes = &mut bytes[count..];
+                    offset += count as u64;
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn write_all_at(file: &File, mut bytes: &[u8], mut offset: u64) -> io::Result<()> {
+        while !bytes.is_empty() {
+            match file.seek_write(bytes, offset) {
+                Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+                Ok(count) => {
+                    bytes = &bytes[count..];
+                    offset += count as u64;
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -113,9 +181,7 @@ impl StoreWriter {
         let end = base
             .checked_add(len)
             .context("Source store offset overflow")?;
-        self.store
-            .file
-            .write_all_at(bytes, base)
+        positional::write_all_at(&self.store.file, bytes, base)
             .context("Cannot write the source store")?;
         self.store.len.store(end, Ordering::Release);
         Ok(base)
@@ -165,10 +231,7 @@ impl Read for StoreReader {
         if count == 0 {
             return Ok(0);
         }
-        let count = self
-            .store
-            .file
-            .read_at(&mut output[..count], self.position)?;
+        let count = positional::read_at(&self.store.file, &mut output[..count], self.position)?;
         if count == 0 {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
@@ -320,8 +383,7 @@ impl ByteStore {
             "Source range is outside the published bytes"
         );
         let mut bytes = vec![0; len].into_boxed_slice();
-        self.file
-            .read_exact_at(&mut bytes, offset)
+        positional::read_exact_at(&self.file, &mut bytes, offset)
             .context("Cannot read the source store")?;
         let page = Arc::new(Page { bytes });
         if let Some(previous) = pages.entries.remove(&key) {

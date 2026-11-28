@@ -5,6 +5,7 @@ use nix::{
 };
 use std::{
     io::{BufRead, BufReader, Write},
+    os::unix::fs::OpenOptionsExt,
     sync::mpsc,
     thread,
     time::Duration,

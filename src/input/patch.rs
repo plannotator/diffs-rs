@@ -1,14 +1,13 @@
+#[cfg(unix)]
+use std::os::fd::{AsFd, AsRawFd};
 use std::{
     fs::{File, Metadata, OpenOptions},
     io::{self, Read},
-    os::{
-        fd::{AsFd, AsRawFd},
-        unix::fs::OpenOptionsExt,
-    },
     sync::Arc,
 };
 
 use anyhow::{Context, Result, ensure};
+#[cfg(unix)]
 use nix::{
     errno::Errno,
     fcntl::{FcntlArg, OFlag, fcntl},
@@ -39,11 +38,16 @@ pub(super) fn read(
 ) -> Result<usize> {
     cancel.check()?;
     let file = match input {
-        PatchInput::Path(path) => OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NONBLOCK)
-            .open(&path)
-            .with_context(|| format!("Cannot open {}", path.display()))?,
+        PatchInput::Path(path) => {
+            let mut options = OpenOptions::new();
+            options.read(true);
+            // A FIFO's open must not wait for its writer: the reader waits, and can be cancelled.
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::custom_flags(&mut options, libc::O_NONBLOCK);
+            options
+                .open(&path)
+                .with_context(|| format!("Cannot open {}", path.display()))?
+        }
         PatchInput::Stream(file) => file,
     };
     let writer = storage::StoreWriter::new()?;
@@ -68,15 +72,32 @@ pub(super) fn read(
     result
 }
 
+/// Reads a patch input with cancellation. On Unix it waits for bytes with `select`, so a pipe
+/// whose writer is idle can be cancelled. Windows has no readiness wait for files and pipes:
+/// there a read blocks until bytes come or the input ends, and cancellation is checked
+/// between reads.
 struct Reader {
     file: File,
     before: Metadata,
     cancel: Cancellation,
+    #[cfg(unix)]
     restore_blocking: bool,
     eof: bool,
 }
 
 impl Reader {
+    #[cfg(not(unix))]
+    fn new(file: File, cancel: Cancellation) -> Result<Self> {
+        let before = file.metadata()?;
+        Ok(Self {
+            file,
+            before,
+            cancel,
+            eof: false,
+        })
+    }
+
+    #[cfg(unix)]
     fn new(file: File, cancel: Cancellation) -> Result<Self> {
         ensure!(
             (file.as_raw_fd() as usize) < FD_SETSIZE,
@@ -111,6 +132,12 @@ impl Reader {
         Ok(())
     }
 
+    #[cfg(not(unix))]
+    fn restore(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    #[cfg(unix)]
     fn restore(&mut self) -> Result<()> {
         if self.restore_blocking {
             let flags = OFlag::from_bits_retain(fcntl(self.file.as_raw_fd(), FcntlArg::F_GETFL)?);
@@ -125,6 +152,28 @@ impl Reader {
     }
 }
 
+#[cfg(not(unix))]
+impl Read for Reader {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        if bytes.is_empty() || self.eof {
+            return Ok(0);
+        }
+        loop {
+            self.cancel.check().map_err(io::Error::other)?;
+            match self.file.read(bytes) {
+                // std reads a pipe whose writer closed as 0 bytes.
+                Ok(0) => {}
+                Ok(count) => return Ok(count),
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error),
+            }
+            self.eof = true;
+            return Ok(0);
+        }
+    }
+}
+
+#[cfg(unix)]
 impl Read for Reader {
     fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
         if bytes.is_empty() || self.eof {

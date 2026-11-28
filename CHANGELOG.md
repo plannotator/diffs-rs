@@ -3,6 +3,14 @@
 All notable changes to `diffs-rs` are recorded here. The forked crates in
 `crates/` keep their own changelogs.
 
+## Unreleased
+
+### Fixed
+
+- Windows: `Input::Stream` from a pipe no longer fails with "Input changed during reading" when
+  bytes were already waiting in the pipe at open. Windows reports a pipe as a file whose length is
+  the bytes waiting in it; the stability check now runs only for files on disk, as on Unix.
+
 ## 0.2.7 - 2026-11-27
 
 ### Added

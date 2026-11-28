@@ -78,7 +78,8 @@ pub(super) fn read(
 /// between reads.
 struct Reader {
     file: File,
-    before: Metadata,
+    /// A regular file's metadata, checked again at the end. `None` for pipes and devices.
+    before: Option<Metadata>,
     cancel: Cancellation,
     #[cfg(unix)]
     restore_blocking: bool,
@@ -88,7 +89,9 @@ struct Reader {
 impl Reader {
     #[cfg(not(unix))]
     fn new(file: File, cancel: Cancellation) -> Result<Self> {
-        let before = file.metadata()?;
+        // Windows reports a pipe as a file whose length is the bytes waiting in it.
+        let disk = winapi_util::file::typ(&file)?.is_disk();
+        let before = Some(file.metadata()?).filter(|meta| disk && meta.is_file());
         Ok(Self {
             file,
             before,
@@ -103,7 +106,7 @@ impl Reader {
             (file.as_raw_fd() as usize) < FD_SETSIZE,
             "Patch input descriptor exceeds the readiness monitor limit ({FD_SETSIZE})"
         );
-        let before = file.metadata()?;
+        let before = Some(file.metadata()?).filter(Metadata::is_file);
         let flags = OFlag::from_bits_retain(fcntl(file.as_raw_fd(), FcntlArg::F_GETFL)?);
         let restore_blocking = !flags.contains(OFlag::O_NONBLOCK);
         if restore_blocking {
@@ -122,10 +125,10 @@ impl Reader {
     }
 
     fn check_stable(&self) -> Result<()> {
-        if self.before.is_file() {
+        if let Some(before) = &self.before {
             let after = self.file.metadata()?;
             ensure!(
-                self.before.len() == after.len() && self.before.modified()? == after.modified()?,
+                before.len() == after.len() && before.modified()? == after.modified()?,
                 "Input changed during reading. Open a stable patch."
             );
         }
